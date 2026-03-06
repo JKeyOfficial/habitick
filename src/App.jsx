@@ -49,7 +49,12 @@ function isDayComplete(habits, dateStr) {
   return scheduled.every(h => (h.completedDates || []).includes(dateStr));
 }
 function isDatePaused(pausePeriods, dateStr) {
-  return pausePeriods.some(p => dateStr >= p.start && (p.end === null || dateStr <= p.end));
+  const ds = dateStr.substring(0, 10);
+  return pausePeriods.some(p => {
+    const start = (p.start || '').substring(0, 10);
+    const end = p.end ? p.end.substring(0, 10) : null;
+    return ds >= start && (end === null || ds <= end);
+  });
 }
 function calcStreak(habits, pausePeriods) {
   if (habits.length === 0) { console.log("[streak] no habits, returning 0"); return 0; }
@@ -514,7 +519,7 @@ export default function HabiTick() {
     });
     setHabits((habitsRes.data || []).map(h => ({ ...h, createdDate: (h.created_date || getDateStr(new Date())).substring(0, 10), completedDates: completionsByHabit[h.id] || [] })));
     setTodos((todosRes.data || []).map(t => ({ ...t, doneDate: t.done_date ? t.done_date.substring(0, 10) : null })));
-    setPausePeriods((pauseRes.data || []).map(p => ({ id: p.id, start: p.start_date, end: p.end_date ?? null })));
+    setPausePeriods((pauseRes.data || []).map(p => ({ id: p.id, start: (p.start_date || '').substring(0, 10), end: p.end_date ? p.end_date.substring(0, 10) : null })));
     setLoading(false);
   };
 
@@ -572,10 +577,10 @@ export default function HabiTick() {
     if (isPaused) {
       const active = pausePeriods.find(p => p.end === null);
       await supabase.from("pause_periods").update({ end_date: today }).eq("id", active.id);
-      setPausePeriods(prev => prev.map(p => p.end === null ? { ...p, end: today } : p));
+      setPausePeriods(prev => prev.map(p => p.end === null ? { ...p, end: today.substring(0, 10) } : p));
     } else {
       const { data } = await supabase.from("pause_periods").insert({ user_id: session.user.id, start_date: today, end_date: null }).select().single();
-      setPausePeriods(prev => [...prev, { id: data.id, start: data.start_date, end: null }]);
+      setPausePeriods(prev => [...prev, { id: data.id, start: (data.start_date || '').substring(0, 10), end: null }]);
     }
   };
 
