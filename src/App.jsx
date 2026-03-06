@@ -469,6 +469,149 @@ function AnalyticsTab({ habits, todos, pausePeriods }) {
   );
 }
 
+
+// ─── Journal Tab ──────────────────────────────────────────────────────────────
+const MOOD_OPTIONS = [
+  { value: "great", label: "Great", emoji: "🌟" },
+  { value: "good",  label: "Good",  emoji: "😊" },
+  { value: "okay",  label: "Okay",  emoji: "😐" },
+  { value: "bad",   label: "Bad",   emoji: "😔" },
+];
+const CHAR_LIMIT = 2000;
+
+function JournalTab({ journalEntries, setJournalEntries, session, today }) {
+  const [currentDate, setCurrentDate] = useState(today);
+  const [draft, setDraft] = useState("");
+  const [mood, setMood] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const sortedDates = Object.keys(journalEntries).sort();
+  const entry = journalEntries[currentDate];
+
+  // Load entry into draft when date changes
+  useEffect(() => {
+    setDraft(entry?.content || "");
+    setMood(entry?.mood || "");
+    setSaved(false);
+  }, [currentDate]);
+
+  const goBack = () => {
+    const d = parseDateLocal(currentDate);
+    d.setDate(d.getDate() - 1);
+    setCurrentDate(getDateStr(d));
+  };
+  const goForward = () => {
+    if (currentDate >= today) return;
+    const d = parseDateLocal(currentDate);
+    d.setDate(d.getDate() + 1);
+    setCurrentDate(getDateStr(d));
+  };
+  const jumpPrevWritten = () => {
+    const prev = sortedDates.filter(d => d < currentDate).pop();
+    if (prev) setCurrentDate(prev);
+  };
+  const jumpNextWritten = () => {
+    const next = sortedDates.find(d => d > currentDate);
+    if (next) setCurrentDate(next);
+  };
+
+  const hasPrevWritten = sortedDates.some(d => d < currentDate);
+  const hasNextWritten = sortedDates.some(d => d > currentDate);
+  const isToday = currentDate === today;
+  const isFuture = currentDate > today;
+
+  const save = async () => {
+    if (!draft.trim() && !mood) return;
+    setSaving(true);
+    const payload = { user_id: session.user.id, entry_date: currentDate, content: draft.trim(), mood: mood || null };
+    const { data, error } = await supabase.from("journal_entries").upsert(payload, { onConflict: "user_id,entry_date" }).select().single();
+    if (!error && data) {
+      setJournalEntries(prev => ({ ...prev, [currentDate]: data }));
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }
+    setSaving(false);
+  };
+
+  const formatDisplayDate = (ds) => {
+    const d = parseDateLocal(ds);
+    const opts = { weekday: "long", day: "numeric", month: "long", year: "numeric" };
+    return d.toLocaleDateString("en-GB", opts);
+  };
+
+  const charsLeft = CHAR_LIMIT - draft.length;
+
+  return (
+    <div style={{ maxWidth: "680px", margin: "0 auto", padding: "10px 0" }}>
+      {/* Date nav */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "28px" }}>
+        <div style={{ display: "flex", gap: "6px" }}>
+          <button onClick={jumpPrevWritten} disabled={!hasPrevWritten} title="Previous entry" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #374151", background: "#111827", color: hasPrevWritten ? "#9ca3af" : "#2d3748", cursor: hasPrevWritten ? "pointer" : "default", fontSize: "16px", fontWeight: 700 }}>«</button>
+          <button onClick={goBack} title="Previous day" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #374151", background: "#111827", color: "#9ca3af", cursor: "pointer", fontSize: "16px", fontWeight: 700 }}>‹</button>
+        </div>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ color: "#f9fafb", fontWeight: 700, fontSize: "16px" }}>
+            {isToday ? "Today" : formatDisplayDate(currentDate)}
+          </div>
+          {isToday && <div style={{ color: "#6b7280", fontSize: "12px", marginTop: "2px" }}>{formatDisplayDate(currentDate)}</div>}
+          {entry && <div style={{ color: "#22c55e", fontSize: "11px", marginTop: "4px" }}>● Entry saved</div>}
+        </div>
+        <div style={{ display: "flex", gap: "6px" }}>
+          <button onClick={goForward} disabled={isToday} title="Next day" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #374151", background: "#111827", color: isToday ? "#2d3748" : "#9ca3af", cursor: isToday ? "default" : "pointer", fontSize: "16px", fontWeight: 700 }}>›</button>
+          <button onClick={jumpNextWritten} disabled={!hasNextWritten} title="Next entry" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #374151", background: "#111827", color: hasNextWritten ? "#9ca3af" : "#2d3748", cursor: hasNextWritten ? "pointer" : "default", fontSize: "16px", fontWeight: 700 }}>»</button>
+        </div>
+      </div>
+
+      {/* Page */}
+      <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: "16px", padding: "28px" }}>
+        {/* Mood */}
+        <div style={{ marginBottom: "20px" }}>
+          <div style={{ color: "#6b7280", fontSize: "12px", fontWeight: 600, marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}>How are you feeling?</div>
+          <div style={{ display: "flex", gap: "8px" }}>
+            {MOOD_OPTIONS.map(m => (
+              <button key={m.value} onClick={() => setMood(prev => prev === m.value ? "" : m.value)} style={{ flex: 1, padding: "10px 6px", borderRadius: "10px", border: "1px solid", borderColor: mood === m.value ? "#2563eb" : "#1f2937", background: mood === m.value ? "#1d4ed820" : "#0d1117", cursor: "pointer", textAlign: "center", transition: "all 0.15s" }}>
+                <div style={{ fontSize: "20px", marginBottom: "4px" }}>{m.emoji}</div>
+                <div style={{ fontSize: "11px", color: mood === m.value ? "#60a5fa" : "#4b5563", fontWeight: 600 }}>{m.label}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Text area */}
+        <div style={{ marginBottom: "16px" }}>
+          <div style={{ color: "#6b7280", fontSize: "12px", fontWeight: 600, marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Your thoughts</div>
+          <textarea
+            value={draft}
+            onChange={e => { if (e.target.value.length <= CHAR_LIMIT) setDraft(e.target.value); }}
+            placeholder={isFuture ? "" : "Write anything — what happened today, how you feel, what you're grateful for..."}
+            disabled={isFuture}
+            style={{ width: "100%", minHeight: "220px", padding: "14px", borderRadius: "10px", border: "1px solid #1f2937", background: "#0d1117", color: "#e5e7eb", fontSize: "15px", fontFamily: "inherit", lineHeight: 1.7, resize: "vertical", outline: "none", boxSizing: "border-box", cursor: isFuture ? "default" : "text" }}
+          />
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: "6px" }}>
+            <span style={{ fontSize: "11px", color: charsLeft < 100 ? "#f87171" : "#4b5563" }}>{charsLeft} characters remaining</span>
+            {saved && <span style={{ fontSize: "11px", color: "#22c55e", fontWeight: 600 }}>✓ Saved</span>}
+          </div>
+        </div>
+
+        {/* Save button */}
+        {!isFuture && (
+          <button onClick={save} disabled={saving || (!draft.trim() && !mood)} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "none", background: saving || (!draft.trim() && !mood) ? "#1f2937" : "#2563eb", color: saving || (!draft.trim() && !mood) ? "#4b5563" : "#fff", fontWeight: 700, fontSize: "14px", cursor: saving || (!draft.trim() && !mood) ? "default" : "pointer", transition: "background 0.2s", fontFamily: "inherit" }}>
+            {saving ? "Saving..." : "Save Entry"}
+          </button>
+        )}
+      </div>
+
+      {/* Entry count */}
+      {sortedDates.length > 0 && (
+        <div style={{ textAlign: "center", marginTop: "16px", color: "#4b5563", fontSize: "12px" }}>
+          {sortedDates.length} {sortedDates.length === 1 ? "entry" : "entries"} written
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function HabiTick() {
   const [session, setSession] = useState(undefined); // undefined=loading, null=signed out
@@ -482,6 +625,7 @@ export default function HabiTick() {
   const [showTodoModal, setShowTodoModal] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
   const [showTodayOnly, setShowTodayOnly] = useState(false);
+  const [journalEntries, setJournalEntries] = useState({}); // keyed by date string
 
   const today = getTodayStr();
   const todayDow = new Date().getDay();
@@ -503,11 +647,12 @@ export default function HabiTick() {
   const loadAll = async () => {
     setLoading(true);
     const uid = session.user.id;
-    const [habitsRes, completionsRes, todosRes, pauseRes] = await Promise.all([
+    const [habitsRes, completionsRes, todosRes, pauseRes, journalRes] = await Promise.all([
       supabase.from("habits").select("*").eq("user_id", uid).order("created_at"),
       supabase.from("habit_completions").select("habit_id, completed_date").eq("user_id", uid),
       supabase.from("todos").select("*").eq("user_id", uid).order("created_at"),
       supabase.from("pause_periods").select("*").eq("user_id", uid).order("created_at"),
+      supabase.from("journal_entries").select("*").eq("user_id", uid).order("entry_date"),
     ]);
     const completionsByHabit = {};
     (completionsRes.data || []).forEach(c => {
@@ -517,6 +662,9 @@ export default function HabiTick() {
     setHabits((habitsRes.data || []).map(h => ({ ...h, createdDate: (h.created_date || getDateStr(new Date())).substring(0, 10), completedDates: completionsByHabit[h.id] || [] })));
     setTodos((todosRes.data || []).map(t => ({ ...t, doneDate: t.done_date ? t.done_date.substring(0, 10) : null })));
     setPausePeriods((pauseRes.data || []).map(p => ({ id: p.id, start: (p.start_date || '').substring(0, 10), end: p.end_date ? p.end_date.substring(0, 10) : null })));
+    const entriesMap = {};
+    (journalRes.data || []).forEach(e => { entriesMap[e.entry_date.substring(0, 10)] = e; });
+    setJournalEntries(entriesMap);
     setLoading(false);
   };
 
@@ -614,7 +762,7 @@ export default function HabiTick() {
       </header>
 
       <div style={{ display: "flex", justifyContent: "center", gap: "6px", padding: "20px 0 10px" }}>
-        {[["tasks", "Tasks & Habits"], ["analytics", "Analytics"], ["study", "Study"]].map(([key, label]) => (
+        {[["tasks", "Tasks & Habits"], ["analytics", "Analytics"], ["journal", "Journal"]].map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)} style={{ padding: "8px 22px", borderRadius: "8px", border: "1px solid", borderColor: tab === key ? "#2563eb" : "#1f2937", background: tab === key ? "#2563eb" : "#111827", color: tab === key ? "#fff" : "#9ca3af", cursor: "pointer", fontWeight: 600, fontSize: "14px" }}>{label}</button>
         ))}
       </div>
@@ -655,13 +803,9 @@ export default function HabiTick() {
           </>
         ) : tab === "analytics" ? (
           <AnalyticsTab habits={habits} todos={todos} pausePeriods={pausePeriods} />
-        ) : (
-          <div style={{ textAlign: "center", padding: "60px 20px", color: "#4b5563" }}>
-            <div style={{ fontSize: "48px", marginBottom: "16px" }}>📚</div>
-            <h2 style={{ color: "#9ca3af", marginBottom: "8px" }}>Study Mode</h2>
-            <p>Coming soon — Pomodoro timer, notes, and focus sessions.</p>
-          </div>
-        )}
+        ) : tab === "journal" ? (
+          <JournalTab journalEntries={journalEntries} setJournalEntries={setJournalEntries} session={session} today={today} />
+        ) : null}
       </main>
       {showHabitModal && <HabitModal habit={editingHabit} onSave={saveHabit} onClose={() => { setShowHabitModal(false); setEditingHabit(null); }} />}
       {showTodoModal && <TodoModal onSave={addTodo} onClose={() => setShowTodoModal(false)} />}
