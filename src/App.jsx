@@ -224,7 +224,8 @@ function MiniCalendar({ habit, today, onToggle }) {
           const isToday = isSameDay(cellDate, todayDate);
           const isDone = habit.completedDates?.includes(dateStr);
           const twoDaysAgo = new Date(todayDate); twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
-          const habitCreatedDate = habit.createdDate ? parseDateLocal(habit.createdDate.substring(0, 10)) : new Date(0);
+          const createdStr = (habit.createdDate || habit.created_date || getDateStr(todayDate)).substring(0, 10);
+          const habitCreatedDate = parseDateLocal(createdStr);
           const isFuture = cellDate > todayDate && !isToday;
           const isTooOld = cellDate < twoDaysAgo || cellDate < habitCreatedDate;
           const dow = cellDate.getDay();
