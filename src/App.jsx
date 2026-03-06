@@ -53,25 +53,41 @@ function isDatePaused(pausePeriods, dateStr) {
   return pausePeriods.some(p => dateStr >= p.start && (p.end === null || dateStr <= p.end));
 }
 function calcStreak(habits, pausePeriods) {
-  if (habits.length === 0) return 0; // never created any habits → no streak
-  const earliestHabitDate = habits.reduce((earliest, h) => {
-    const created = h.createdDate || getDateStr(new Date());
-    return created < earliest ? created : earliest;
-  }, getDateStr(new Date()));
+  if (habits.length === 0) { console.log("[streak] no habits, returning 0"); return 0; }
+
+  const today = getDateStr(new Date());
+
+  const normalisedHabits = habits.map(h => ({
+    ...h,
+    createdDate: (h.createdDate || today).substring(0, 10),
+    completedDates: (h.completedDates || []).map(d => d.substring(0, 10)),
+  }));
+
+  const earliestHabitDate = normalisedHabits.reduce((earliest, h) => {
+    return h.createdDate < earliest ? h.createdDate : earliest;
+  }, today);
+
+  console.log("[streak] today:", today);
+  console.log("[streak] earliestHabitDate:", earliestHabitDate);
+  normalisedHabits.forEach(h => console.log("[streak] habit:", h.name, "| createdDate:", h.createdDate, "| completedDates:", h.completedDates));
+
   let streak = 0;
   const d = new Date();
   d.setHours(0, 0, 0, 0);
+
   for (let i = 0; i < 1100; i++) {
     const ds = getDateStr(d);
-    if (ds < earliestHabitDate) break;
-    if (isDatePaused(pausePeriods, ds)) { d.setDate(d.getDate() - 1); continue; }
-    const complete = isDayComplete(habits, ds);
-    // rest day (no habits scheduled) → counts as a perfect day, increment
+    if (ds < earliestHabitDate) { console.log("[streak] STOP - ds", ds, "before earliest", earliestHabitDate); break; }
+    if (isDatePaused(pausePeriods, ds)) { console.log("[streak] SKIP - paused on", ds); d.setDate(d.getDate() - 1); continue; }
+    const complete = isDayComplete(normalisedHabits, ds);
+    console.log("[streak] ds:", ds, "| complete:", complete, "| streak so far:", streak);
     if (complete === null) { streak++; d.setDate(d.getDate() - 1); continue; }
-    if (!complete) break; // had habits scheduled, didn't finish → streak ends
+    if (!complete) { console.log("[streak] BREAK - not complete on", ds); break; }
     streak++;
     d.setDate(d.getDate() - 1);
   }
+
+  console.log("[streak] FINAL:", streak);
   return streak;
 }
 
