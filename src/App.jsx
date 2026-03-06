@@ -58,12 +58,13 @@ function isDatePaused(pausePeriods, dateStr) {
   });
 }
 function calcStreak(habits, pausePeriods) {
+  if (habits.length === 0) return 0;
 
   const today = getDateStr(new Date());
 
   const normalisedHabits = habits.map(h => ({
     ...h,
-    createdDate: (h.createdDate || today).substring(0, 10),
+    createdDate: ((h.createdDate || h.created_date || today)).substring(0, 10),
     completedDates: (h.completedDates || []).map(d => d.substring(0, 10)),
   }));
 
@@ -71,15 +72,17 @@ function calcStreak(habits, pausePeriods) {
     return h.createdDate < earliest ? h.createdDate : earliest;
   }, today);
 
-
   let streak = 0;
   const d = new Date();
   d.setHours(0, 0, 0, 0);
 
   for (let i = 0; i < 1100; i++) {
     const ds = getDateStr(d);
+    if (ds < earliestHabitDate) break;                          // don't go before first habit
+    if (isDatePaused(pausePeriods, ds)) { d.setDate(d.getDate() - 1); continue; } // skip paused days
     const complete = isDayComplete(normalisedHabits, ds);
-    if (complete === null) { streak++; d.setDate(d.getDate() - 1); continue; }
+    if (complete === null) { streak++; d.setDate(d.getDate() - 1); continue; } // rest day counts
+    if (!complete) break;                                        // missed a day — streak ends
     streak++;
     d.setDate(d.getDate() - 1);
   }
