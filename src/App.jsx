@@ -58,7 +58,6 @@ function isDatePaused(pausePeriods, dateStr) {
   });
 }
 function calcStreak(habits, pausePeriods) {
-  if (habits.length === 0) { console.log("[streak] no habits, returning 0"); return 0; }
 
   const today = getDateStr(new Date());
 
@@ -72,9 +71,6 @@ function calcStreak(habits, pausePeriods) {
     return h.createdDate < earliest ? h.createdDate : earliest;
   }, today);
 
-  console.log("[streak] today:", today);
-  console.log("[streak] earliestHabitDate:", earliestHabitDate);
-  normalisedHabits.forEach(h => console.log("[streak] habit:", h.name, "| createdDate:", h.createdDate, "| completedDates:", h.completedDates));
 
   let streak = 0;
   const d = new Date();
@@ -82,17 +78,12 @@ function calcStreak(habits, pausePeriods) {
 
   for (let i = 0; i < 1100; i++) {
     const ds = getDateStr(d);
-    if (ds < earliestHabitDate) { console.log("[streak] STOP - ds", ds, "before earliest", earliestHabitDate); break; }
-    if (isDatePaused(pausePeriods, ds)) { console.log("[streak] SKIP - paused on", ds); d.setDate(d.getDate() - 1); continue; }
     const complete = isDayComplete(normalisedHabits, ds);
-    console.log("[streak] ds:", ds, "| complete:", complete, "| streak so far:", streak);
     if (complete === null) { streak++; d.setDate(d.getDate() - 1); continue; }
-    if (!complete) { console.log("[streak] BREAK - not complete on", ds); break; }
     streak++;
     d.setDate(d.getDate() - 1);
   }
 
-  console.log("[streak] FINAL:", streak);
   return streak;
 }
 
@@ -233,8 +224,9 @@ function MiniCalendar({ habit, today, onToggle }) {
           const isToday = isSameDay(cellDate, todayDate);
           const isDone = habit.completedDates?.includes(dateStr);
           const twoDaysAgo = new Date(todayDate); twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+          const habitCreatedDate = habit.createdDate ? parseDateLocal(habit.createdDate.substring(0, 10)) : new Date(0);
           const isFuture = cellDate > todayDate && !isToday;
-          const isTooOld = cellDate < twoDaysAgo;
+          const isTooOld = cellDate < twoDaysAgo || cellDate < habitCreatedDate;
           const dow = cellDate.getDay();
           const isScheduled = habit.frequency === "daily" || (habit.days && habit.days.includes(dow));
           let bg = "transparent", color = "#4b5563", border = "none";
