@@ -12,6 +12,7 @@ const SUPABASE_URL = "https://ftsqfgnarbqeloyjrpzc.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ0c3FmZ25hcmJxZWxveWpycHpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3NTA4MDQsImV4cCI6MjA4ODMyNjgwNH0._vCV9TJSMJgvEWssmEm843g82qQi0ud07Q28WRyPx5s";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -225,17 +226,19 @@ function MiniCalendar({ habit, today, onToggle }) {
           const dateStr = getDateStr(cellDate);
           const isToday = isSameDay(cellDate, todayDate);
           const isDone = habit.completedDates?.includes(dateStr);
+          const twoDaysAgo = new Date(todayDate); twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
           const isFuture = cellDate > todayDate && !isToday;
+          const isTooOld = cellDate < twoDaysAgo;
           const dow = cellDate.getDay();
           const isScheduled = habit.frequency === "daily" || (habit.days && habit.days.includes(dow));
           let bg = "transparent", color = "#4b5563", border = "none";
           if (isToday && isDone) { bg = "#22c55e"; color = "#fff"; }
           else if (isToday) { bg = "transparent"; color = "#60a5fa"; border = "1.5px solid #3b82f6"; }
           else if (isDone) { bg = "#16a34a33"; color = "#22c55e"; }
-          else if (!isScheduled || isFuture) { color = "#374151"; }
+          else if (!isScheduled || isFuture || isTooOld) { color = "#374151"; }
           return (
-            <div key={i} onClick={() => !isFuture && isScheduled && onToggle(dateStr)}
-              style={{ fontSize: "11px", borderRadius: "50%", width: "24px", height: "24px", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto", cursor: isFuture || !isScheduled ? "default" : "pointer", background: bg, color, border, fontWeight: isToday ? 700 : 400, transition: "background 0.15s", opacity: !isScheduled ? 0.3 : 1 }}>
+            <div key={i} onClick={() => !isFuture && !isTooOld && isScheduled && onToggle(dateStr)}
+              style={{ fontSize: "11px", borderRadius: "50%", width: "24px", height: "24px", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto", cursor: isFuture || isTooOld || !isScheduled ? "default" : "pointer", background: bg, color, border, fontWeight: isToday ? 700 : 400, transition: "background 0.15s", opacity: !isScheduled ? 0.3 : 1 }}>
               {cell.day}
             </div>
           );
