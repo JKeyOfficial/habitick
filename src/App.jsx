@@ -8,8 +8,8 @@ import { createClient } from "@supabase/supabase-js";
 
 // ── Replace these with your project values ───────────────────────────────────
 // Supabase Dashboard → Project Settings → API
-const SUPABASE_URL = "https://ftsqfgnarbqeloyjrpzc.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ0c3FmZ25hcmJxZWxveWpycHpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3NTA4MDQsImV4cCI6MjA4ODMyNjgwNH0._vCV9TJSMJgvEWssmEm843g82qQi0ud07Q28WRyPx5s";
+const SUPABASE_URL = "https://YOUR_PROJECT_REF.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_ANON_KEY";
 // ─────────────────────────────────────────────────────────────────────────────
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -53,7 +53,7 @@ function isDatePaused(pausePeriods, dateStr) {
   return pausePeriods.some(p => dateStr >= p.start && (p.end === null || dateStr <= p.end));
 }
 function calcStreak(habits, pausePeriods) {
-  if (habits.length === 0) return 0;
+  if (habits.length === 0) return 0; // never created any habits → no streak
   const earliestHabitDate = habits.reduce((earliest, h) => {
     const created = h.createdDate || getDateStr(new Date());
     return created < earliest ? created : earliest;
@@ -66,8 +66,9 @@ function calcStreak(habits, pausePeriods) {
     if (ds < earliestHabitDate) break;
     if (isDatePaused(pausePeriods, ds)) { d.setDate(d.getDate() - 1); continue; }
     const complete = isDayComplete(habits, ds);
-    if (complete === null) { streak++; d.setDate(d.getDate() - 1); continue; } // rest day counts
-    if (!complete) break;
+    // rest day (no habits scheduled) → counts as a perfect day, increment
+    if (complete === null) { streak++; d.setDate(d.getDate() - 1); continue; }
+    if (!complete) break; // had habits scheduled, didn't finish → streak ends
     streak++;
     d.setDate(d.getDate() - 1);
   }
@@ -423,10 +424,10 @@ export default function HabiTick() {
     const completionsByHabit = {};
     (completionsRes.data || []).forEach(c => {
       if (!completionsByHabit[c.habit_id]) completionsByHabit[c.habit_id] = [];
-      completionsByHabit[c.habit_id].push(c.completed_date);
+      completionsByHabit[c.habit_id].push(c.completed_date.substring(0, 10));
     });
-    setHabits((habitsRes.data || []).map(h => ({ ...h, createdDate: h.created_date, completedDates: completionsByHabit[h.id] || [] })));
-    setTodos((todosRes.data || []).map(t => ({ ...t, doneDate: t.done_date })));
+    setHabits((habitsRes.data || []).map(h => ({ ...h, createdDate: (h.created_date || getDateStr(new Date())).substring(0, 10), completedDates: completionsByHabit[h.id] || [] })));
+    setTodos((todosRes.data || []).map(t => ({ ...t, doneDate: t.done_date ? t.done_date.substring(0, 10) : null })));
     setPausePeriods((pauseRes.data || []).map(p => ({ id: p.id, start: p.start_date, end: p.end_date ?? null })));
     setLoading(false);
   };
