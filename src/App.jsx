@@ -53,7 +53,8 @@ function isDatePaused(pausePeriods, dateStr) {
   return pausePeriods.some(p => {
     const start = (p.start || '').substring(0, 10);
     const end = p.end ? p.end.substring(0, 10) : null;
-    return ds >= start && (end === null || ds <= end);
+    // end is exclusive — if you resume today, today is NOT paused
+    return ds >= start && (end === null || ds < end);
   });
 }
 function calcStreak(habits, pausePeriods) {
