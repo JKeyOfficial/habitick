@@ -10,7 +10,6 @@ import { createClient } from "@supabase/supabase-js";
 // Supabase Dashboard → Project Settings → API
 const SUPABASE_URL = "https://ftsqfgnarbqeloyjrpzc.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ0c3FmZ25hcmJxZWxveWpycHpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3NTA4MDQsImV4cCI6MjA4ODMyNjgwNH0._vCV9TJSMJgvEWssmEm843g82qQi0ud07Q28WRyPx5s";
-// ─────────────────────────────────────────────────────────────────────────────
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -330,7 +329,10 @@ function TodoModal({ onSave, onClose }) {
 function AnalyticsTab({ habits, todos, pausePeriods }) {
   const [range, setRange] = useState("7days");
   const today = new Date();
+  const todayStr = getDateStr(today);
+
   const currentStreak = calcStreak(habits, pausePeriods);
+
   const bestStreak = (() => {
     const allDates = [...new Set(habits.flatMap(h => h.completedDates || []))].sort();
     let best = 0, cur = 0, prev = null;
@@ -350,12 +352,58 @@ function AnalyticsTab({ habits, todos, pausePeriods }) {
     }
     return best;
   })();
+
+  // Completion rate: actual completions / total scheduled habit-days since earliest habit
+  const completionRate = (() => {
+    if (habits.length === 0) return null;
+    const earliestDate = habits.reduce((earliest, h) => {
+      const created = (h.createdDate || todayStr).substring(0, 10);
+      return created < earliest ? created : earliest;
+    }, todayStr);
+
+    let scheduledCount = 0;
+    let completedCount = 0;
+    const d = new Date(earliestDate);
+    d.setHours(0, 0, 0, 0);
+    const end = new Date();
+    end.setHours(0, 0, 0, 0);
+
+    while (d <= end) {
+      const ds = getDateStr(d);
+      if (!isDatePaused(pausePeriods, ds)) {
+        const dow = d.getDay();
+        habits.forEach(h => {
+          const scheduled = h.frequency === "daily" || (h.days && h.days.includes(dow));
+          if (scheduled) {
+            scheduledCount++;
+            if ((h.completedDates || []).map(x => x.substring(0, 10)).includes(ds)) completedCount++;
+          }
+        });
+      }
+      d.setDate(d.getDate() + 1);
+    }
+    if (scheduledCount === 0) return null;
+    return Math.round((completedCount / scheduledCount) * 100);
+  })();
+
+  // Total individual habit completions
+  const totalCompletions = habits.reduce((sum, h) => sum + (h.completedDates || []).length, 0);
+
+  const getRangeDays = () => range === "7days" ? 7 : range === "30days" ? 30 : range === "year" ? 365 : null;
   const last7 = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(today); d.setDate(d.getDate() - (6 - i));
     const ds = getDateStr(d);
-    return { label: DAYS_SHORT[d.getDay()], habits: habits.filter(h => (h.completedDates || []).includes(ds)).length, tasks: todos.filter(t => t.doneDate === ds).length };
+    return { label: DAYS_SHORT[d.getDay()], habits: habits.filter(h => (h.completedDates || []).map(x => x.substring(0,10)).includes(ds)).length, tasks: todos.filter(t => t.doneDate === ds).length };
   });
   const maxVal = Math.max(...last7.flatMap(d => [d.habits, d.tasks]), 1);
+
+  const stats = [
+    { icon: "🔥", label: "Current Streak", value: `${currentStreak} days`, sub: "All scheduled habits done" },
+    { icon: "🏆", label: "Best Streak", value: `${bestStreak} days`, sub: "Personal record" },
+    { icon: "📊", label: "Completion Rate", value: completionRate !== null ? `${completionRate}%` : "—", sub: `${totalCompletions} total completions` },
+    { icon: "📅", label: "Active Habits", value: habits.length, sub: `${todos.filter(t => t.done).length}/${todos.length} tasks done` },
+  ];
+
   return (
     <div style={{ maxWidth: "1000px", margin: "0 auto", padding: "10px 0" }}>
       <h1 style={{ textAlign: "center", color: "#f9fafb", fontWeight: 800, fontSize: "26px", marginBottom: "24px" }}>Your Analytics</h1>
@@ -365,11 +413,12 @@ function AnalyticsTab({ habits, todos, pausePeriods }) {
         ))}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "12px", marginBottom: "28px" }}>
-        {[{ icon: "🏆", label: "Current Streak", value: `${currentStreak} days` }, { icon: "📈", label: "Best Streak", value: `${bestStreak} days` }, { icon: "✅", label: "Tasks Completed", value: `${todos.filter(t => t.done).length}/${todos.length}` }, { icon: "📅", label: "Active Habits", value: habits.length }].map((stat, i) => (
+        {stats.map((stat, i) => (
           <div key={i} style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: "12px", padding: "16px 14px" }}>
             <div style={{ fontSize: "22px", marginBottom: "6px" }}>{stat.icon}</div>
             <div style={{ color: "#6b7280", fontSize: "11px", marginBottom: "4px" }}>{stat.label}</div>
             <div style={{ color: "#f9fafb", fontWeight: 800, fontSize: "20px" }}>{stat.value}</div>
+            {stat.sub && <div style={{ color: "#4b5563", fontSize: "10px", marginTop: "4px" }}>{stat.sub}</div>}
           </div>
         ))}
       </div>
