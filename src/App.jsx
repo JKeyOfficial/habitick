@@ -615,6 +615,143 @@ function JournalTab({ journalEntries, setJournalEntries, session, today }) {
   );
 }
 
+
+// ─── Profile Modal ────────────────────────────────────────────────────────────
+function ProfileModal({ session, profile, onUpdate, onClose }) {
+  const [tab, setTab] = useState("profile");
+  const [username, setUsername] = useState(profile?.username || "");
+  const [usernameMsg, setUsernameMsg] = useState("");
+  const [usernameErr, setUsernameErr] = useState("");
+  const [savingUsername, setSavingUsername] = useState(false);
+
+  const [newEmail, setNewEmail] = useState("");
+  const [emailMsg, setEmailMsg] = useState("");
+  const [emailErr, setEmailErr] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
+
+  const [currentPw, setCurrentPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [pwMsg, setPwMsg] = useState("");
+  const [pwErr, setPwErr] = useState("");
+  const [savingPw, setSavingPw] = useState(false);
+
+  const avatar = profile?.username ? profile.username[0].toUpperCase() : session.user.email[0].toUpperCase();
+
+  const saveUsername = async () => {
+    setUsernameMsg(""); setUsernameErr("");
+    if (!username.trim()) return;
+    if (username.length < 3) { setUsernameErr("Username must be at least 3 characters"); return; }
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) { setUsernameErr("Only letters, numbers and underscores"); return; }
+    setSavingUsername(true);
+    const { error } = await supabase.from("profiles").upsert({ id: session.user.id, username: username.trim(), updated_at: new Date().toISOString() });
+    if (error) setUsernameErr(error.message.includes("unique") ? "Username already taken" : error.message);
+    else { onUpdate(prev => ({ ...prev, username: username.trim() })); setUsernameMsg("Username saved!"); }
+    setSavingUsername(false);
+  };
+
+  const saveEmail = async () => {
+    setEmailMsg(""); setEmailErr("");
+    if (!newEmail.trim()) return;
+    setSavingEmail(true);
+    const { error } = await supabase.auth.updateUser({ email: newEmail.trim() });
+    if (error) setEmailErr(error.message);
+    else setEmailMsg("Confirmation sent to both addresses. Check your inbox.");
+    setSavingEmail(false);
+  };
+
+  const savePassword = async () => {
+    setPwMsg(""); setPwErr("");
+    if (!newPw) return;
+    if (newPw.length < 8) { setPwErr("Password must be at least 8 characters"); return; }
+    if (newPw !== confirmPw) { setPwErr("Passwords don't match"); return; }
+    setSavingPw(true);
+    const { error } = await supabase.auth.updateUser({ password: newPw });
+    if (error) setPwErr(error.message);
+    else { setPwMsg("Password updated!"); setCurrentPw(""); setNewPw(""); setConfirmPw(""); }
+    setSavingPw(false);
+  };
+
+  const inp = { width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #1f2937", background: "#0d1117", color: "#f9fafb", fontSize: "14px", boxSizing: "border-box", fontFamily: "inherit", outline: "none", marginBottom: "10px" };
+  const tabBtn = (key, label) => (
+    <button key={key} onClick={() => setTab(key)} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "1px solid", borderColor: tab === key ? "#2563eb" : "#1f2937", background: tab === key ? "#2563eb" : "transparent", color: tab === key ? "#fff" : "#6b7280", cursor: "pointer", fontWeight: 600, fontSize: "13px", fontFamily: "inherit", transition: "all 0.15s" }}>{label}</button>
+  );
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#000c", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: "20px", padding: "28px", width: "400px", maxWidth: "92vw", maxHeight: "90vh", overflowY: "auto" }}>
+        
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+          <h2 style={{ margin: 0, fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "20px", color: "#f9fafb", letterSpacing: "-0.02em" }}>Profile</h2>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#6b7280", cursor: "pointer", fontSize: "20px", lineHeight: 1, padding: "4px" }}>✕</button>
+        </div>
+
+        {/* Avatar */}
+        <div style={{ display: "flex", alignItems: "center", gap: "16px", background: "#0d1117", border: "1px solid #1f2937", borderRadius: "12px", padding: "16px", marginBottom: "24px" }}>
+          <div style={{ width: "52px", height: "52px", borderRadius: "50%", background: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "22px", color: "#fff", flexShrink: 0 }}>{avatar}</div>
+          <div>
+            <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "16px", color: "#f9fafb" }}>{profile?.username || "No username set"}</div>
+            <div style={{ fontSize: "12px", color: "#4b5563", marginTop: "2px" }}>{session.user.email}</div>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display: "flex", gap: "6px", marginBottom: "20px" }}>
+          {tabBtn("profile", "Username")}
+          {tabBtn("email", "Email")}
+          {tabBtn("password", "Password")}
+        </div>
+
+        {/* Username tab */}
+        {tab === "profile" && (
+          <div>
+            <label style={{ color: "#6b7280", fontSize: "12px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "8px" }}>Username</label>
+            <input value={username} onChange={e => setUsername(e.target.value)} style={inp} placeholder="e.g. john_doe" />
+            <div style={{ fontSize: "11px", color: "#4b5563", marginBottom: "14px" }}>Letters, numbers and underscores only. Minimum 3 characters.</div>
+            {usernameErr && <div style={{ color: "#f87171", fontSize: "13px", marginBottom: "10px" }}>{usernameErr}</div>}
+            {usernameMsg && <div style={{ color: "#10b981", fontSize: "13px", marginBottom: "10px" }}>{usernameMsg}</div>}
+            <button onClick={saveUsername} disabled={savingUsername} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "14px", cursor: "pointer", fontFamily: "inherit", opacity: savingUsername ? 0.7 : 1 }}>{savingUsername ? "Saving..." : "Save Username"}</button>
+          </div>
+        )}
+
+        {/* Email tab */}
+        {tab === "email" && (
+          <div>
+            <div style={{ background: "#0d1117", border: "1px solid #1f2937", borderRadius: "8px", padding: "12px", marginBottom: "14px", fontSize: "13px", color: "#6b7280" }}>
+              Current: <span style={{ color: "#9ca3af", fontWeight: 600 }}>{session.user.email}</span>
+            </div>
+            <label style={{ color: "#6b7280", fontSize: "12px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "8px" }}>New Email Address</label>
+            <input value={newEmail} onChange={e => setNewEmail(e.target.value)} type="email" style={inp} placeholder="new@email.com" />
+            {emailErr && <div style={{ color: "#f87171", fontSize: "13px", marginBottom: "10px" }}>{emailErr}</div>}
+            {emailMsg && <div style={{ color: "#10b981", fontSize: "13px", marginBottom: "10px" }}>{emailMsg}</div>}
+            <button onClick={saveEmail} disabled={savingEmail} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "14px", cursor: "pointer", fontFamily: "inherit", opacity: savingEmail ? 0.7 : 1 }}>{savingEmail ? "Sending..." : "Update Email"}</button>
+          </div>
+        )}
+
+        {/* Password tab */}
+        {tab === "password" && (
+          <div>
+            <label style={{ color: "#6b7280", fontSize: "12px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "8px" }}>New Password</label>
+            <input value={newPw} onChange={e => setNewPw(e.target.value)} type="password" style={inp} placeholder="Min. 8 characters" />
+            <label style={{ color: "#6b7280", fontSize: "12px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "8px" }}>Confirm Password</label>
+            <input value={confirmPw} onChange={e => setConfirmPw(e.target.value)} type="password" style={inp} placeholder="Repeat new password" />
+            {pwErr && <div style={{ color: "#f87171", fontSize: "13px", marginBottom: "10px" }}>{pwErr}</div>}
+            {pwMsg && <div style={{ color: "#10b981", fontSize: "13px", marginBottom: "10px" }}>{pwMsg}</div>}
+            <button onClick={savePassword} disabled={savingPw} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "14px", cursor: "pointer", fontFamily: "inherit", opacity: savingPw ? 0.7 : 1 }}>{savingPw ? "Updating..." : "Update Password"}</button>
+            <button onClick={() => supabase.auth.resetPasswordForEmail(session.user.email)} style={{ width: "100%", marginTop: "10px", padding: "11px", borderRadius: "8px", border: "1px solid #1f2937", background: "transparent", color: "#6b7280", fontWeight: 600, fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>Send reset link to email instead</button>
+          </div>
+        )}
+
+        {/* Sign out */}
+        <div style={{ borderTop: "1px solid #1f2937", marginTop: "24px", paddingTop: "16px" }}>
+          <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #374151", background: "transparent", color: "#6b7280", fontWeight: 600, fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>Sign out</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function HabiTick() {
   const [session, setSession] = useState(undefined); // undefined=loading, null=signed out
@@ -629,6 +766,8 @@ export default function HabiTick() {
   const [showCompleted, setShowCompleted] = useState(false);
   const [showTodayOnly, setShowTodayOnly] = useState(false);
   const [journalEntries, setJournalEntries] = useState({}); // keyed by date string
+  const [profile, setProfile] = useState(null);
+  const [showProfile, setShowProfile] = useState(false);
 
   const today = getTodayStr();
   const todayDow = new Date().getDay();
@@ -650,12 +789,13 @@ export default function HabiTick() {
   const loadAll = async () => {
     setLoading(true);
     const uid = session.user.id;
-    const [habitsRes, completionsRes, todosRes, pauseRes, journalRes] = await Promise.all([
+    const [habitsRes, completionsRes, todosRes, pauseRes, journalRes, profileRes] = await Promise.all([
       supabase.from("habits").select("*").eq("user_id", uid).order("created_at"),
       supabase.from("habit_completions").select("habit_id, completed_date").eq("user_id", uid),
       supabase.from("todos").select("*").eq("user_id", uid).order("created_at"),
       supabase.from("pause_periods").select("*").eq("user_id", uid).order("created_at"),
       supabase.from("journal_entries").select("*").eq("user_id", uid).order("entry_date"),
+      supabase.from("profiles").select("*").eq("id", uid).single(),
     ]);
     const completionsByHabit = {};
     (completionsRes.data || []).forEach(c => {
@@ -668,6 +808,7 @@ export default function HabiTick() {
     const entriesMap = {};
     (journalRes.data || []).forEach(e => { entriesMap[e.entry_date.substring(0, 10)] = e; });
     setJournalEntries(entriesMap);
+    setProfile(profileRes.data || null);
     setLoading(false);
   };
 
@@ -759,8 +900,14 @@ export default function HabiTick() {
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <span style={{ color: "#6b7280", fontSize: "12px", maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{session.user.email}</span>
-          <button onClick={() => supabase.auth.signOut()} style={{ background: "none", border: "1px solid #374151", borderRadius: "6px", color: "#6b7280", cursor: "pointer", fontSize: "12px", padding: "5px 10px", fontWeight: 600 }}>Sign out</button>
+          <button onClick={() => setShowProfile(true)} style={{ display: "flex", alignItems: "center", gap: "8px", background: "#111827", border: "1px solid #1f2937", borderRadius: "999px", padding: "5px 14px 5px 6px", cursor: "pointer", transition: "border-color 0.2s" }}>
+            <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "12px", color: "#fff", flexShrink: 0 }}>
+              {profile?.username ? profile.username[0].toUpperCase() : session.user.email[0].toUpperCase()}
+            </div>
+            <span style={{ color: "#9ca3af", fontSize: "13px", fontWeight: 600, maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {profile?.username || "Profile"}
+            </span>
+          </button>
         </div>
       </header>
 
@@ -812,6 +959,7 @@ export default function HabiTick() {
       </main>
       {showHabitModal && <HabitModal habit={editingHabit} onSave={saveHabit} onClose={() => { setShowHabitModal(false); setEditingHabit(null); }} />}
       {showTodoModal && <TodoModal onSave={addTodo} onClose={() => setShowTodoModal(false)} />}
+      {showProfile && <ProfileModal session={session} profile={profile} onUpdate={setProfile} onClose={() => setShowProfile(false)} />}
     </div>
   );
 }
