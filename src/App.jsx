@@ -438,7 +438,7 @@ function AnalyticsTab({ habits, todos, pausePeriods }) {
           <button key={val} onClick={() => setRange(val)} style={{ padding: "7px 18px", borderRadius: "999px", border: "1px solid", borderColor: range === val ? "#2563eb" : "#374151", background: range === val ? "#2563eb" : "#111827", color: range === val ? "#fff" : "#9ca3af", cursor: "pointer", fontWeight: 600, fontSize: "13px", transition: "all 0.15s", fontFamily: "inherit" }}>{label}</button>
         ))}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "12px", marginBottom: "28px" }}>
+      <div className="ht-analytics-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "12px", marginBottom: "28px" }}>
         {stats.map((stat, i) => (
           <div key={i} style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: "14px", padding: "20px 18px", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }}>
             <div style={{ fontSize: "20px", marginBottom: "10px" }}>{stat.icon}</div>
@@ -623,30 +623,62 @@ function ProfileModal({ session, profile, onUpdate, onClose }) {
   const [usernameMsg, setUsernameMsg] = useState("");
   const [usernameErr, setUsernameErr] = useState("");
   const [savingUsername, setSavingUsername] = useState(false);
-
   const [newEmail, setNewEmail] = useState("");
   const [emailMsg, setEmailMsg] = useState("");
   const [emailErr, setEmailErr] = useState("");
   const [savingEmail, setSavingEmail] = useState(false);
-
-  const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
   const [pwMsg, setPwMsg] = useState("");
   const [pwErr, setPwErr] = useState("");
   const [savingPw, setSavingPw] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || null);
+  const [toast, setToast] = useState(null);
 
-  const avatar = profile?.username ? profile.username[0].toUpperCase() : session.user.email[0].toUpperCase();
+  const showToast = (msg, type = "success") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const avatarLetter = (profile?.username || session.user.email || "?")[0].toUpperCase();
+
+  const uploadAvatar = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { showToast("Image must be under 2MB", "error"); return; }
+    setUploadingAvatar(true);
+    const ext = file.name.split(".").pop();
+    const path = `${session.user.id}/avatar.${ext}`;
+    const { error: upErr } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+    if (upErr) { showToast("Upload failed", "error"); setUploadingAvatar(false); return; }
+    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+    const url = data.publicUrl + "?t=" + Date.now();
+    await supabase.from("profiles").upsert({ id: session.user.id, avatar_url: url, updated_at: new Date().toISOString() });
+    setAvatarUrl(url);
+    onUpdate(prev => ({ ...prev, avatar_url: url }));
+    showToast("Profile photo updated!");
+    setUploadingAvatar(false);
+  };
+
+  const removeAvatar = async () => {
+    await supabase.storage.from("avatars").remove([`${session.user.id}/avatar.jpg`, `${session.user.id}/avatar.png`, `${session.user.id}/avatar.jpeg`, `${session.user.id}/avatar.webp`]);
+    await supabase.from("profiles").upsert({ id: session.user.id, avatar_url: null, updated_at: new Date().toISOString() });
+    setAvatarUrl(null);
+    onUpdate(prev => ({ ...prev, avatar_url: null }));
+    showToast("Photo removed");
+  };
 
   const saveUsername = async () => {
     setUsernameMsg(""); setUsernameErr("");
     if (!username.trim()) return;
-    if (username.length < 3) { setUsernameErr("Username must be at least 3 characters"); return; }
-    if (!/^[a-zA-Z0-9_]+$/.test(username)) { setUsernameErr("Only letters, numbers and underscores"); return; }
+    if (username.length < 3) { setUsernameErr("Must be at least 3 characters"); return; }
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) { setUsernameErr("Letters, numbers and underscores only"); return; }
     setSavingUsername(true);
     const { error } = await supabase.from("profiles").upsert({ id: session.user.id, username: username.trim(), updated_at: new Date().toISOString() });
     if (error) setUsernameErr(error.message.includes("unique") ? "Username already taken" : error.message);
-    else { onUpdate(prev => ({ ...prev, username: username.trim() })); setUsernameMsg("Username saved!"); }
+    else { onUpdate(prev => ({ ...prev, username: username.trim() })); showToast("Username saved!"); }
     setSavingUsername(false);
   };
 
@@ -656,96 +688,120 @@ function ProfileModal({ session, profile, onUpdate, onClose }) {
     setSavingEmail(true);
     const { error } = await supabase.auth.updateUser({ email: newEmail.trim() });
     if (error) setEmailErr(error.message);
-    else setEmailMsg("Confirmation sent to both addresses. Check your inbox.");
+    else { showToast("Confirmation sent — check your inbox"); setEmailMsg("Confirmation sent to both addresses."); }
     setSavingEmail(false);
   };
 
   const savePassword = async () => {
     setPwMsg(""); setPwErr("");
     if (!newPw) return;
-    if (newPw.length < 8) { setPwErr("Password must be at least 8 characters"); return; }
+    if (newPw.length < 8) { setPwErr("Must be at least 8 characters"); return; }
     if (newPw !== confirmPw) { setPwErr("Passwords don't match"); return; }
     setSavingPw(true);
     const { error } = await supabase.auth.updateUser({ password: newPw });
     if (error) setPwErr(error.message);
-    else { setPwMsg("Password updated!"); setCurrentPw(""); setNewPw(""); setConfirmPw(""); }
+    else { showToast("Password updated!"); setNewPw(""); setConfirmPw(""); }
     setSavingPw(false);
   };
 
-  const inp = { width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #1f2937", background: "#0d1117", color: "#f9fafb", fontSize: "14px", boxSizing: "border-box", fontFamily: "inherit", outline: "none", marginBottom: "10px" };
-  const tabBtn = (key, label) => (
-    <button key={key} onClick={() => setTab(key)} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "1px solid", borderColor: tab === key ? "#2563eb" : "#1f2937", background: tab === key ? "#2563eb" : "transparent", color: tab === key ? "#fff" : "#6b7280", cursor: "pointer", fontWeight: 600, fontSize: "13px", fontFamily: "inherit", transition: "all 0.15s" }}>{label}</button>
-  );
+  const sendResetLink = async () => {
+    setResetSent(true);
+    await supabase.auth.resetPasswordForEmail(session.user.email);
+    showToast("Reset link sent to " + session.user.email);
+    setTimeout(() => setResetSent(false), 4000);
+  };
+
+  const inp = { width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #1f2937", background: "#0d1117", color: "#f9fafb", fontSize: "14px", boxSizing: "border-box", fontFamily: "inherit", outline: "none", marginBottom: "12px" };
+  const lbl = { color: "#6b7280", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "7px" };
+  const tabStyle = (key) => ({ flex: 1, padding: "8px 6px", borderRadius: "8px", border: "1px solid", borderColor: tab === key ? "#2563eb" : "#1f2937", background: tab === key ? "#2563eb" : "transparent", color: tab === key ? "#fff" : "#6b7280", cursor: "pointer", fontWeight: 600, fontSize: "12px", fontFamily: "inherit", transition: "all 0.15s" });
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#000c", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: "20px", padding: "28px", width: "400px", maxWidth: "92vw", maxHeight: "90vh", overflowY: "auto" }}>
-        
+    <div style={{ position: "fixed", inset: 0, background: "#000d", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={e => e.target === e.currentTarget && onClose()}>
+      {/* Toast */}
+      {toast && (
+        <div style={{ position: "fixed", top: "20px", left: "50%", transform: "translateX(-50%)", background: toast.type === "error" ? "#7f1d1d" : "#064e3b", border: `1px solid ${toast.type === "error" ? "#f87171" : "#10b981"}`, borderRadius: "10px", padding: "10px 20px", color: toast.type === "error" ? "#fca5a5" : "#6ee7b7", fontWeight: 600, fontSize: "14px", zIndex: 300, whiteSpace: "nowrap", boxShadow: "0 8px 24px rgba(0,0,0,0.4)", animation: "fadeUp 0.2s ease" }}>
+          {toast.type !== "error" && "✓ "}{toast.msg}
+        </div>
+      )}
+      <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: "20px 20px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: "480px", maxHeight: "92vh", overflowY: "auto" }}>
+        {/* Handle bar */}
+        <div style={{ width: "40px", height: "4px", background: "#374151", borderRadius: "999px", margin: "0 auto 24px" }} />
+
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
-          <h2 style={{ margin: 0, fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "20px", color: "#f9fafb", letterSpacing: "-0.02em" }}>Profile</h2>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "#6b7280", cursor: "pointer", fontSize: "20px", lineHeight: 1, padding: "4px" }}>✕</button>
+          <h2 style={{ margin: 0, fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "20px", color: "#f9fafb", letterSpacing: "-0.02em" }}>Your Profile</h2>
+          <button onClick={onClose} style={{ background: "#1f2937", border: "none", color: "#9ca3af", cursor: "pointer", fontSize: "16px", width: "32px", height: "32px", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
         </div>
 
-        {/* Avatar */}
-        <div style={{ display: "flex", alignItems: "center", gap: "16px", background: "#0d1117", border: "1px solid #1f2937", borderRadius: "12px", padding: "16px", marginBottom: "24px" }}>
-          <div style={{ width: "52px", height: "52px", borderRadius: "50%", background: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "22px", color: "#fff", flexShrink: 0 }}>{avatar}</div>
-          <div>
-            <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "16px", color: "#f9fafb" }}>{profile?.username || "No username set"}</div>
-            <div style={{ fontSize: "12px", color: "#4b5563", marginTop: "2px" }}>{session.user.email}</div>
+        {/* Avatar upload */}
+        <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "24px" }}>
+          <div style={{ position: "relative", flexShrink: 0 }}>
+            {avatarUrl
+              ? <img src={avatarUrl} alt="avatar" style={{ width: "64px", height: "64px", borderRadius: "50%", objectFit: "cover", border: "2px solid #2563eb" }} />
+              : <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "26px", color: "#fff" }}>{avatarLetter}</div>
+            }
+            <label style={{ position: "absolute", bottom: "-2px", right: "-2px", width: "22px", height: "22px", background: "#374151", border: "2px solid #111827", borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px" }}>
+              {uploadingAvatar ? "⏳" : "📷"}
+              <input type="file" accept="image/*" onChange={uploadAvatar} style={{ display: "none" }} />
+            </label>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "16px", color: "#f9fafb" }}>{profile?.username || "No username yet"}</div>
+            <div style={{ fontSize: "12px", color: "#4b5563", marginTop: "2px", marginBottom: "8px" }}>{session.user.email}</div>
+            {avatarUrl && <button onClick={removeAvatar} style={{ background: "none", border: "none", color: "#6b7280", fontSize: "11px", cursor: "pointer", padding: 0, textDecoration: "underline" }}>Remove photo</button>}
           </div>
         </div>
 
         {/* Tabs */}
         <div style={{ display: "flex", gap: "6px", marginBottom: "20px" }}>
-          {tabBtn("profile", "Username")}
-          {tabBtn("email", "Email")}
-          {tabBtn("password", "Password")}
+          <button style={tabStyle("profile")} onClick={() => setTab("profile")}>Username</button>
+          <button style={tabStyle("email")} onClick={() => setTab("email")}>Email</button>
+          <button style={tabStyle("password")} onClick={() => setTab("password")}>Password</button>
         </div>
 
         {/* Username tab */}
         {tab === "profile" && (
           <div>
-            <label style={{ color: "#6b7280", fontSize: "12px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "8px" }}>Username</label>
-            <input value={username} onChange={e => setUsername(e.target.value)} style={inp} placeholder="e.g. john_doe" />
-            <div style={{ fontSize: "11px", color: "#4b5563", marginBottom: "14px" }}>Letters, numbers and underscores only. Minimum 3 characters.</div>
+            <label style={lbl}>Username</label>
+            <input value={username} onChange={e => setUsername(e.target.value)} style={inp} placeholder="e.g. john_doe" onKeyDown={e => e.key === "Enter" && saveUsername()} />
+            <div style={{ fontSize: "11px", color: "#374151", marginBottom: "14px" }}>Letters, numbers and underscores · min 3 chars</div>
             {usernameErr && <div style={{ color: "#f87171", fontSize: "13px", marginBottom: "10px" }}>{usernameErr}</div>}
-            {usernameMsg && <div style={{ color: "#10b981", fontSize: "13px", marginBottom: "10px" }}>{usernameMsg}</div>}
-            <button onClick={saveUsername} disabled={savingUsername} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "14px", cursor: "pointer", fontFamily: "inherit", opacity: savingUsername ? 0.7 : 1 }}>{savingUsername ? "Saving..." : "Save Username"}</button>
+            <button onClick={saveUsername} disabled={savingUsername} style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "14px", cursor: "pointer", fontFamily: "inherit", opacity: savingUsername ? 0.7 : 1 }}>{savingUsername ? "Saving..." : "Save Username"}</button>
           </div>
         )}
 
         {/* Email tab */}
         {tab === "email" && (
           <div>
-            <div style={{ background: "#0d1117", border: "1px solid #1f2937", borderRadius: "8px", padding: "12px", marginBottom: "14px", fontSize: "13px", color: "#6b7280" }}>
+            <div style={{ background: "#0d1117", border: "1px solid #1f2937", borderRadius: "8px", padding: "12px", marginBottom: "16px", fontSize: "13px", color: "#4b5563" }}>
               Current: <span style={{ color: "#9ca3af", fontWeight: 600 }}>{session.user.email}</span>
             </div>
-            <label style={{ color: "#6b7280", fontSize: "12px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "8px" }}>New Email Address</label>
+            <label style={lbl}>New Email Address</label>
             <input value={newEmail} onChange={e => setNewEmail(e.target.value)} type="email" style={inp} placeholder="new@email.com" />
             {emailErr && <div style={{ color: "#f87171", fontSize: "13px", marginBottom: "10px" }}>{emailErr}</div>}
             {emailMsg && <div style={{ color: "#10b981", fontSize: "13px", marginBottom: "10px" }}>{emailMsg}</div>}
-            <button onClick={saveEmail} disabled={savingEmail} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "14px", cursor: "pointer", fontFamily: "inherit", opacity: savingEmail ? 0.7 : 1 }}>{savingEmail ? "Sending..." : "Update Email"}</button>
+            <button onClick={saveEmail} disabled={savingEmail} style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "14px", cursor: "pointer", fontFamily: "inherit", opacity: savingEmail ? 0.7 : 1 }}>{savingEmail ? "Sending..." : "Update Email"}</button>
           </div>
         )}
 
         {/* Password tab */}
         {tab === "password" && (
           <div>
-            <label style={{ color: "#6b7280", fontSize: "12px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "8px" }}>New Password</label>
+            <label style={lbl}>New Password</label>
             <input value={newPw} onChange={e => setNewPw(e.target.value)} type="password" style={inp} placeholder="Min. 8 characters" />
-            <label style={{ color: "#6b7280", fontSize: "12px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "8px" }}>Confirm Password</label>
+            <label style={lbl}>Confirm Password</label>
             <input value={confirmPw} onChange={e => setConfirmPw(e.target.value)} type="password" style={inp} placeholder="Repeat new password" />
             {pwErr && <div style={{ color: "#f87171", fontSize: "13px", marginBottom: "10px" }}>{pwErr}</div>}
-            {pwMsg && <div style={{ color: "#10b981", fontSize: "13px", marginBottom: "10px" }}>{pwMsg}</div>}
-            <button onClick={savePassword} disabled={savingPw} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "14px", cursor: "pointer", fontFamily: "inherit", opacity: savingPw ? 0.7 : 1 }}>{savingPw ? "Updating..." : "Update Password"}</button>
-            <button onClick={() => supabase.auth.resetPasswordForEmail(session.user.email)} style={{ width: "100%", marginTop: "10px", padding: "11px", borderRadius: "8px", border: "1px solid #1f2937", background: "transparent", color: "#6b7280", fontWeight: 600, fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>Send reset link to email instead</button>
+            <button onClick={savePassword} disabled={savingPw} style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "14px", cursor: "pointer", fontFamily: "inherit", opacity: savingPw ? 0.7 : 1, marginBottom: "10px" }}>{savingPw ? "Updating..." : "Update Password"}</button>
+            <button onClick={sendResetLink} disabled={resetSent} style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #1f2937", background: resetSent ? "#064e3b" : "transparent", color: resetSent ? "#6ee7b7" : "#6b7280", fontWeight: 600, fontSize: "13px", cursor: resetSent ? "default" : "pointer", fontFamily: "inherit", transition: "all 0.3s" }}>
+              {resetSent ? "✓ Link sent to your email!" : "Send reset link instead"}
+            </button>
           </div>
         )}
 
         {/* Sign out */}
         <div style={{ borderTop: "1px solid #1f2937", marginTop: "24px", paddingTop: "16px" }}>
-          <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #374151", background: "transparent", color: "#6b7280", fontWeight: 600, fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>Sign out</button>
+          <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "1px solid #374151", background: "transparent", color: "#6b7280", fontWeight: 600, fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>Sign out</button>
         </div>
       </div>
     </div>
@@ -887,37 +943,64 @@ export default function HabiTick() {
   // ── UI ─────────────────────────────────────────────────────────────────────
   return (
     <div style={{ minHeight: "100vh", background: "#0d1117", fontFamily: "'DM Sans', system-ui, sans-serif", color: "#f9fafb" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500;600;700;800&display=swap'); html, body, #root { margin: 0; padding: 0; width: 100%; min-height: 100vh; } * { box-sizing: border-box; } button,input,textarea { font-family: inherit; } ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; } .syne { font-family: 'Syne', sans-serif !important; }`}</style>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500;600;700;800&display=swap');
+        html, body, #root { margin: 0; padding: 0; width: 100%; min-height: 100vh; }
+        * { box-sizing: border-box; }
+        button, input, textarea, select { font-family: inherit; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .ht-header-pills { display: flex; gap: 8px; align-items: center; }
+        .ht-main { max-width: 1200px; margin: 0 auto; padding: 24px 40px 100px; }
+        .ht-tabs { display: flex; justify-content: center; gap: 6px; padding: 18px 16px 10px; }
+        .ht-habit-grid { display: flex; flex-wrap: wrap; gap: 14px; }
+        .ht-bottom-nav { display: none; }
+        .ht-header-username { display: inline; }
+        @media (max-width: 640px) {
+          .ht-header-pills { display: none; }
+          .ht-main { padding: 16px 16px 90px; }
+          .ht-tabs { display: none; }
+          .ht-habit-grid { flex-direction: column; }
+          .ht-habit-grid > * { max-width: 100% !important; min-width: 0 !important; flex: 1 1 100% !important; }
+          .ht-bottom-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; background: #0d1117; border-top: 1px solid #1f2937; z-index: 50; padding: 8px 0 20px; justify-content: space-around; }
+          .ht-header-username { display: none; }
+          .ht-analytics-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+      `}</style>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 28px", height: "60px", borderBottom: "1px solid #1f2937", position: "sticky", top: 0, background: "#0d1117", zIndex: 50 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <div style={{ width: "32px", height: "32px", background: "#2563eb", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "16px", flexShrink: 0 }}>⚡</div>
           <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "18px", letterSpacing: "-0.02em" }}>HabiTick</span>
         </div>
-        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+        <div className="ht-header-pills">
           <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: "1px solid #22c55e33", borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: "#22c55e", fontWeight: 600 }}>✓ {doneToday}/{totalToday} habits today</div>
           <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: `1px solid ${isPaused ? "#f59e0b66" : "#3b82f633"}`, borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: isPaused ? "#fcd34d" : "#60a5fa", fontWeight: 600 }}>
-            {isPaused ? "⏸ Streak frozen" : `📅 Streak: ${currentStreak} days`}
+            {isPaused ? "⏸ Streak frozen" : `🔥 Streak: ${currentStreak} days`}
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <button onClick={() => setShowProfile(true)} style={{ display: "flex", alignItems: "center", gap: "8px", background: "#111827", border: "1px solid #1f2937", borderRadius: "999px", padding: "5px 14px 5px 6px", cursor: "pointer", transition: "border-color 0.2s" }}>
-            <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "12px", color: "#fff", flexShrink: 0 }}>
-              {profile?.username ? profile.username[0].toUpperCase() : session.user.email[0].toUpperCase()}
-            </div>
-            <span style={{ color: "#9ca3af", fontSize: "13px", fontWeight: 600, maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <button onClick={() => setShowProfile(true)} style={{ display: "flex", alignItems: "center", gap: "8px", background: "#111827", border: "1px solid #1f2937", borderRadius: "999px", padding: "4px 14px 4px 4px", cursor: "pointer", transition: "border-color 0.2s" }}>
+            {profile?.avatar_url
+              ? <img src={profile.avatar_url} alt="avatar" style={{ width: "30px", height: "30px", borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+              : <div style={{ width: "30px", height: "30px", borderRadius: "50%", background: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "13px", color: "#fff", flexShrink: 0 }}>
+                  {(profile?.username || session.user.email || "?")[0].toUpperCase()}
+                </div>
+            }
+            <span className="ht-header-username" style={{ color: "#9ca3af", fontSize: "13px", fontWeight: 600, maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {profile?.username || "Profile"}
             </span>
           </button>
         </div>
       </header>
 
-      <div style={{ display: "flex", justifyContent: "center", gap: "6px", padding: "22px 0 12px" }}>
+      <div className="ht-tabs">
         {[["tasks", "Tasks & Habits"], ["analytics", "Analytics"], ["journal", "Journal"]].map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)} style={{ padding: "8px 22px", borderRadius: "8px", border: "1px solid", borderColor: tab === key ? "#2563eb" : "#1f2937", background: tab === key ? "#2563eb" : "#111827", color: tab === key ? "#fff" : "#6b7280", cursor: "pointer", fontWeight: 600, fontSize: "14px", transition: "all 0.15s", fontFamily: "inherit" }}>{label}</button>
         ))}
       </div>
 
-      <main style={{ maxWidth: "1200px", margin: "0 auto", padding: "24px 40px" }}>
+      <main className="ht-main">
         {loading ? (
           <div style={{ textAlign: "center", padding: "60px", color: "#6b7280" }}>Loading your data...</div>
         ) : tab === "tasks" ? (
@@ -938,7 +1021,7 @@ export default function HabiTick() {
                   </div>
                 </div>
               )}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "14px" }}>
+              <div className="ht-habit-grid">
                 {todayHabits.length === 0 && <div style={{ color: "#4b5563", fontSize: "14px", padding: "20px 0" }}>No habits yet. Add your first one!</div>}
                 {todayHabits.map(h => <HabitCard key={h.id} habit={h} today={today} onToggle={toggleHabit} onDelete={deleteHabit} isPaused={isPaused} onEdit={habit => { setEditingHabit(habit); setShowHabitModal(true); }} />)}
               </div>
@@ -960,6 +1043,26 @@ export default function HabiTick() {
       {showHabitModal && <HabitModal habit={editingHabit} onSave={saveHabit} onClose={() => { setShowHabitModal(false); setEditingHabit(null); }} />}
       {showTodoModal && <TodoModal onSave={addTodo} onClose={() => setShowTodoModal(false)} />}
       {showProfile && <ProfileModal session={session} profile={profile} onUpdate={setProfile} onClose={() => setShowProfile(false)} />}
+
+      {/* Mobile bottom nav */}
+      <nav className="ht-bottom-nav">
+        {[["tasks","🏠","Habits"],["analytics","📊","Stats"],["journal","📓","Journal"],["profile","👤","Profile"]].map(([key, icon, label]) => (
+          <button key={key} onClick={() => key === "profile" ? setShowProfile(true) : setTab(key)}
+            style={{ background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", padding: "6px 12px", borderRadius: "10px", color: tab === key ? "#3b82f6" : "#4b5563", transition: "color 0.15s" }}>
+            <span style={{ fontSize: "20px" }}>{icon}</span>
+            <span style={{ fontSize: "10px", fontWeight: 700, color: tab === key ? "#3b82f6" : "#4b5563" }}>{label}</span>
+          </button>
+        ))}
+      </nav>
+
+      {/* Mobile streak bar */}
+      <style>{`@media (max-width: 640px) { .ht-mobile-streak { display: flex !important; } }`}</style>
+      <div className="ht-mobile-streak" style={{ display: "none", position: "fixed", top: "60px", left: 0, right: 0, background: "#0d1117", borderBottom: "1px solid #1f2937", padding: "8px 16px", gap: "8px", zIndex: 40, justifyContent: "center" }}>
+        <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: "1px solid #22c55e33", borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: "#22c55e", fontWeight: 600 }}>✓ {doneToday}/{totalToday} today</div>
+        <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: `1px solid ${isPaused ? "#f59e0b66" : "#3b82f633"}`, borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: isPaused ? "#fcd34d" : "#60a5fa", fontWeight: 600 }}>
+          {isPaused ? "⏸ Frozen" : `🔥 ${currentStreak} days`}
+        </div>
+      </div>
     </div>
   );
 }
