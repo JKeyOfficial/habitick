@@ -256,26 +256,29 @@ function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused }) {
   const isScheduledToday = habit.frequency === "daily" || (habit.days && habit.days.includes(todayDow));
   const doneToday = habit.completedDates?.includes(today);
   return (
-    <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: "12px", padding: "16px", minWidth: "240px", flex: "1 1 260px", maxWidth: "340px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: "15px", color: "#f9fafb" }}>{habit.name}</div>
-          {habit.frequency === "weekly" && habit.days && (
-            <div style={{ display: "flex", gap: "4px", marginTop: "6px", flexWrap: "wrap" }}>
-              {DAYS_SHORT.map((d, i) => <span key={i} style={{ fontSize: "10px", padding: "2px 7px", borderRadius: "999px", fontWeight: 600, background: habit.days.includes(i) ? "#2563eb" : "#1f2937", color: habit.days.includes(i) ? "#fff" : "#6b7280" }}>{d}</span>)}
-            </div>
-          )}
-          {habit.frequency === "daily" && <span style={{ fontSize: "10px", padding: "2px 8px", borderRadius: "999px", background: "#1d4ed8", color: "#93c5fd", fontWeight: 600, marginTop: "6px", display: "inline-block" }}>Daily</span>}
+    <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: "14px", padding: "18px", minWidth: "240px", flex: "1 1 260px", maxWidth: "340px", boxShadow: "0 1px 3px rgba(0,0,0,0.3)", transition: "border-color 0.2s" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "10px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: doneToday ? "#10b981" : "#2563eb", flexShrink: 0, marginTop: "1px" }} />
+          <div>
+            <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "15px", color: "#f9fafb", letterSpacing: "-0.01em" }}>{habit.name}</div>
+            {habit.frequency === "weekly" && habit.days && (
+              <div style={{ display: "flex", gap: "4px", marginTop: "6px", flexWrap: "wrap" }}>
+                {DAYS_SHORT.map((d, i) => <span key={i} style={{ fontSize: "10px", padding: "2px 7px", borderRadius: "999px", fontWeight: 600, background: habit.days.includes(i) ? "#2563eb" : "#1f293700", border: "1px solid", borderColor: habit.days.includes(i) ? "#2563eb" : "#1f2937", color: habit.days.includes(i) ? "#fff" : "#4b5563" }}>{d}</span>)}
+              </div>
+            )}
+            {habit.frequency === "daily" && <span style={{ fontSize: "10px", padding: "2px 8px", borderRadius: "999px", background: "#1d4ed820", border: "1px solid #2563eb30", color: "#60a5fa", fontWeight: 600, marginTop: "6px", display: "inline-block" }}>Daily</span>}
+          </div>
         </div>
-        <div style={{ display: "flex", gap: "6px" }}>
-          <button onClick={() => onEdit(habit)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6b7280", fontSize: "14px" }}>✏️</button>
-          <button onClick={() => onDelete(habit.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6b7280", fontSize: "14px" }}>✕</button>
+        <div style={{ display: "flex", gap: "4px" }}>
+          <button onClick={() => onEdit(habit)} style={{ background: "none", border: "none", cursor: "pointer", color: "#4b5563", fontSize: "13px", padding: "4px", borderRadius: "6px" }}>✏️</button>
+          <button onClick={() => onDelete(habit.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#4b5563", fontSize: "13px", padding: "4px", borderRadius: "6px" }}>✕</button>
         </div>
       </div>
       <MiniCalendar habit={habit} today={today} onToggle={date => onToggle(habit.id, date)} />
       {isScheduledToday && (
         <button onClick={() => !isPaused && onToggle(habit.id, today)}
-          style={{ width: "100%", marginTop: "10px", padding: "9px", borderRadius: "8px", border: "none", cursor: isPaused ? "not-allowed" : "pointer", fontWeight: 700, fontSize: "13px", background: isPaused ? "#1f2937" : doneToday ? "#15803d" : "#2563eb", color: isPaused ? "#4b5563" : "#fff", transition: "background 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", opacity: isPaused ? 0.6 : 1 }}>
+          style={{ width: "100%", marginTop: "12px", padding: "10px", borderRadius: "8px", border: "none", cursor: isPaused ? "not-allowed" : "pointer", fontWeight: 700, fontSize: "13px", fontFamily: "inherit", background: isPaused ? "#1f2937" : doneToday ? "#10b98120" : "#2563eb", border: "1px solid", borderColor: isPaused ? "#1f2937" : doneToday ? "#10b98140" : "#2563eb", color: isPaused ? "#4b5563" : doneToday ? "#10b981" : "#fff", transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", opacity: isPaused ? 0.6 : 1 }}>
           {isPaused ? "🏖️ Paused" : doneToday ? "✓ Done!" : "Mark as Done Today"}
         </button>
       )}
@@ -319,11 +322,11 @@ function HabitModal({ habit, onSave, onClose }) {
 // ─── Todo Item + Modal ────────────────────────────────────────────────────────
 function TodoItem({ todo, onToggle, onDelete }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px 16px", background: "#111827", border: "1px solid #1f2937", borderRadius: "10px", marginBottom: "8px" }}>
-      <button onClick={() => onToggle(todo.id)} style={{ width: "20px", height: "20px", borderRadius: "6px", border: "1.5px solid", borderColor: todo.done ? "#22c55e" : "#374151", background: todo.done ? "#22c55e" : "transparent", cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "11px", fontWeight: 900 }}>{todo.done ? "✓" : ""}</button>
+    <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "14px 16px", background: "#111827", border: "1px solid #1f2937", borderRadius: "12px", marginBottom: "8px", boxShadow: "0 1px 3px rgba(0,0,0,0.2)", transition: "border-color 0.15s" }}>
+      <button onClick={() => onToggle(todo.id)} style={{ width: "20px", height: "20px", borderRadius: "6px", border: "1.5px solid", borderColor: todo.done ? "#10b981" : "#374151", background: todo.done ? "#10b981" : "transparent", cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "11px", fontWeight: 900, transition: "all 0.15s" }}>{todo.done ? "✓" : ""}</button>
       <span style={{ flex: 1, color: todo.done ? "#4b5563" : "#e5e7eb", fontSize: "14px", textDecoration: todo.done ? "line-through" : "none" }}>{todo.text}</span>
-      {todo.priority && <span style={{ fontSize: "10px", padding: "2px 8px", borderRadius: "999px", background: todo.priority === "high" ? "#7f1d1d" : todo.priority === "med" ? "#78350f" : "#1c3a2a", color: todo.priority === "high" ? "#fca5a5" : todo.priority === "med" ? "#fcd34d" : "#86efac", fontWeight: 600 }}>{todo.priority}</span>}
-      <button onClick={() => onDelete(todo.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#4b5563", fontSize: "14px" }}>✕</button>
+      {todo.priority && <span style={{ fontSize: "10px", padding: "3px 10px", borderRadius: "999px", fontWeight: 700, border: "1px solid", background: todo.priority === "high" ? "#7f1d1d30" : todo.priority === "med" ? "#78350f30" : "#1c3a2a30", borderColor: todo.priority === "high" ? "#fca5a540" : todo.priority === "med" ? "#fcd34d40" : "#86efac40", color: todo.priority === "high" ? "#fca5a5" : todo.priority === "med" ? "#fcd34d" : "#86efac" }}>{todo.priority}</span>}
+      <button onClick={() => onDelete(todo.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#374151", fontSize: "13px", padding: "4px", borderRadius: "6px" }}>✕</button>
     </div>
   );
 }
@@ -429,25 +432,25 @@ function AnalyticsTab({ habits, todos, pausePeriods }) {
 
   return (
     <div style={{ maxWidth: "1000px", margin: "0 auto", padding: "10px 0" }}>
-      <h1 style={{ textAlign: "center", color: "#f9fafb", fontWeight: 800, fontSize: "26px", marginBottom: "24px" }}>Your Analytics</h1>
+      <h1 style={{ fontFamily: "'Syne', sans-serif", textAlign: "center", color: "#f9fafb", fontWeight: 800, fontSize: "28px", marginBottom: "24px", letterSpacing: "-0.02em" }}>Your Analytics</h1>
       <div style={{ display: "flex", gap: "8px", justifyContent: "center", marginBottom: "28px" }}>
         {[["7days", "7 Days"], ["30days", "30 Days"], ["year", "Year"], ["all", "All Time"]].map(([val, label]) => (
-          <button key={val} onClick={() => setRange(val)} style={{ padding: "7px 18px", borderRadius: "999px", border: "1px solid", borderColor: range === val ? "#2563eb" : "#374151", background: range === val ? "#2563eb" : "#1f2937", color: range === val ? "#fff" : "#9ca3af", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}>{label}</button>
+          <button key={val} onClick={() => setRange(val)} style={{ padding: "7px 18px", borderRadius: "999px", border: "1px solid", borderColor: range === val ? "#2563eb" : "#374151", background: range === val ? "#2563eb" : "#111827", color: range === val ? "#fff" : "#9ca3af", cursor: "pointer", fontWeight: 600, fontSize: "13px", transition: "all 0.15s", fontFamily: "inherit" }}>{label}</button>
         ))}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "12px", marginBottom: "28px" }}>
         {stats.map((stat, i) => (
-          <div key={i} style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: "12px", padding: "16px 14px" }}>
-            <div style={{ fontSize: "22px", marginBottom: "6px" }}>{stat.icon}</div>
-            <div style={{ color: "#6b7280", fontSize: "11px", marginBottom: "4px" }}>{stat.label}</div>
-            <div style={{ color: "#f9fafb", fontWeight: 800, fontSize: "20px" }}>{stat.value}</div>
-            {stat.sub && <div style={{ color: "#4b5563", fontSize: "10px", marginTop: "4px" }}>{stat.sub}</div>}
+          <div key={i} style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: "14px", padding: "20px 18px", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }}>
+            <div style={{ fontSize: "20px", marginBottom: "10px" }}>{stat.icon}</div>
+            <div style={{ color: "#6b7280", fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px" }}>{stat.label}</div>
+            <div style={{ fontFamily: "'Syne', sans-serif", color: "#f9fafb", fontWeight: 800, fontSize: "26px", letterSpacing: "-0.02em" }}>{stat.value}</div>
+            {stat.sub && <div style={{ color: "#4b5563", fontSize: "10px", marginTop: "6px" }}>{stat.sub}</div>}
           </div>
         ))}
       </div>
       <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: "14px", padding: "22px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-          <h3 style={{ margin: 0, color: "#f9fafb", fontWeight: 700 }}>Weekly Activity</h3>
+          <h3 style={{ margin: 0, fontFamily: "'Syne', sans-serif", color: "#f9fafb", fontWeight: 700, letterSpacing: "-0.01em" }}>Weekly Activity</h3>
           <div style={{ display: "flex", gap: "16px", fontSize: "11px", color: "#9ca3af" }}>
             <span><span style={{ display: "inline-block", width: "10px", height: "10px", background: "#3b82f6", borderRadius: "2px", marginRight: "5px" }} />Habits</span>
             <span><span style={{ display: "inline-block", width: "10px", height: "10px", background: "#22c55e", borderRadius: "2px", marginRight: "5px" }} />Tasks</span>
@@ -743,11 +746,11 @@ export default function HabiTick() {
   // ── UI ─────────────────────────────────────────────────────────────────────
   return (
     <div style={{ minHeight: "100vh", background: "#0d1117", fontFamily: "'DM Sans', system-ui, sans-serif", color: "#f9fafb" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap'); html, body, #root { margin: 0; padding: 0; width: 100%; min-height: 100vh; } * { box-sizing: border-box; } button,input { font-family: inherit; } ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }`}</style>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 24px", borderBottom: "1px solid #1f2937", position: "sticky", top: 0, background: "#0d1117", zIndex: 50 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ fontSize: "20px" }}>⚡</span>
-          <span style={{ fontWeight: 800, fontSize: "18px" }}>HabiTick</span>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500;600;700;800&display=swap'); html, body, #root { margin: 0; padding: 0; width: 100%; min-height: 100vh; } * { box-sizing: border-box; } button,input,textarea { font-family: inherit; } ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; } .syne { font-family: 'Syne', sans-serif !important; }`}</style>
+      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 28px", height: "60px", borderBottom: "1px solid #1f2937", position: "sticky", top: 0, background: "#0d1117", zIndex: 50 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div style={{ width: "32px", height: "32px", background: "#2563eb", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "16px", flexShrink: 0 }}>⚡</div>
+          <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "18px", letterSpacing: "-0.02em" }}>HabiTick</span>
         </div>
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
           <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: "1px solid #22c55e33", borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: "#22c55e", fontWeight: 600 }}>✓ {doneToday}/{totalToday} habits today</div>
@@ -761,9 +764,9 @@ export default function HabiTick() {
         </div>
       </header>
 
-      <div style={{ display: "flex", justifyContent: "center", gap: "6px", padding: "20px 0 10px" }}>
+      <div style={{ display: "flex", justifyContent: "center", gap: "6px", padding: "22px 0 12px" }}>
         {[["tasks", "Tasks & Habits"], ["analytics", "Analytics"], ["journal", "Journal"]].map(([key, label]) => (
-          <button key={key} onClick={() => setTab(key)} style={{ padding: "8px 22px", borderRadius: "8px", border: "1px solid", borderColor: tab === key ? "#2563eb" : "#1f2937", background: tab === key ? "#2563eb" : "#111827", color: tab === key ? "#fff" : "#9ca3af", cursor: "pointer", fontWeight: 600, fontSize: "14px" }}>{label}</button>
+          <button key={key} onClick={() => setTab(key)} style={{ padding: "8px 22px", borderRadius: "8px", border: "1px solid", borderColor: tab === key ? "#2563eb" : "#1f2937", background: tab === key ? "#2563eb" : "#111827", color: tab === key ? "#fff" : "#6b7280", cursor: "pointer", fontWeight: 600, fontSize: "14px", transition: "all 0.15s", fontFamily: "inherit" }}>{label}</button>
         ))}
       </div>
 
@@ -773,7 +776,7 @@ export default function HabiTick() {
         ) : tab === "tasks" ? (
           <>
             <section style={{ marginBottom: "36px" }}>
-              <h2 style={{ fontWeight: 800, fontSize: "20px", marginBottom: "14px" }}>Habits</h2>
+              <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "22px", marginBottom: "16px", letterSpacing: "-0.02em", color: "#f9fafb" }}>Habits</h2>
               <button onClick={() => { setEditingHabit(null); setShowHabitModal(true); }} style={{ width: "100%", padding: "13px", borderRadius: "10px", border: "1px solid #1f2937", background: "#111827", color: "#60a5fa", cursor: "pointer", fontWeight: 700, fontSize: "14px", marginBottom: "14px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", transition: "border-color 0.2s, background 0.2s" }}>+ Add New Habit</button>
               <div style={{ display: "flex", gap: "10px", marginBottom: "16px", flexWrap: "wrap", alignItems: "center" }}>
                 <button onClick={() => setShowTodayOnly(p => !p)} style={{ padding: "7px 16px", borderRadius: "8px", border: "1px solid", borderColor: showTodayOnly ? "#2563eb" : "#374151", background: showTodayOnly ? "#1d4ed8" : "#111827", color: showTodayOnly ? "#fff" : "#9ca3af", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}>{showTodayOnly ? "Show All Habits" : "Show Today's Habits"}</button>
@@ -794,7 +797,7 @@ export default function HabiTick() {
               </div>
             </section>
             <section>
-              <h2 style={{ fontWeight: 800, fontSize: "20px", marginBottom: "14px" }}>To-Do List</h2>
+              <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "22px", marginBottom: "16px", letterSpacing: "-0.02em", color: "#f9fafb" }}>To-Do List</h2>
               <button onClick={() => setShowTodoModal(true)} style={{ width: "100%", padding: "13px", borderRadius: "10px", border: "1px solid #1f2937", background: "#111827", color: "#60a5fa", cursor: "pointer", fontWeight: 700, fontSize: "14px", marginBottom: "14px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", transition: "border-color 0.2s, background 0.2s" }}>+ Add New To-Do</button>
               <button onClick={() => setShowCompleted(p => !p)} style={{ padding: "7px 16px", borderRadius: "8px", border: "1px solid #374151", background: "#111827", color: "#9ca3af", cursor: "pointer", fontWeight: 600, fontSize: "13px", marginBottom: "14px" }}>{showCompleted ? "Hide Completed" : "Show Completed"}</button>
               {visibleTodos.length === 0 && <div style={{ color: "#4b5563", fontSize: "14px" }}>Nothing here yet!</div>}
