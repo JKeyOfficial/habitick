@@ -276,10 +276,10 @@ function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused }) {
         </div>
       </div>
       <MiniCalendar habit={habit} today={today} onToggle={date => onToggle(habit.id, date)} />
-      {isScheduledToday && (
-        <button onClick={() => !isPaused && onToggle(habit.id, today)}
-          style={{ width: "100%", marginTop: "12px", padding: "10px", borderRadius: "8px", border: "none", cursor: isPaused ? "not-allowed" : "pointer", fontWeight: 700, fontSize: "13px", fontFamily: "inherit", background: isPaused ? "#1f2937" : doneToday ? "#10b98120" : "#2563eb", border: "1px solid", borderColor: isPaused ? "#1f2937" : doneToday ? "#10b98140" : "#2563eb", color: isPaused ? "#4b5563" : doneToday ? "#10b981" : "#fff", transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", opacity: isPaused ? 0.6 : 1 }}>
-          {isPaused ? "🏖️ Paused" : doneToday ? "✓ Done!" : "Mark as Done Today"}
+      {isScheduledToday && !isPaused && (
+        <button onClick={() => onToggle(habit.id, today)}
+          style={{ width: "100%", marginTop: "12px", padding: "10px", borderRadius: "8px", border: "1px solid", cursor: "pointer", fontWeight: 700, fontSize: "13px", fontFamily: "inherit", background: doneToday ? "#10b98120" : "#2563eb", borderColor: doneToday ? "#10b98140" : "#2563eb", color: doneToday ? "#10b981" : "#fff", transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+          {doneToday ? "✓ Done!" : "Mark as Done Today"}
         </button>
       )}
     </div>
