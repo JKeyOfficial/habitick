@@ -192,7 +192,7 @@ function AuthScreen() {
 
 // ─── Mini Calendar ────────────────────────────────────────────────────────────
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-function MiniCalendar({ habit, today, onToggle }) {
+function MiniCalendar({ habit, today, onToggle, pausePeriods }) {
   const now = new Date();
   const [viewYear, setViewYear] = useState(now.getFullYear());
   const [viewMonth, setViewMonth] = useState(now.getMonth());
@@ -231,16 +231,19 @@ function MiniCalendar({ habit, today, onToggle }) {
           const habitCreatedDate = parseDateLocal(createdStr);
           const isFuture = cellDate > todayDate && !isToday;
           const isTooOld = cellDate < twoDaysAgo || cellDate < habitCreatedDate;
+          const isPausedDay = isDatePaused(pausePeriods || [], dateStr);
           const dow = cellDate.getDay();
           const isScheduled = habit.frequency === "daily" || (habit.days && habit.days.includes(dow));
+          const isBlocked = isFuture || isTooOld || isPausedDay || !isScheduled;
           let bg = "transparent", color = "#4b5563", border = "none";
-          if (isToday && isDone) { bg = "#22c55e"; color = "#fff"; }
+          if (isPausedDay) { color = "#374151"; }
+          else if (isToday && isDone) { bg = "#22c55e"; color = "#fff"; }
           else if (isToday) { bg = "transparent"; color = "#60a5fa"; border = "1.5px solid #3b82f6"; }
           else if (isDone) { bg = "#16a34a33"; color = "#22c55e"; }
           else if (!isScheduled || isFuture || isTooOld) { color = "#374151"; }
           return (
-            <div key={i} onClick={() => !isFuture && !isTooOld && isScheduled && onToggle(dateStr)}
-              style={{ fontSize: "11px", borderRadius: "50%", width: "24px", height: "24px", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto", cursor: isFuture || isTooOld || !isScheduled ? "default" : "pointer", background: bg, color, border, fontWeight: isToday ? 700 : 400, transition: "background 0.15s", opacity: !isScheduled ? 0.3 : 1 }}>
+            <div key={i} onClick={() => !isBlocked && onToggle(dateStr)}
+              style={{ fontSize: "11px", borderRadius: "50%", width: "24px", height: "24px", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto", cursor: isBlocked ? "default" : "pointer", background: bg, color, border, fontWeight: isToday ? 700 : 400, transition: "background 0.15s", opacity: isPausedDay ? 0.25 : !isScheduled ? 0.3 : 1 }}>
               {cell.day}
             </div>
           );
@@ -251,7 +254,7 @@ function MiniCalendar({ habit, today, onToggle }) {
 }
 
 // ─── Habit Card ───────────────────────────────────────────────────────────────
-function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused }) {
+function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, pausePeriods }) {
   const todayDow = new Date().getDay();
   const isScheduledToday = habit.frequency === "daily" || (habit.days && habit.days.includes(todayDow));
   const doneToday = habit.completedDates?.includes(today);
@@ -275,7 +278,7 @@ function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused }) {
           <button onClick={() => onDelete(habit.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#4b5563", fontSize: "13px", padding: "4px", borderRadius: "6px" }}>✕</button>
         </div>
       </div>
-      <MiniCalendar habit={habit} today={today} onToggle={date => onToggle(habit.id, date)} />
+      <MiniCalendar habit={habit} today={today} pausePeriods={pausePeriods || []} onToggle={date => onToggle(habit.id, date)} />
       {isScheduledToday && !isPaused && (
         <button onClick={() => onToggle(habit.id, today)}
           style={{ width: "100%", marginTop: "12px", padding: "10px", borderRadius: "8px", border: "1px solid", cursor: "pointer", fontWeight: 700, fontSize: "13px", fontFamily: "inherit", background: doneToday ? "#10b98120" : "#2563eb", borderColor: doneToday ? "#10b98140" : "#2563eb", color: doneToday ? "#10b981" : "#fff", transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
@@ -1003,7 +1006,7 @@ export default function HabiTick() {
           <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "18px", letterSpacing: "-0.02em" }}>HabiTick</span>
         </div>
         <div className="ht-header-pills">
-          <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: "1px solid #22c55e33", borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: "#22c55e", fontWeight: 600 }}>✓ {doneToday}/{totalToday} habits today</div>
+          {!isPaused && <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: "1px solid #22c55e33", borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: "#22c55e", fontWeight: 600 }}>✓ {doneToday}/{totalToday} habits today</div>}
           <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: `1px solid ${isPaused ? "#f59e0b66" : "#3b82f633"}`, borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: isPaused ? "#fcd34d" : "#60a5fa", fontWeight: 600 }}>
             {isPaused ? "⏸ Streak frozen" : `🔥 Streak: ${currentStreak} days`}
           </div>
@@ -1052,7 +1055,7 @@ export default function HabiTick() {
               )}
               <div className="ht-habit-grid">
                 {todayHabits.length === 0 && <div style={{ color: "#4b5563", fontSize: "14px", padding: "20px 0" }}>No habits yet. Add your first one!</div>}
-                {todayHabits.map(h => <HabitCard key={h.id} habit={h} today={today} onToggle={toggleHabit} onDelete={deleteHabit} isPaused={isPaused} onEdit={habit => { setEditingHabit(habit); setShowHabitModal(true); }} />)}
+                {todayHabits.map(h => <HabitCard key={h.id} habit={h} today={today} onToggle={toggleHabit} onDelete={deleteHabit} isPaused={isPaused} pausePeriods={pausePeriods} onEdit={habit => { setEditingHabit(habit); setShowHabitModal(true); }} />)}
               </div>
             </section>
             <section>
@@ -1087,7 +1090,7 @@ export default function HabiTick() {
       {/* Mobile streak bar */}
       <style>{`@media (max-width: 640px) { .ht-mobile-streak { display: flex !important; } }`}</style>
       <div className="ht-mobile-streak" style={{ display: "none", position: "fixed", top: "60px", left: 0, right: 0, background: "#0d1117", borderBottom: "1px solid #1f2937", padding: "8px 16px", gap: "8px", zIndex: 40, justifyContent: "center" }}>
-        <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: "1px solid #22c55e33", borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: "#22c55e", fontWeight: 600 }}>✓ {doneToday}/{totalToday} today</div>
+        {!isPaused && <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: "1px solid #22c55e33", borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: "#22c55e", fontWeight: 600 }}>✓ {doneToday}/{totalToday} today</div>}
         <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: `1px solid ${isPaused ? "#f59e0b66" : "#3b82f633"}`, borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: isPaused ? "#fcd34d" : "#60a5fa", fontWeight: 600 }}>
           {isPaused ? "⏸ Frozen" : `🔥 ${currentStreak} days`}
         </div>
