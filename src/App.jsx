@@ -616,6 +616,39 @@ function JournalTab({ journalEntries, setJournalEntries, session, today }) {
 }
 
 
+// ─── DragSheet ────────────────────────────────────────────────────────────────
+function DragSheet({ onClose, children }) {
+  const [dragY, setDragY] = useState(0);
+  const [startY, setStartY] = useState(null);
+  const [dragging, setDragging] = useState(false);
+
+  const onTouchStart = e => { setStartY(e.touches[0].clientY); setDragging(true); };
+  const onTouchMove = e => {
+    if (!dragging || startY === null) return;
+    const delta = e.touches[0].clientY - startY;
+    if (delta > 0) setDragY(delta);
+  };
+  const onTouchEnd = () => {
+    if (dragY > 120) { onClose(); }
+    setDragY(0); setStartY(null); setDragging(false);
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#000d", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: "20px 20px 0 0", padding: "16px 24px 40px", width: "100%", maxWidth: "480px", maxHeight: "92vh", overflowY: dragY > 10 ? "hidden" : "auto", transform: `translateY(${dragY}px)`, transition: dragging ? "none" : "transform 0.3s ease", willChange: "transform", touchAction: "pan-x" }}>
+        {/* Drag handle */}
+        <div style={{ width: "40px", height: "4px", background: "#374151", borderRadius: "999px", margin: "0 auto 20px", cursor: "grab" }} />
+        {children}
+      </div>
+    </div>
+  );
+}
+
 // ─── Profile Modal ────────────────────────────────────────────────────────────
 function ProfileModal({ session, profile, onUpdate, onClose }) {
   const [tab, setTab] = useState("profile");
@@ -716,16 +749,13 @@ function ProfileModal({ session, profile, onUpdate, onClose }) {
   const tabStyle = (key) => ({ flex: 1, padding: "8px 6px", borderRadius: "8px", border: "1px solid", borderColor: tab === key ? "#2563eb" : "#1f2937", background: tab === key ? "#2563eb" : "transparent", color: tab === key ? "#fff" : "#6b7280", cursor: "pointer", fontWeight: 600, fontSize: "12px", fontFamily: "inherit", transition: "all 0.15s" });
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#000d", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={e => e.target === e.currentTarget && onClose()}>
+    <DragSheet onClose={onClose}>
       {/* Toast */}
       {toast && (
         <div style={{ position: "fixed", top: "20px", left: "50%", transform: "translateX(-50%)", background: toast.type === "error" ? "#7f1d1d" : "#064e3b", border: `1px solid ${toast.type === "error" ? "#f87171" : "#10b981"}`, borderRadius: "10px", padding: "10px 20px", color: toast.type === "error" ? "#fca5a5" : "#6ee7b7", fontWeight: 600, fontSize: "14px", zIndex: 300, whiteSpace: "nowrap", boxShadow: "0 8px 24px rgba(0,0,0,0.4)", animation: "fadeUp 0.2s ease" }}>
           {toast.type !== "error" && "✓ "}{toast.msg}
         </div>
       )}
-      <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: "20px 20px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: "480px", maxHeight: "92vh", overflowY: "auto" }}>
-        {/* Handle bar */}
-        <div style={{ width: "40px", height: "4px", background: "#374151", borderRadius: "999px", margin: "0 auto 24px" }} />
 
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
@@ -803,8 +833,7 @@ function ProfileModal({ session, profile, onUpdate, onClose }) {
         <div style={{ borderTop: "1px solid #1f2937", marginTop: "24px", paddingTop: "16px" }}>
           <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "1px solid #374151", background: "transparent", color: "#6b7280", fontWeight: 600, fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>Sign out</button>
         </div>
-      </div>
-    </div>
+    </DragSheet>
   );
 }
 
@@ -959,7 +988,7 @@ export default function HabiTick() {
         .ht-header-username { display: inline; }
         @media (max-width: 640px) {
           .ht-header-pills { display: none; }
-          .ht-main { padding: 16px 16px 90px; }
+          .ht-main { padding: 70px 16px 90px; }
           .ht-tabs { display: none; }
           .ht-habit-grid { flex-direction: column; }
           .ht-habit-grid > * { max-width: 100% !important; min-width: 0 !important; flex: 1 1 100% !important; }
