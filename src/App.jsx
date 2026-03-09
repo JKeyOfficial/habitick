@@ -508,19 +508,29 @@ function JournalTab({ journalEntries, setJournalEntries, session, today }) {
   // Autosave 1.5s after user stops typing
   useEffect(() => {
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-    if (!draft.trim() && !mood) return;
+    if (!draft.trim() && !mood) { setAutoSaveStatus(""); return; }
     setAutoSaveStatus("saving");
+    const userId = session?.user?.id;
+    const dateSnap = currentDate;
+    const draftSnap = draft;
+    const moodSnap = mood;
     autoSaveTimer.current = setTimeout(async () => {
-      const payload = { user_id: session.user.id, entry_date: currentDate, content: draft.trim(), mood: mood || null };
-      const { data, error } = await supabase.from("journal_entries").upsert(payload, { onConflict: "user_id,entry_date" }).select().single();
-      if (!error && data) {
-        setJournalEntries(prev => ({ ...prev, [currentDate]: data }));
-        setAutoSaveStatus("saved");
-        setTimeout(() => setAutoSaveStatus(""), 2000);
+      try {
+        const payload = { user_id: userId, entry_date: dateSnap, content: draftSnap.trim(), mood: moodSnap || null };
+        const { data, error } = await supabase.from("journal_entries").upsert(payload, { onConflict: "user_id,entry_date" }).select().single();
+        if (!error && data) {
+          setJournalEntries(prev => ({ ...prev, [dateSnap]: data }));
+          setAutoSaveStatus("saved");
+          setTimeout(() => setAutoSaveStatus(""), 2000);
+        } else {
+          setAutoSaveStatus("");
+        }
+      } catch(e) {
+        setAutoSaveStatus("");
       }
     }, 1500);
     return () => clearTimeout(autoSaveTimer.current);
-  }, [draft, mood]);
+  }, [draft, mood, currentDate]);
 
   const goBack = () => {
     const d = parseDateLocal(currentDate);
