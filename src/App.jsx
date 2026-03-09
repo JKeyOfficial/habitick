@@ -270,7 +270,7 @@ function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, pausePe
                 {DAYS_SHORT.map((d, i) => <span key={i} style={{ fontSize: "10px", padding: "2px 7px", borderRadius: "999px", fontWeight: 600, background: habit.days.includes(i) ? "#2563eb" : "#1f293700", border: "1px solid", borderColor: habit.days.includes(i) ? "#2563eb" : "#1f2937", color: habit.days.includes(i) ? "#fff" : "#4b5563" }}>{d}</span>)}
               </div>
             )}
-            {habit.frequency === "daily" && <span style={{ fontSize: "10px", padding: "2px 8px", borderRadius: "999px", background: "#1d4ed820", border: "1px solid #2563eb30", color: "#60a5fa", fontWeight: 600, marginTop: "6px", display: "inline-block" }}>Daily</span>}
+            {habit.frequency === "daily" && <span style={{ fontSize: "10px", padding: "2px 8px", borderRadius: "999px", background: "#2563eb", border: "1px solid #2563eb", color: "#fff", fontWeight: 600, marginTop: "6px", display: "inline-block" }}>Daily</span>}
           </div>
         </div>
         <div style={{ display: "flex", gap: "4px" }}>
@@ -491,6 +491,8 @@ function JournalTab({ journalEntries, setJournalEntries, session, today }) {
   const [mood, setMood] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState(""); // "", "saving", "saved"
+  const autoSaveTimer = useRef(null);
 
   const sortedDates = Object.keys(journalEntries).sort();
   const entry = journalEntries[currentDate];
@@ -500,7 +502,25 @@ function JournalTab({ journalEntries, setJournalEntries, session, today }) {
     setDraft(entry?.content || "");
     setMood(entry?.mood || "");
     setSaved(false);
+    setAutoSaveStatus("");
   }, [currentDate]);
+
+  // Autosave 1.5s after user stops typing
+  useEffect(() => {
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    if (!draft.trim() && !mood) return;
+    setAutoSaveStatus("saving");
+    autoSaveTimer.current = setTimeout(async () => {
+      const payload = { user_id: session.user.id, entry_date: currentDate, content: draft.trim(), mood: mood || null };
+      const { data, error } = await supabase.from("journal_entries").upsert(payload, { onConflict: "user_id,entry_date" }).select().single();
+      if (!error && data) {
+        setJournalEntries(prev => ({ ...prev, [currentDate]: data }));
+        setAutoSaveStatus("saved");
+        setTimeout(() => setAutoSaveStatus(""), 2000);
+      }
+    }, 1500);
+    return () => clearTimeout(autoSaveTimer.current);
+  }, [draft, mood]);
 
   const goBack = () => {
     const d = parseDateLocal(currentDate);
@@ -561,7 +581,10 @@ function JournalTab({ journalEntries, setJournalEntries, session, today }) {
             {isToday ? "Today" : formatDisplayDate(currentDate)}
           </div>
           {isToday && <div style={{ color: "#6b7280", fontSize: "12px", marginTop: "2px" }}>{formatDisplayDate(currentDate)}</div>}
-          {entry && <div style={{ color: "#22c55e", fontSize: "11px", marginTop: "4px" }}>● Entry saved</div>}
+          <div style={{ fontSize: "11px", marginTop: "4px", height: "14px", color: autoSaveStatus === "saved" ? "#22c55e" : "#4b5563" }}>
+            {autoSaveStatus === "saving" && "● Saving..."}
+            {autoSaveStatus === "saved" && "● Saved"}
+          </div>
         </div>
         <div style={{ display: "flex", gap: "6px" }}>
           <button onClick={goForward} disabled={isToday} title="Next day" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #374151", background: "#111827", color: isToday ? "#2d3748" : "#9ca3af", cursor: isToday ? "default" : "pointer", fontSize: "16px", fontWeight: 700 }}>›</button>
@@ -602,7 +625,7 @@ function JournalTab({ journalEntries, setJournalEntries, session, today }) {
 
         {/* Save button */}
         {!isFuture && (
-          <button onClick={save} disabled={saving || (!draft.trim() && !mood)} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "none", background: saving || (!draft.trim() && !mood) ? "#1f2937" : "#2563eb", color: saving || (!draft.trim() && !mood) ? "#4b5563" : "#fff", fontWeight: 700, fontSize: "14px", cursor: saving || (!draft.trim() && !mood) ? "default" : "pointer", transition: "background 0.2s", fontFamily: "inherit" }}>
+          <button onClick={save} disabled={saving || (!draft.trim() && !mood)} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "none", background: saving || (!draft.trim() && !mood) ? "#1f2937" : "#2563eb", color: saving || (!draft.trim() && !mood) ? "#4b5563" : "#fff", fontWeight: 700, fontSize: "14px", cursor: saving || (!draft.trim() && !mood) ? "default" : "pointer", transition: "background 0.2s", fontFamily: "inherit", display: "none" }}>
             {saving ? "Saving..." : "Save Entry"}
           </button>
         )}
