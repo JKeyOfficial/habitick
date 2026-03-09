@@ -3,7 +3,7 @@
 // Then fill in your SUPABASE_URL and SUPABASE_ANON_KEY below.
 // Run the schema.sql in your Supabase SQL editor first.
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 // ── Replace these with your project values ───────────────────────────────────
@@ -491,6 +491,10 @@ function JournalTab({ journalEntries, setJournalEntries, session, today }) {
   const [mood, setMood] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const autosaveTimer = useRef(null);
+  const latestDraft = useRef(draft);
+  const latestMood = useRef(mood);
+  const latestDate = useRef(currentDate);
 
   const sortedDates = Object.keys(journalEntries).sort();
   const entry = journalEntries[currentDate];
@@ -501,6 +505,32 @@ function JournalTab({ journalEntries, setJournalEntries, session, today }) {
     setMood(entry?.mood || "");
     setSaved(false);
   }, [currentDate]);
+
+  // Keep refs in sync
+  useEffect(() => { latestDraft.current = draft; }, [draft]);
+  useEffect(() => { latestMood.current = mood; }, [mood]);
+  useEffect(() => { latestDate.current = currentDate; }, [currentDate]);
+
+  const save = async (draftVal, moodVal, dateVal) => {
+    if (!draftVal.trim() && !moodVal) return;
+    setSaving(true);
+    const payload = { user_id: session.user.id, entry_date: dateVal, content: draftVal.trim(), mood: moodVal || null };
+    const { data, error } = await supabase.from("journal_entries").upsert(payload, { onConflict: "user_id,entry_date" }).select().single();
+    if (!error && data) {
+      setJournalEntries(prev => ({ ...prev, [dateVal]: data }));
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }
+    setSaving(false);
+  };
+
+  const scheduleAutosave = () => {
+    if (latestDate.current > today) return;
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    autosaveTimer.current = setTimeout(() => {
+      save(latestDraft.current, latestMood.current, latestDate.current);
+    }, 1000);
+  };
 
   const goBack = () => {
     const d = parseDateLocal(currentDate);
@@ -526,19 +556,6 @@ function JournalTab({ journalEntries, setJournalEntries, session, today }) {
   const hasNextWritten = sortedDates.some(d => d > currentDate);
   const isToday = currentDate === today;
   const isFuture = currentDate > today;
-
-  const save = async () => {
-    if (!draft.trim() && !mood) return;
-    setSaving(true);
-    const payload = { user_id: session.user.id, entry_date: currentDate, content: draft.trim(), mood: mood || null };
-    const { data, error } = await supabase.from("journal_entries").upsert(payload, { onConflict: "user_id,entry_date" }).select().single();
-    if (!error && data) {
-      setJournalEntries(prev => ({ ...prev, [currentDate]: data }));
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    }
-    setSaving(false);
-  };
 
   const formatDisplayDate = (ds) => {
     const d = parseDateLocal(ds);
@@ -576,7 +593,7 @@ function JournalTab({ journalEntries, setJournalEntries, session, today }) {
           <div style={{ color: "#6b7280", fontSize: "12px", fontWeight: 600, marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}>How are you feeling?</div>
           <div style={{ display: "flex", gap: "8px" }}>
             {MOOD_OPTIONS.map(m => (
-              <button key={m.value} onClick={() => setMood(prev => prev === m.value ? "" : m.value)} style={{ flex: 1, padding: "10px 6px", borderRadius: "10px", border: "1px solid", borderColor: mood === m.value ? "#2563eb" : "#1f2937", background: mood === m.value ? "#1d4ed820" : "#0d1117", cursor: "pointer", textAlign: "center", transition: "all 0.15s" }}>
+              <button key={m.value} onClick={() => { setMood(prev => prev === m.value ? "" : m.value); scheduleAutosave(); }} style={{ flex: 1, padding: "10px 6px", borderRadius: "10px", border: "1px solid", borderColor: mood === m.value ? "#2563eb" : "#1f2937", background: mood === m.value ? "#1d4ed820" : "#0d1117", cursor: "pointer", textAlign: "center", transition: "all 0.15s" }}>
                 <div style={{ fontSize: "20px", marginBottom: "4px" }}>{m.emoji}</div>
                 <div style={{ fontSize: "11px", color: mood === m.value ? "#60a5fa" : "#4b5563", fontWeight: 600 }}>{m.label}</div>
               </button>
@@ -589,23 +606,16 @@ function JournalTab({ journalEntries, setJournalEntries, session, today }) {
           <div style={{ color: "#6b7280", fontSize: "12px", fontWeight: 600, marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Your thoughts</div>
           <textarea
             value={draft}
-            onChange={e => { if (e.target.value.length <= CHAR_LIMIT) setDraft(e.target.value); }}
+            onChange={e => { if (e.target.value.length <= CHAR_LIMIT) { setDraft(e.target.value); scheduleAutosave(); } }}
             placeholder={isFuture ? "" : "Write anything — what happened today, how you feel, what you're grateful for..."}
             disabled={isFuture}
             style={{ width: "100%", minHeight: "220px", padding: "14px", borderRadius: "10px", border: "1px solid #1f2937", background: "#0d1117", color: "#e5e7eb", fontSize: "15px", fontFamily: "inherit", lineHeight: 1.7, resize: "vertical", outline: "none", boxSizing: "border-box", cursor: isFuture ? "default" : "text" }}
           />
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: "6px" }}>
             <span style={{ fontSize: "11px", color: charsLeft < 100 ? "#f87171" : "#4b5563" }}>{charsLeft} characters remaining</span>
-            {saved && <span style={{ fontSize: "11px", color: "#22c55e", fontWeight: 600 }}>✓ Saved</span>}
+            <span style={{ fontSize: "11px", color: saving ? "#6b7280" : "#22c55e", fontWeight: 600, minWidth: "60px", textAlign: "right" }}>{saving ? "Saving..." : saved ? "✓ Saved" : ""}</span>
           </div>
         </div>
-
-        {/* Save button */}
-        {!isFuture && (
-          <button onClick={save} disabled={saving || (!draft.trim() && !mood)} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "none", background: saving || (!draft.trim() && !mood) ? "#1f2937" : "#2563eb", color: saving || (!draft.trim() && !mood) ? "#4b5563" : "#fff", fontWeight: 700, fontSize: "14px", cursor: saving || (!draft.trim() && !mood) ? "default" : "pointer", transition: "background 0.2s", fontFamily: "inherit" }}>
-            {saving ? "Saving..." : "Save Entry"}
-          </button>
-        )}
       </div>
 
       {/* Entry count */}
