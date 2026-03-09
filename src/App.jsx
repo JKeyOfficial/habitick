@@ -270,7 +270,7 @@ function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, pausePe
                 {DAYS_SHORT.map((d, i) => <span key={i} style={{ fontSize: "10px", padding: "2px 7px", borderRadius: "999px", fontWeight: 600, background: habit.days.includes(i) ? "#2563eb" : "#1f293700", border: "1px solid", borderColor: habit.days.includes(i) ? "#2563eb" : "#1f2937", color: habit.days.includes(i) ? "#fff" : "#4b5563" }}>{d}</span>)}
               </div>
             )}
-            {habit.frequency === "daily" && <span style={{ fontSize: "10px", padding: "2px 8px", borderRadius: "999px", background: "#2563eb", border: "1px solid #2563eb", color: "#fff", fontWeight: 600, marginTop: "6px", display: "inline-block" }}>Daily</span>}
+            {habit.frequency === "daily" && <span style={{ fontSize: "10px", padding: "2px 8px", borderRadius: "999px", background: "#1d4ed820", border: "1px solid #2563eb30", color: "#60a5fa", fontWeight: 600, marginTop: "6px", display: "inline-block" }}>Daily</span>}
           </div>
         </div>
         <div style={{ display: "flex", gap: "4px" }}>
@@ -490,102 +490,93 @@ function JournalTab({ journalEntries, setJournalEntries, session, today }) {
   const [draft, setDraft] = useState("");
   const [mood, setMood] = useState("");
   const [saving, setSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState(""); // "" | "saving" | "saved"
-  const timerRef = useRef(null);
+  const [saved, setSaved] = useState(false);
 
-  const entry = journalEntries[currentDate];
   const sortedDates = Object.keys(journalEntries).sort();
+  const entry = journalEntries[currentDate];
 
-  // When date changes, load the saved entry
+  // Load entry into draft when date changes
   useEffect(() => {
-    setDraft(journalEntries[currentDate]?.content || "");
-    setMood(journalEntries[currentDate]?.mood || "");
-    setSaveStatus("");
-    if (timerRef.current) clearTimeout(timerRef.current);
+    setDraft(entry?.content || "");
+    setMood(entry?.mood || "");
+    setSaved(false);
   }, [currentDate]);
 
-  // Autosave after 1.5s idle
-  const triggerSave = (newDraft, newMood) => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    if (!newDraft.trim() && !newMood) { setSaveStatus(""); return; }
-    setSaveStatus("saving");
-    timerRef.current = setTimeout(async () => {
-      try {
-        const payload = { user_id: session.user.id, entry_date: currentDate, content: newDraft.trim(), mood: newMood || null };
-        const { data, error } = await supabase.from("journal_entries").upsert(payload, { onConflict: "user_id,entry_date" }).select().single();
-        if (!error && data) {
-          setJournalEntries(prev => ({ ...prev, [currentDate]: data }));
-          setSaveStatus("saved");
-          setTimeout(() => setSaveStatus(""), 2500);
-        } else {
-          setSaveStatus("");
-        }
-      } catch (e) {
-        setSaveStatus("");
-      }
-    }, 1500);
+  const goBack = () => {
+    const d = parseDateLocal(currentDate);
+    d.setDate(d.getDate() - 1);
+    setCurrentDate(getDateStr(d));
+  };
+  const goForward = () => {
+    if (currentDate >= today) return;
+    const d = parseDateLocal(currentDate);
+    d.setDate(d.getDate() + 1);
+    setCurrentDate(getDateStr(d));
+  };
+  const jumpPrevWritten = () => {
+    const prev = sortedDates.filter(d => d < currentDate).pop();
+    if (prev) setCurrentDate(prev);
+  };
+  const jumpNextWritten = () => {
+    const next = sortedDates.find(d => d > currentDate);
+    if (next) setCurrentDate(next);
   };
 
-  const handleDraftChange = (val) => {
-    if (val.length > CHAR_LIMIT) return;
-    setDraft(val);
-    triggerSave(val, mood);
-  };
-
-  const handleMoodChange = (val) => {
-    const newMood = mood === val ? "" : val;
-    setMood(newMood);
-    triggerSave(draft, newMood);
-  };
-
-  const goBack = () => { const d = parseDateLocal(currentDate); d.setDate(d.getDate()-1); setCurrentDate(getDateStr(d)); };
-  const goForward = () => { if (currentDate >= today) return; const d = parseDateLocal(currentDate); d.setDate(d.getDate()+1); setCurrentDate(getDateStr(d)); };
-  const jumpPrev = () => { const p = sortedDates.filter(d => d < currentDate).pop(); if (p) setCurrentDate(p); };
-  const jumpNext = () => { const n = sortedDates.find(d => d > currentDate); if (n) setCurrentDate(n); };
-
-  const hasPrev = sortedDates.some(d => d < currentDate);
-  const hasNext = sortedDates.some(d => d > currentDate);
+  const hasPrevWritten = sortedDates.some(d => d < currentDate);
+  const hasNextWritten = sortedDates.some(d => d > currentDate);
   const isToday = currentDate === today;
   const isFuture = currentDate > today;
-  const charsLeft = CHAR_LIMIT - draft.length;
 
-  const formatDate = (ds) => {
-    const d = parseDateLocal(ds);
-    return d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const save = async () => {
+    if (!draft.trim() && !mood) return;
+    setSaving(true);
+    const payload = { user_id: session.user.id, entry_date: currentDate, content: draft.trim(), mood: mood || null };
+    const { data, error } = await supabase.from("journal_entries").upsert(payload, { onConflict: "user_id,entry_date" }).select().single();
+    if (!error && data) {
+      setJournalEntries(prev => ({ ...prev, [currentDate]: data }));
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }
+    setSaving(false);
   };
 
-  const btnStyle = (active) => ({ padding: "8px 12px", borderRadius: "8px", border: "1px solid #374151", background: "#111827", color: active ? "#9ca3af" : "#2d3748", cursor: active ? "pointer" : "default", fontSize: "16px", fontWeight: 700 });
+  const formatDisplayDate = (ds) => {
+    const d = parseDateLocal(ds);
+    const opts = { weekday: "long", day: "numeric", month: "long", year: "numeric" };
+    return d.toLocaleDateString("en-GB", opts);
+  };
+
+  const charsLeft = CHAR_LIMIT - draft.length;
 
   return (
     <div style={{ maxWidth: "680px", margin: "0 auto", padding: "10px 0" }}>
       {/* Date nav */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "28px" }}>
         <div style={{ display: "flex", gap: "6px" }}>
-          <button onClick={jumpPrev} disabled={!hasPrev} style={btnStyle(hasPrev)}>«</button>
-          <button onClick={goBack} style={btnStyle(true)}>‹</button>
+          <button onClick={jumpPrevWritten} disabled={!hasPrevWritten} title="Previous entry" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #374151", background: "#111827", color: hasPrevWritten ? "#9ca3af" : "#2d3748", cursor: hasPrevWritten ? "pointer" : "default", fontSize: "16px", fontWeight: 700 }}>«</button>
+          <button onClick={goBack} title="Previous day" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #374151", background: "#111827", color: "#9ca3af", cursor: "pointer", fontSize: "16px", fontWeight: 700 }}>‹</button>
         </div>
         <div style={{ textAlign: "center" }}>
-          <div style={{ color: "#f9fafb", fontWeight: 700, fontSize: "16px" }}>{isToday ? "Today" : formatDate(currentDate)}</div>
-          {isToday && <div style={{ color: "#6b7280", fontSize: "12px", marginTop: "2px" }}>{formatDate(currentDate)}</div>}
-          <div style={{ fontSize: "11px", height: "16px", marginTop: "4px", color: saveStatus === "saved" ? "#22c55e" : "#4b5563" }}>
-            {saveStatus === "saving" ? "● Saving..." : saveStatus === "saved" ? "✓ Saved" : entry ? "● Entry saved" : ""}
+          <div style={{ color: "#f9fafb", fontWeight: 700, fontSize: "16px" }}>
+            {isToday ? "Today" : formatDisplayDate(currentDate)}
           </div>
+          {isToday && <div style={{ color: "#6b7280", fontSize: "12px", marginTop: "2px" }}>{formatDisplayDate(currentDate)}</div>}
+          {entry && <div style={{ color: "#22c55e", fontSize: "11px", marginTop: "4px" }}>● Entry saved</div>}
         </div>
         <div style={{ display: "flex", gap: "6px" }}>
-          <button onClick={goForward} disabled={isToday} style={btnStyle(!isToday)}>›</button>
-          <button onClick={jumpNext} disabled={!hasNext} style={btnStyle(hasNext)}>»</button>
+          <button onClick={goForward} disabled={isToday} title="Next day" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #374151", background: "#111827", color: isToday ? "#2d3748" : "#9ca3af", cursor: isToday ? "default" : "pointer", fontSize: "16px", fontWeight: 700 }}>›</button>
+          <button onClick={jumpNextWritten} disabled={!hasNextWritten} title="Next entry" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #374151", background: "#111827", color: hasNextWritten ? "#9ca3af" : "#2d3748", cursor: hasNextWritten ? "pointer" : "default", fontSize: "16px", fontWeight: 700 }}>»</button>
         </div>
       </div>
 
-      {/* Card */}
+      {/* Page */}
       <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: "16px", padding: "28px" }}>
         {/* Mood */}
         <div style={{ marginBottom: "20px" }}>
           <div style={{ color: "#6b7280", fontSize: "12px", fontWeight: 600, marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}>How are you feeling?</div>
           <div style={{ display: "flex", gap: "8px" }}>
             {MOOD_OPTIONS.map(m => (
-              <button key={m.value} onClick={() => !isFuture && handleMoodChange(m.value)}
-                style={{ flex: 1, padding: "10px 6px", borderRadius: "10px", border: "1px solid", borderColor: mood === m.value ? "#2563eb" : "#1f2937", background: mood === m.value ? "#1d4ed820" : "#0d1117", cursor: isFuture ? "default" : "pointer", textAlign: "center", transition: "all 0.15s" }}>
+              <button key={m.value} onClick={() => setMood(prev => prev === m.value ? "" : m.value)} style={{ flex: 1, padding: "10px 6px", borderRadius: "10px", border: "1px solid", borderColor: mood === m.value ? "#2563eb" : "#1f2937", background: mood === m.value ? "#1d4ed820" : "#0d1117", cursor: "pointer", textAlign: "center", transition: "all 0.15s" }}>
                 <div style={{ fontSize: "20px", marginBottom: "4px" }}>{m.emoji}</div>
                 <div style={{ fontSize: "11px", color: mood === m.value ? "#60a5fa" : "#4b5563", fontWeight: 600 }}>{m.label}</div>
               </button>
@@ -593,22 +584,31 @@ function JournalTab({ journalEntries, setJournalEntries, session, today }) {
           </div>
         </div>
 
-        {/* Text */}
-        <div>
+        {/* Text area */}
+        <div style={{ marginBottom: "16px" }}>
           <div style={{ color: "#6b7280", fontSize: "12px", fontWeight: 600, marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Your thoughts</div>
           <textarea
             value={draft}
-            onChange={e => !isFuture && handleDraftChange(e.target.value)}
+            onChange={e => { if (e.target.value.length <= CHAR_LIMIT) setDraft(e.target.value); }}
             placeholder={isFuture ? "" : "Write anything — what happened today, how you feel, what you're grateful for..."}
             disabled={isFuture}
-            style={{ width: "100%", minHeight: "220px", padding: "14px", borderRadius: "10px", border: "1px solid #1f2937", background: "#0d1117", color: "#e5e7eb", fontSize: "15px", fontFamily: "inherit", lineHeight: 1.7, resize: "vertical", outline: "none", boxSizing: "border-box" }}
+            style={{ width: "100%", minHeight: "220px", padding: "14px", borderRadius: "10px", border: "1px solid #1f2937", background: "#0d1117", color: "#e5e7eb", fontSize: "15px", fontFamily: "inherit", lineHeight: 1.7, resize: "vertical", outline: "none", boxSizing: "border-box", cursor: isFuture ? "default" : "text" }}
           />
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: "6px" }}>
-            <span style={{ fontSize: "11px", color: charsLeft < 100 ? "#f87171" : "#4b5563" }}>{charsLeft} chars remaining</span>
+            <span style={{ fontSize: "11px", color: charsLeft < 100 ? "#f87171" : "#4b5563" }}>{charsLeft} characters remaining</span>
+            {saved && <span style={{ fontSize: "11px", color: "#22c55e", fontWeight: 600 }}>✓ Saved</span>}
           </div>
         </div>
+
+        {/* Save button */}
+        {!isFuture && (
+          <button onClick={save} disabled={saving || (!draft.trim() && !mood)} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "none", background: saving || (!draft.trim() && !mood) ? "#1f2937" : "#2563eb", color: saving || (!draft.trim() && !mood) ? "#4b5563" : "#fff", fontWeight: 700, fontSize: "14px", cursor: saving || (!draft.trim() && !mood) ? "default" : "pointer", transition: "background 0.2s", fontFamily: "inherit" }}>
+            {saving ? "Saving..." : "Save Entry"}
+          </button>
+        )}
       </div>
 
+      {/* Entry count */}
       {sortedDates.length > 0 && (
         <div style={{ textAlign: "center", marginTop: "16px", color: "#4b5563", fontSize: "12px" }}>
           {sortedDates.length} {sortedDates.length === 1 ? "entry" : "entries"} written
@@ -617,6 +617,7 @@ function JournalTab({ journalEntries, setJournalEntries, session, today }) {
     </div>
   );
 }
+
 
 // ─── DragSheet ────────────────────────────────────────────────────────────────
 function DragSheet({ onClose, children }) {
