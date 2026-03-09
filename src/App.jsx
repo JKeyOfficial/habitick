@@ -270,7 +270,7 @@ function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, pausePe
                 {DAYS_SHORT.map((d, i) => <span key={i} style={{ fontSize: "10px", padding: "2px 7px", borderRadius: "999px", fontWeight: 600, background: habit.days.includes(i) ? "#2563eb" : "#1f293700", border: "1px solid", borderColor: habit.days.includes(i) ? "#2563eb" : "#1f2937", color: habit.days.includes(i) ? "#fff" : "#4b5563" }}>{d}</span>)}
               </div>
             )}
-            {habit.frequency === "daily" && <span style={{ fontSize: "10px", padding: "2px 8px", borderRadius: "999px", background: "#1d4ed820", border: "1px solid #2563eb30", color: "#60a5fa", fontWeight: 600, marginTop: "6px", display: "inline-block" }}>Daily</span>}
+            {habit.frequency === "daily" && <span style={{ fontSize: "10px", padding: "2px 7px", borderRadius: "999px", background: "#2563eb", border: "1px solid #2563eb", color: "#fff", fontWeight: 600, marginTop: "6px", display: "inline-block" }}>Daily</span>}
           </div>
         </div>
         <div style={{ display: "flex", gap: "4px" }}>
