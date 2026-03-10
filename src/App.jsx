@@ -82,7 +82,8 @@ function calcStreak(habits, pausePeriods) {
     if (isDatePaused(pausePeriods, ds)) { d.setDate(d.getDate() - 1); continue; } // skip paused days
     const complete = isDayComplete(normalisedHabits, ds);
     if (complete === null) { streak++; d.setDate(d.getDate() - 1); continue; } // rest day counts
-    if (!complete) break;                                        // missed a day — streak ends
+    if (!complete && ds === today) { d.setDate(d.getDate() - 1); continue; }   // today not done yet — skip, don't break
+    if (!complete) break;                                        // missed a past day — streak ends
     streak++;
     d.setDate(d.getDate() - 1);
   }
@@ -134,8 +135,7 @@ function AuthScreen() {
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700;800&display=swap'); html, body, #root { margin: 0; padding: 0; width: 100%; min-height: 100vh; } * { box-sizing: border-box; } button,input { font-family: inherit; }`}</style>
       <div style={{ width: "380px", maxWidth: "90vw" }}>
         <div style={{ textAlign: "center", marginBottom: "32px" }}>
-        <div style={{ fontSize: "36px", marginBottom: "8px" }}>
-  <img src="/habitick-blue-logo.png" style={{ width: "36px", height: "36px" }} /></div>
+          <div style={{ fontSize: "36px", marginBottom: "8px" }}>⚡</div>
           <div style={{ fontWeight: 800, fontSize: "24px", color: "#f9fafb" }}>HabiTick</div>
           <div style={{ color: "#6b7280", fontSize: "14px", marginTop: "4px" }}>
             {mode === "signup" ? "Create your account" : mode === "forgot" ? "Reset your password" : "Welcome back"}
