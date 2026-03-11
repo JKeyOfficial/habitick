@@ -13,6 +13,16 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// ── Stripe ────────────────────────────────────────────────────────────────────
+// This is called via your Vercel serverless function — no key needed in frontend
+const STRIPE_CHECKOUT_URL = "/api/create-checkout"; // Vercel function
+
+// ── Plan limits ───────────────────────────────────────────────────────────────
+const FREE_HABIT_LIMIT = 5;
+const FREE_TODO_LIMIT = 5;        // max active (non-done) todos for free users
+const FREE_JOURNAL_DAYS = 7;      // how many days back free users can access
+const LIFETIME_USER_LIMIT = 100;  // first N users get lifetime premium
+
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -135,8 +145,7 @@ function AuthScreen() {
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700;800&display=swap'); html, body, #root { margin: 0; padding: 0; width: 100%; min-height: 100vh; } * { box-sizing: border-box; } button,input { font-family: inherit; }`}</style>
       <div style={{ width: "380px", maxWidth: "90vw" }}>
         <div style={{ textAlign: "center", marginBottom: "32px" }}>
-        <div style={{ marginBottom: "8px" }}>
-  <img src="habitick-blue-logo.png" style={{ width: "36px", height: "36px" }} /></div>
+          <div style={{ fontSize: "36px", marginBottom: "8px" }}>⚡</div>
           <div style={{ fontWeight: 800, fontSize: "24px", color: "#f9fafb" }}>HabiTick</div>
           <div style={{ color: "#6b7280", fontSize: "14px", marginTop: "4px" }}>
             {mode === "signup" ? "Create your account" : mode === "forgot" ? "Reset your password" : "Welcome back"}
@@ -194,7 +203,7 @@ function AuthScreen() {
 
 // ─── Mini Calendar ────────────────────────────────────────────────────────────
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-function MiniCalendar({ habit, today, onToggle, pausePeriods }) {
+function MiniCalendar({ habit, today, onToggle, pausePeriods, isPremium }) {
   const now = new Date();
   const [viewYear, setViewYear] = useState(now.getFullYear());
   const [viewMonth, setViewMonth] = useState(now.getMonth());
@@ -228,11 +237,17 @@ function MiniCalendar({ habit, today, onToggle, pausePeriods }) {
           const dateStr = getDateStr(cellDate);
           const isToday = isSameDay(cellDate, todayDate);
           const isDone = habit.completedDates?.includes(dateStr);
-          const twoDaysAgo = new Date(todayDate); twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+          const backdateCutoff = new Date(todayDate);
+          backdateCutoff.setHours(0, 0, 0, 0);
+          if (isPremium) {
+            backdateCutoff.setDate(backdateCutoff.getDate() - 7); // premium: 7 days back
+          } else {
+            backdateCutoff.setDate(backdateCutoff.getDate() - 1); // free: yesterday always editable
+          }
           const createdStr = (habit.createdDate || habit.created_date || getDateStr(todayDate)).substring(0, 10);
           const habitCreatedDate = parseDateLocal(createdStr);
           const isFuture = cellDate > todayDate && !isToday;
-          const isTooOld = cellDate < twoDaysAgo || cellDate < habitCreatedDate;
+          const isTooOld = cellDate < backdateCutoff || cellDate < habitCreatedDate;
           const isPausedDay = isDatePaused(pausePeriods || [], dateStr);
           const dow = cellDate.getDay();
           const isScheduled = habit.frequency === "daily" || (habit.days && habit.days.includes(dow));
@@ -256,7 +271,7 @@ function MiniCalendar({ habit, today, onToggle, pausePeriods }) {
 }
 
 // ─── Habit Card ───────────────────────────────────────────────────────────────
-function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, pausePeriods }) {
+function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, pausePeriods, isPremium }) {
   const todayDow = new Date().getDay();
   const isScheduledToday = habit.frequency === "daily" || (habit.days && habit.days.includes(todayDow));
   const doneToday = habit.completedDates?.includes(today);
@@ -280,7 +295,7 @@ function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, pausePe
           <button onClick={() => onDelete(habit.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#4b5563", fontSize: "13px", padding: "4px", borderRadius: "6px" }}>✕</button>
         </div>
       </div>
-      <div style={{ flex: 1 }}><MiniCalendar habit={habit} today={today} pausePeriods={pausePeriods || []} onToggle={date => onToggle(habit.id, date)} /></div>
+      <div style={{ flex: 1 }}><MiniCalendar habit={habit} today={today} pausePeriods={pausePeriods || []} isPremium={isPremium} onToggle={date => onToggle(habit.id, date)} /></div>
       {isScheduledToday && !isPaused && (
         <button onClick={() => onToggle(habit.id, today)}
           style={{ width: "100%", marginTop: "12px", padding: "10px", borderRadius: "8px", border: "1px solid", cursor: "pointer", fontWeight: 700, fontSize: "13px", fontFamily: "inherit", background: doneToday ? "#10b98120" : "#2563eb", borderColor: doneToday ? "#10b98140" : "#2563eb", color: doneToday ? "#10b981" : "#fff", transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
@@ -357,7 +372,118 @@ function TodoModal({ onSave, onClose }) {
 }
 
 // ─── Analytics Tab ────────────────────────────────────────────────────────────
-function AnalyticsTab({ habits, todos, pausePeriods }) {
+const MOOD_MESSAGES = [
+  (m, p) => `You've logged ${m} as your mood ${p} time${p !== 1 ? "s" : ""} this week. Keep it up! 🌟`,
+  (m, p) => `${p} day${p !== 1 ? "s" : ""} feeling ${m} this week — that's something to celebrate.`,
+  (m, p) => `This month you've felt ${m} ${p} time${p !== 1 ? "s" : ""}. Your habits are working. 💪`,
+];
+
+function MoodInsights({ journalEntries, today }) {
+  const moodLabels = { great: "Great 🌟", good: "Good 😊", okay: "Okay 😐", bad: "Bad 😔" };
+  const positive = ["great", "good"];
+
+  const getRange = (days) => {
+    const result = [];
+    for (let i = 0; i < days; i++) {
+      const d = parseDateLocal(today);
+      d.setDate(d.getDate() - i);
+      result.push(getDateStr(d));
+    }
+    return result;
+  };
+
+  const week = getRange(7);
+  const thisMonth = getRange(30);
+  const lastMonth = getRange(60).slice(30);
+
+  const countMoods = (dates) => {
+    const counts = { great: 0, good: 0, okay: 0, bad: 0 };
+    dates.forEach(d => { const m = journalEntries[d]?.mood; if (m) counts[m]++; });
+    return counts;
+  };
+
+  const weekCounts = countMoods(week);
+  const monthCounts = countMoods(thisMonth);
+  const lastMonthCounts = countMoods(lastMonth);
+
+  const totalPositiveThisMonth = positive.reduce((s, m) => s + monthCounts[m], 0);
+  const totalPositiveLastMonth = positive.reduce((s, m) => s + lastMonthCounts[m], 0);
+  const positiveTrend = lastMonthCounts > 0
+    ? Math.round(((totalPositiveThisMonth - totalPositiveLastMonth) / Math.max(totalPositiveLastMonth, 1)) * 100)
+    : null;
+
+  const topWeekMood = Object.entries(weekCounts).sort((a,b) => b[1]-a[1]).find(([,v]) => v > 0);
+  const totalEntries = Object.values(weekCounts).reduce((a,b) => a+b, 0);
+
+  const insights = [];
+
+  if (topWeekMood) {
+    const [mood, count] = topWeekMood;
+    if (positive.includes(mood)) {
+      insights.push({ emoji: "🌟", text: `You felt ${moodLabels[mood].split(" ")[0].toLowerCase()} ${count} time${count !== 1 ? "s" : ""} this week — your best mood this week!` });
+    } else {
+      insights.push({ emoji: "💙", text: `You logged ${count} entr${count !== 1 ? "ies" : "y"} this week. Showing up every day is the win.` });
+    }
+  }
+
+  if (weekCounts.great > 0) {
+    insights.push({ emoji: "✨", text: `${weekCounts.great} great day${weekCounts.great !== 1 ? "s" : ""} this week. You're building something real.` });
+  }
+
+  if (monthCounts.great + monthCounts.good >= 15) {
+    insights.push({ emoji: "🔥", text: `${monthCounts.great + monthCounts.good} positive days this month. That's a strong month.` });
+  }
+
+  if (positiveTrend !== null && positiveTrend > 0) {
+    insights.push({ emoji: "📈", text: `${positiveTrend}% more positive days than last month. The habits are paying off.` });
+  } else if (positiveTrend !== null && positiveTrend < 0) {
+    insights.push({ emoji: "💪", text: `Tougher month than last — but you're still here, still tracking. That counts.` });
+  }
+
+  if (totalEntries === 7) {
+    insights.push({ emoji: "🏅", text: "Perfect journal week — 7 entries in 7 days. Consistency is everything." });
+  } else if (totalEntries >= 5) {
+    insights.push({ emoji: "📓", text: `${totalEntries} journal entries this week. You're building a habit of reflection.` });
+  }
+
+  if (monthCounts.great > 0 && monthCounts.bad > 0) {
+    insights.push({ emoji: "🌈", text: "You've had highs and lows this month — that's life, and you tracked it all." });
+  }
+
+  if (insights.length === 0) {
+    insights.push({ emoji: "📓", text: "Start logging your mood in the journal to unlock personalised insights here." });
+  }
+
+  return (
+    <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: "14px", padding: "22px", marginTop: "16px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
+        <h3 style={{ margin: 0, fontFamily: "'Syne', sans-serif", color: "#f9fafb", fontWeight: 700, letterSpacing: "-0.01em" }}>Mood Insights</h3>
+        <span style={{ fontSize: "11px", padding: "3px 10px", borderRadius: "999px", background: "#2563eb20", border: "1px solid #2563eb40", color: "#60a5fa", fontWeight: 700 }}>Pro</span>
+      </div>
+      {/* Mood breakdown this week */}
+      <div style={{ display: "flex", gap: "8px", marginBottom: "20px" }}>
+        {Object.entries({ great: "🌟", good: "😊", okay: "😐", bad: "😔" }).map(([mood, emoji]) => (
+          <div key={mood} style={{ flex: 1, background: "#0d1117", borderRadius: "10px", padding: "12px 8px", textAlign: "center", border: "1px solid #1f2937" }}>
+            <div style={{ fontSize: "18px", marginBottom: "4px" }}>{emoji}</div>
+            <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "20px", color: weekCounts[mood] > 0 ? "#f9fafb" : "#374151" }}>{weekCounts[mood]}</div>
+            <div style={{ fontSize: "10px", color: "#4b5563", marginTop: "2px", textTransform: "capitalize" }}>{mood}</div>
+          </div>
+        ))}
+      </div>
+      {/* Insight messages */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+        {insights.map((ins, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: "10px", background: "#0d1117", borderRadius: "10px", padding: "12px 14px", border: "1px solid #1f2937" }}>
+            <span style={{ fontSize: "16px", flexShrink: 0 }}>{ins.emoji}</span>
+            <span style={{ fontSize: "13px", color: "#9ca3af", lineHeight: 1.5 }}>{ins.text}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AnalyticsTab({ habits, todos, pausePeriods, isPremium, journalEntries }) {
   const [range, setRange] = useState("7days");
   const today = new Date();
   const todayStr = getDateStr(today);
@@ -473,6 +599,7 @@ function AnalyticsTab({ habits, todos, pausePeriods }) {
           ))}
         </div>
       </div>
+      {isPremium && <MoodInsights journalEntries={journalEntries || {}} today={todayStr} />}
     </div>
   );
 }
@@ -487,7 +614,7 @@ const MOOD_OPTIONS = [
 ];
 const CHAR_LIMIT = 2000;
 
-function JournalTab({ journalEntries, setJournalEntries, session, today }) {
+function JournalTab({ journalEntries, setJournalEntries, session, today, isPremium }) {
   const [currentDate, setCurrentDate] = useState(today);
   const [draft, setDraft] = useState("");
   const [mood, setMood] = useState("");
@@ -534,10 +661,18 @@ function JournalTab({ journalEntries, setJournalEntries, session, today }) {
     }, 1000);
   };
 
+  const journalCutoff = (() => {
+    const d = parseDateLocal(today);
+    d.setDate(d.getDate() - (FREE_JOURNAL_DAYS - 1));
+    return getDateStr(d);
+  })();
+
   const goBack = () => {
-    const d = parseDateLocal(currentDate);
-    d.setDate(d.getDate() - 1);
-    setCurrentDate(getDateStr(d));
+    const next = parseDateLocal(currentDate);
+    next.setDate(next.getDate() - 1);
+    const nextStr = getDateStr(next);
+    if (!isPremium && nextStr < journalCutoff) return; // blocked for free users
+    setCurrentDate(nextStr);
   };
   const goForward = () => {
     if (currentDate >= today) return;
@@ -558,6 +693,12 @@ function JournalTab({ journalEntries, setJournalEntries, session, today }) {
   const hasNextWritten = sortedDates.some(d => d > currentDate);
   const isToday = currentDate === today;
   const isFuture = currentDate > today;
+  const isJournalLocked = !isPremium && currentDate < journalCutoff;
+  const atJournalLimit = !isPremium && (() => {
+    const next = parseDateLocal(currentDate);
+    next.setDate(next.getDate() - 1);
+    return getDateStr(next) < journalCutoff;
+  })();
 
   const formatDisplayDate = (ds) => {
     const d = parseDateLocal(ds);
@@ -573,7 +714,7 @@ function JournalTab({ journalEntries, setJournalEntries, session, today }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "28px" }}>
         <div style={{ display: "flex", gap: "6px" }}>
           <button onClick={jumpPrevWritten} disabled={!hasPrevWritten} title="Previous entry" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #374151", background: "#111827", color: hasPrevWritten ? "#9ca3af" : "#2d3748", cursor: hasPrevWritten ? "pointer" : "default", fontSize: "16px", fontWeight: 700 }}>«</button>
-          <button onClick={goBack} title="Previous day" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #374151", background: "#111827", color: "#9ca3af", cursor: "pointer", fontSize: "16px", fontWeight: 700 }}>‹</button>
+          <button onClick={goBack} title="Previous day" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #374151", background: "#111827", color: atJournalLimit ? "#2d3748" : "#9ca3af", cursor: atJournalLimit ? "default" : "pointer", fontSize: "16px", fontWeight: 700 }}>‹</button>
         </div>
         <div style={{ textAlign: "center" }}>
           <div style={{ color: "#f9fafb", fontWeight: 700, fontSize: "16px" }}>
@@ -589,7 +730,14 @@ function JournalTab({ journalEntries, setJournalEntries, session, today }) {
       </div>
 
       {/* Page */}
-      <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: "16px", padding: "28px" }}>
+      <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: "16px", padding: "28px", position: "relative" }}>
+        {isJournalLocked && (
+          <div style={{ position: "absolute", inset: 0, borderRadius: "16px", background: "#0d111799", backdropFilter: "blur(4px)", zIndex: 10, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "12px" }}>
+            <div style={{ fontSize: "32px" }}>🔒</div>
+            <div style={{ color: "#f9fafb", fontWeight: 700, fontSize: "15px" }}>Premium journal history</div>
+            <div style={{ color: "#9ca3af", fontSize: "13px", textAlign: "center", maxWidth: "240px" }}>Free accounts can access the last {FREE_JOURNAL_DAYS} days. Upgrade for full history.</div>
+          </div>
+        )}
         {/* Mood */}
         <div style={{ marginBottom: "20px" }}>
           <div style={{ color: "#6b7280", fontSize: "12px", fontWeight: 600, marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}>How are you feeling?</div>
@@ -791,7 +939,14 @@ function ProfileModal({ session, profile, onUpdate, onClose }) {
             </label>
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "16px", color: "#f9fafb" }}>{profile?.username || "No username yet"}</div>
+            <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "16px", color: "#f9fafb", display: "flex", alignItems: "center", gap: "8px" }}>
+              {profile?.username || "No username yet"}
+              {profile?.is_premium && (
+                <span style={{ fontSize: "10px", padding: "2px 8px", borderRadius: "999px", background: "#2563eb", color: "#fff", fontWeight: 700, letterSpacing: "0.04em" }}>
+                  {profile?.is_lifetime ? "FOUNDER ✦" : "PRO"}
+                </span>
+              )}
+            </div>
             <div style={{ fontSize: "12px", color: "#4b5563", marginTop: "2px", marginBottom: "8px" }}>{session.user.email}</div>
             {avatarUrl && <button onClick={removeAvatar} style={{ background: "none", border: "none", color: "#6b7280", fontSize: "11px", cursor: "pointer", padding: 0, textDecoration: "underline" }}>Remove photo</button>}
           </div>
@@ -852,6 +1007,49 @@ function ProfileModal({ session, profile, onUpdate, onClose }) {
   );
 }
 
+// ─── Lifetime Banner ──────────────────────────────────────────────────────────
+function LifetimeBanner({ userNumber, onDismiss }) {
+  return (
+    <div style={{ background: "linear-gradient(90deg, #1d4ed820 0%, #065f4620 100%)", borderBottom: "1px solid #2563eb30", padding: "10px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <span style={{ fontSize: "18px" }}>🎉</span>
+        <div>
+          <span style={{ color: "#f9fafb", fontWeight: 700, fontSize: "13px" }}>
+            You're user #{userNumber} of {LIFETIME_USER_LIMIT} — you have <span style={{ color: "#10b981" }}>free premium for life</span>.
+          </span>
+          <span style={{ color: "#6b7280", fontSize: "12px", marginLeft: "8px" }}>No card needed. Ever.</span>
+        </div>
+      </div>
+      <button onClick={onDismiss} style={{ background: "none", border: "none", color: "#4b5563", cursor: "pointer", fontSize: "16px", padding: "2px 6px", borderRadius: "4px", lineHeight: 1 }}>✕</button>
+    </div>
+  );
+}
+
+// ─── Upgrade Modal ────────────────────────────────────────────────────────────
+function UpgradeModal({ onClose, onUpgrade, reason }) {
+  const reasons = {
+    habits: { icon: "📋", title: "You've reached the free habit limit", desc: `Free accounts can track up to ${FREE_HABIT_LIMIT} habits. Upgrade to add unlimited habits.` },
+    todos: { icon: "✅", title: "You've reached the free to-do limit", desc: `Free accounts can have up to ${FREE_TODO_LIMIT} active to-dos. Upgrade for unlimited.` },
+    journal: { icon: "📓", title: "Journal history locked", desc: `Free accounts can access the last ${FREE_JOURNAL_DAYS} days of journal entries. Upgrade for your full history.` },
+  };
+  const r = reasons[reason] || reasons.habits;
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#000c", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
+      <div style={{ background: "#111827", border: "1px solid #374151", borderRadius: "20px", padding: "32px", width: "100%", maxWidth: "380px", textAlign: "center" }}>
+        <div style={{ fontSize: "40px", marginBottom: "16px" }}>{r.icon}</div>
+        <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "20px", color: "#f9fafb", marginBottom: "10px", letterSpacing: "-0.02em" }}>{r.title}</h2>
+        <p style={{ color: "#6b7280", fontSize: "14px", lineHeight: 1.6, marginBottom: "24px" }}>{r.desc}</p>
+        <div style={{ background: "#0d1117", border: "1px solid #2563eb30", borderRadius: "12px", padding: "16px", marginBottom: "24px" }}>
+          <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "32px", color: "#f9fafb" }}>99p<span style={{ fontSize: "14px", color: "#6b7280", fontWeight: 500 }}> / month</span></div>
+          <div style={{ color: "#10b981", fontSize: "12px", fontWeight: 600, marginTop: "4px" }}>🔥 Founder pricing — lock it in forever</div>
+        </div>
+        <button onClick={onUpgrade} style={{ width: "100%", padding: "13px", borderRadius: "10px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "15px", cursor: "pointer", fontFamily: "inherit", marginBottom: "10px" }}>Upgrade to Pro →</button>
+        <button onClick={onClose} style={{ width: "100%", padding: "11px", borderRadius: "10px", border: "1px solid #374151", background: "transparent", color: "#6b7280", fontWeight: 600, fontSize: "14px", cursor: "pointer", fontFamily: "inherit" }}>Maybe later</button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function HabiTick() {
   const [session, setSession] = useState(undefined); // undefined=loading, null=signed out
@@ -868,6 +1066,8 @@ export default function HabiTick() {
   const [journalEntries, setJournalEntries] = useState({}); // keyed by date string
   const [profile, setProfile] = useState(null);
   const [showProfile, setShowProfile] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [lifetimeBannerDismissed, setLifetimeBannerDismissed] = useState(false);
 
   const today = getTodayStr();
   const todayDow = new Date().getDay();
@@ -929,6 +1129,9 @@ export default function HabiTick() {
       const { data } = await supabase.from("habits").update({ name, frequency, days }).eq("id", editingHabit.id).select().single();
       setHabits(prev => prev.map(h => h.id === editingHabit.id ? { ...h, ...data, createdDate: data.created_date } : h));
     } else {
+      if (!isPremium && habits.length >= FREE_HABIT_LIMIT) {
+        setShowHabitModal(false); setShowUpgradeModal("habits"); return;
+      }
       const { data } = await supabase.from("habits").insert({ user_id: session.user.id, name, frequency, days, created_date: today }).select().single();
       setHabits(prev => [...prev, { ...data, createdDate: data.created_date, completedDates: [] }]);
     }
@@ -942,6 +1145,12 @@ export default function HabiTick() {
 
   // ── Todo actions ───────────────────────────────────────────────────────────
   const addTodo = async ({ text, priority }) => {
+    const activeTodos = todos.filter(t => !t.done);
+    if (!isPremium && activeTodos.length >= FREE_TODO_LIMIT) {
+      setShowTodoModal(false);
+      setShowUpgradeModal("todos");
+      return;
+    }
     const { data } = await supabase.from("todos").insert({ user_id: session.user.id, text, priority: priority || null, done: false }).select().single();
     setTodos(prev => [...prev, { ...data, doneDate: null }]);
     setShowTodoModal(false);
@@ -979,6 +1188,25 @@ export default function HabiTick() {
   const totalToday = habits.filter(h => h.frequency === "daily" || (h.days && h.days.includes(todayDow))).length;
   const currentStreak = calcStreak(habits, pausePeriods);
   const visibleTodos = showCompleted ? todos : todos.filter(t => !t.done);
+
+  // ── Premium ────────────────────────────────────────────────────────────────
+  const isPremium = profile?.is_premium === true || profile?.is_lifetime === true;
+  const isLifetime = profile?.is_lifetime === true;
+  const userNumber = profile?.user_number || null;
+
+  const handleUpgrade = async () => {
+    try {
+      const res = await fetch(STRIPE_CHECKOUT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: session.user.id, userEmail: session.user.email }),
+      });
+      const { url } = await res.json();
+      window.location.href = url;
+    } catch {
+      alert("Something went wrong. Please try again.");
+    }
+  };
 
   // ── Guards ─────────────────────────────────────────────────────────────────
   if (session === undefined) return <div style={{ minHeight: "100vh", background: "#0d1117", display: "flex", alignItems: "center", justifyContent: "center", color: "#6b7280", fontFamily: "system-ui" }}>Loading...</div>;
@@ -1038,6 +1266,19 @@ export default function HabiTick() {
         </div>
       </header>
 
+      {/* Lifetime founder banner */}
+      {isLifetime && userNumber && userNumber <= 100 && !lifetimeBannerDismissed && (
+        <div style={{ background: "linear-gradient(90deg, #1d4ed820 0%, #10b98115 100%)", borderBottom: "1px solid #2563eb30", padding: "10px 28px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <span style={{ fontSize: "18px" }}>🎉</span>
+            <span style={{ fontSize: "13px", color: "#93c5fd", fontWeight: 600 }}>
+              You're <span style={{ color: "#60a5fa", fontWeight: 800 }}>#{userNumber}</span> of 100 lifetime founding members — Premium is yours, free, forever.
+            </span>
+          </div>
+          <button onClick={() => setLifetimeBannerDismissed(true)} style={{ background: "none", border: "none", color: "#4b5563", cursor: "pointer", fontSize: "16px", padding: "2px 6px", flexShrink: 0 }}>✕</button>
+        </div>
+      )}
+
       <div className="ht-tabs">
         {[["tasks", "Tasks & Habits"], ["analytics", "Analytics"], ["journal", "Journal"]].map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)} style={{ padding: "8px 22px", borderRadius: "8px", border: "1px solid", borderColor: tab === key ? "#2563eb" : "#1f2937", background: tab === key ? "#2563eb" : "#111827", color: tab === key ? "#fff" : "#6b7280", cursor: "pointer", fontWeight: 600, fontSize: "14px", transition: "all 0.15s", fontFamily: "inherit" }}>{label}</button>
@@ -1051,7 +1292,17 @@ export default function HabiTick() {
           <>
             <section style={{ marginBottom: "36px" }}>
               <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "22px", marginBottom: "16px", letterSpacing: "-0.02em", color: "#f9fafb" }}>Habits</h2>
-              <button onClick={() => { setEditingHabit(null); setShowHabitModal(true); }} style={{ width: "100%", padding: "13px", borderRadius: "10px", border: "1px solid #1f2937", background: "#111827", color: "#60a5fa", cursor: "pointer", fontWeight: 700, fontSize: "14px", marginBottom: "14px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", transition: "border-color 0.2s, background 0.2s" }}>+ Add New Habit</button>
+              {!isPremium && habits.length >= FREE_HABIT_LIMIT ? (
+                <div style={{ background: "#1d4ed820", border: "1px solid #2563eb40", borderRadius: "10px", padding: "14px 16px", marginBottom: "14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
+                  <div>
+                    <div style={{ color: "#60a5fa", fontWeight: 700, fontSize: "14px" }}>Habit limit reached ({FREE_HABIT_LIMIT}/{FREE_HABIT_LIMIT})</div>
+                    <div style={{ color: "#4b5563", fontSize: "12px", marginTop: "2px" }}>Upgrade to Premium for unlimited habits</div>
+                  </div>
+                  <button onClick={() => setShowUpgradeModal(true)} style={{ padding: "7px 14px", borderRadius: "8px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "13px", cursor: "pointer", whiteSpace: "nowrap" }}>Upgrade →</button>
+                </div>
+              ) : (
+                <button onClick={() => { setEditingHabit(null); setShowHabitModal(true); }} style={{ width: "100%", padding: "13px", borderRadius: "10px", border: "1px solid #1f2937", background: "#111827", color: "#60a5fa", cursor: "pointer", fontWeight: 700, fontSize: "14px", marginBottom: "14px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", transition: "border-color 0.2s, background 0.2s" }}>+ Add New Habit</button>
+              )}
               <div style={{ display: "flex", gap: "10px", marginBottom: "16px", flexWrap: "wrap", alignItems: "center" }}>
                 <button onClick={() => setShowTodayOnly(p => !p)} style={{ padding: "7px 16px", borderRadius: "8px", border: "1px solid", borderColor: showTodayOnly ? "#2563eb" : "#374151", background: showTodayOnly ? "#1d4ed8" : "#111827", color: showTodayOnly ? "#fff" : "#9ca3af", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}>{showTodayOnly ? "Show All Habits" : "Show Today's Habits"}</button>
                 <button onClick={togglePause} style={{ padding: "7px 16px", borderRadius: "8px", border: "1px solid", borderColor: isPaused ? "#f59e0b" : "#374151", background: isPaused ? "#78350f" : "#111827", color: isPaused ? "#fcd34d" : "#9ca3af", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}>{isPaused ? "⏸ Holiday Mode ON — Resume" : "⏸ Pause / Holiday Mode"}</button>
@@ -1067,7 +1318,7 @@ export default function HabiTick() {
               )}
               <div className="ht-habit-grid">
                 {todayHabits.length === 0 && <div style={{ color: "#4b5563", fontSize: "14px", padding: "20px 0" }}>No habits yet. Add your first one!</div>}
-                {todayHabits.map(h => <HabitCard key={h.id} habit={h} today={today} onToggle={toggleHabit} onDelete={deleteHabit} isPaused={isPaused} pausePeriods={pausePeriods} onEdit={habit => { setEditingHabit(habit); setShowHabitModal(true); }} />)}
+                {todayHabits.map(h => <HabitCard key={h.id} habit={h} today={today} onToggle={toggleHabit} onDelete={deleteHabit} isPaused={isPaused} pausePeriods={pausePeriods} isPremium={isPremium} onEdit={habit => { setEditingHabit(habit); setShowHabitModal(true); }} />)}
               </div>
             </section>
             <section>
@@ -1079,14 +1330,15 @@ export default function HabiTick() {
             </section>
           </>
         ) : tab === "analytics" ? (
-          <AnalyticsTab habits={habits} todos={todos} pausePeriods={pausePeriods} />
+          <AnalyticsTab habits={habits} todos={todos} pausePeriods={pausePeriods} isPremium={isPremium} journalEntries={journalEntries} />
         ) : tab === "journal" ? (
-          <JournalTab journalEntries={journalEntries} setJournalEntries={setJournalEntries} session={session} today={today} />
+          <JournalTab journalEntries={journalEntries} setJournalEntries={setJournalEntries} session={session} today={today} isPremium={isPremium} />
         ) : null}
       </main>
       {showHabitModal && <HabitModal habit={editingHabit} onSave={saveHabit} onClose={() => { setShowHabitModal(false); setEditingHabit(null); }} />}
       {showTodoModal && <TodoModal onSave={addTodo} onClose={() => setShowTodoModal(false)} />}
       {showProfile && <ProfileModal session={session} profile={profile} onUpdate={setProfile} onClose={() => setShowProfile(false)} />}
+      {showUpgradeModal && <UpgradeModal onUpgrade={handleUpgrade} onClose={() => setShowUpgradeModal(false)} reason={showUpgradeModal} />}
 
       {/* Mobile bottom nav */}
       <nav className="ht-bottom-nav">
