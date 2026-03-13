@@ -1372,16 +1372,15 @@ export default function HabiTick() {
         .ht-founder-banner { position: relative; z-index: 45; }
         @media (max-width: 640px) {
           .ht-header-pills { display: none; }
-          .ht-main { padding: 70px 16px 90px; }
+          .ht-main { padding: 100px 16px 90px; }
           .ht-tabs { display: none; }
           .ht-habit-grid { flex-direction: column; }
           .ht-habit-grid > * { max-width: 100% !important; min-width: 0 !important; flex: 1 1 100% !important; }
           .ht-bottom-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; background: #0d1117; border-top: 1px solid #1f2937; z-index: 50; padding: 8px 0 20px; justify-content: space-around; }
           .ht-header-username { display: none; }
           .ht-analytics-grid { grid-template-columns: repeat(2, 1fr) !important; }
-          .ht-founder-banner { position: fixed; top: 60px; left: 0; right: 0; z-index: 45; }
-          .ht-mobile-streak { top: 60px !important; }
-          .ht-main-with-banner { padding-top: 120px !important; }
+          .ht-founder-banner { position: fixed; top: 60px; left: 0; right: 0; z-index: 45; background: linear-gradient(90deg, #1d3a6e 0%, #064e3b 100%) !important; }
+          .ht-main-with-banner { padding-top: 160px !important; }
         }
       `}</style>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 28px", height: "60px", borderBottom: "1px solid #1f2937", position: "sticky", top: 0, background: "#0d1117", zIndex: 50 }}>
@@ -1497,7 +1496,7 @@ export default function HabiTick() {
 
       {/* Mobile streak bar */}
       <style>{`@media (max-width: 640px) { .ht-mobile-streak { display: flex !important; } }`}</style>
-      <div className="ht-mobile-streak" style={{ display: "none", position: "fixed", top: isLifetime && userNumber <= 100 && !lifetimeBannerDismissed ? "110px" : "60px", left: 0, right: 0, background: "#0d1117", borderBottom: "1px solid #1f2937", padding: "8px 16px", gap: "8px", zIndex: 40, justifyContent: "center" }}>
+      <div className="ht-mobile-streak" style={{ display: "none", position: "fixed", top: isLifetime && userNumber && userNumber <= 100 && !lifetimeBannerDismissed ? "120px" : "60px", left: 0, right: 0, background: "#0d1117", borderBottom: "1px solid #1f2937", padding: "8px 16px", gap: "8px", zIndex: 40, justifyContent: "center" }}>
         {!isPaused && <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: "1px solid #22c55e33", borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: "#22c55e", fontWeight: 600 }}>✓ {doneToday}/{totalToday} today</div>}
         <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: `1px solid ${isPaused ? "#f59e0b66" : "#3b82f633"}`, borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: isPaused ? "#fcd34d" : "#60a5fa", fontWeight: 600 }}>
           {isPaused ? "⏸ Frozen" : `🔥 ${currentStreak} days`}
