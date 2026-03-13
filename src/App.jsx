@@ -138,15 +138,26 @@ function AuthScreen() {
     finally { setLoading(false); }
   };
 
+  const isWebView = /wv/.test(navigator.userAgent) && /Android/.test(navigator.userAgent);
+
   const handleGoogle = async () => {
-    const { data } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: window.location.origin,
-        skipBrowserRedirect: true,
-      },
-    });
-    if (data?.url) window.open(data.url, "_blank");
+    if (isWebView) {
+      // Appilix / Android WebView — open in external browser
+      const { data } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin,
+          skipBrowserRedirect: true,
+        },
+      });
+      if (data?.url) window.open(data.url, "_blank");
+    } else {
+      // Normal web browser — standard redirect, no extra tab
+      supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: window.location.origin },
+      });
+    }
   };
   
   return (
