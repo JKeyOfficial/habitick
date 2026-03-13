@@ -1369,6 +1369,7 @@ export default function HabiTick() {
         .ht-habit-grid { display: flex; flex-wrap: wrap; gap: 14px; }
         .ht-bottom-nav { display: none; }
         .ht-header-username { display: inline; }
+        .ht-founder-banner { position: relative; z-index: 45; }
         @media (max-width: 640px) {
           .ht-header-pills { display: none; }
           .ht-main { padding: 70px 16px 90px; }
@@ -1378,6 +1379,9 @@ export default function HabiTick() {
           .ht-bottom-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; background: #0d1117; border-top: 1px solid #1f2937; z-index: 50; padding: 8px 0 20px; justify-content: space-around; }
           .ht-header-username { display: none; }
           .ht-analytics-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .ht-founder-banner { position: fixed; top: 60px; left: 0; right: 0; z-index: 45; }
+          .ht-mobile-streak { top: 60px !important; }
+          .ht-main-with-banner { padding-top: 120px !important; }
         }
       `}</style>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 28px", height: "60px", borderBottom: "1px solid #1f2937", position: "sticky", top: 0, background: "#0d1117", zIndex: 50 }}>
@@ -1408,14 +1412,14 @@ export default function HabiTick() {
 
       {/* Lifetime founder banner */}
       {isLifetime && userNumber && userNumber <= 100 && !lifetimeBannerDismissed && (
-        <div style={{ background: "linear-gradient(90deg, #1d4ed820 0%, #10b98115 100%)", borderBottom: "1px solid #2563eb30", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
+        <div className="ht-founder-banner" style={{ background: "linear-gradient(90deg, #1d4ed820 0%, #10b98115 100%)", borderBottom: "1px solid #2563eb30", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
-            <span style={{ fontSize: "16px", flexShrink: 0 }}>🎉</span>
-            <span style={{ fontSize: "12px", color: "#93c5fd", fontWeight: 600, lineHeight: 1.4 }}>
+            <span style={{ fontSize: "18px", flexShrink: 0 }}>🎉</span>
+            <span style={{ fontSize: "13px", color: "#93c5fd", fontWeight: 600, lineHeight: 1.5 }}>
               You're <span style={{ color: "#60a5fa", fontWeight: 800 }}>#{userNumber}</span> of 100 founding members — Premium is yours <span style={{ color: "#10b981" }}>free, forever</span>.
             </span>
           </div>
-          <button onClick={() => setLifetimeBannerDismissed(true)} style={{ background: "none", border: "none", color: "#4b5563", cursor: "pointer", fontSize: "16px", padding: "2px 6px", flexShrink: 0 }}>✕</button>
+          <button onClick={() => setLifetimeBannerDismissed(true)} style={{ background: "none", border: "none", color: "#4b5563", cursor: "pointer", fontSize: "18px", padding: "4px 8px", flexShrink: 0, lineHeight: 1 }}>✕</button>
         </div>
       )}
 
@@ -1425,7 +1429,7 @@ export default function HabiTick() {
         ))}
       </div>
 
-      <main className="ht-main">
+      <main className={`ht-main${isLifetime && userNumber <= 100 && !lifetimeBannerDismissed ? " ht-main-with-banner" : ""}`}>
         {loading ? (
           <div style={{ textAlign: "center", padding: "60px", color: "#6b7280" }}>Loading your data...</div>
         ) : tab === "tasks" ? (
@@ -1493,7 +1497,7 @@ export default function HabiTick() {
 
       {/* Mobile streak bar */}
       <style>{`@media (max-width: 640px) { .ht-mobile-streak { display: flex !important; } }`}</style>
-      <div className="ht-mobile-streak" style={{ display: "none", position: "fixed", top: "60px", left: 0, right: 0, background: "#0d1117", borderBottom: "1px solid #1f2937", padding: "8px 16px", gap: "8px", zIndex: 40, justifyContent: "center" }}>
+      <div className="ht-mobile-streak" style={{ display: "none", position: "fixed", top: isLifetime && userNumber <= 100 && !lifetimeBannerDismissed ? "110px" : "60px", left: 0, right: 0, background: "#0d1117", borderBottom: "1px solid #1f2937", padding: "8px 16px", gap: "8px", zIndex: 40, justifyContent: "center" }}>
         {!isPaused && <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: "1px solid #22c55e33", borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: "#22c55e", fontWeight: 600 }}>✓ {doneToday}/{totalToday} today</div>}
         <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: `1px solid ${isPaused ? "#f59e0b66" : "#3b82f633"}`, borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: isPaused ? "#fcd34d" : "#60a5fa", fontWeight: 600 }}>
           {isPaused ? "⏸ Frozen" : `🔥 ${currentStreak} days`}
