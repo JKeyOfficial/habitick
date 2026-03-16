@@ -144,7 +144,8 @@ function AuthScreen() {
       // Android WebView — Google blocks OAuth, open in external Chrome instead
       const { data } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: "habitick://auth", skipBrowserRedirect: true },
+        options: { redirectTo: window.location.origin, skipBrowserRedirect: true },
+
       });
       if (data?.url) window.open(data.url, "_blank");
     } else {
