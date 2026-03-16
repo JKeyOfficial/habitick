@@ -139,27 +139,23 @@ function AuthScreen() {
   };
 
   const isWebView = /wv/.test(navigator.userAgent) && /Android/.test(navigator.userAgent);
-
   const handleGoogle = async () => {
     if (isWebView) {
-      // Appilix / Android WebView — open in external browser
+      // Android WebView — Google blocks OAuth, open in external Chrome instead
       const { data } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: {
-          redirectTo: window.location.origin,
-          skipBrowserRedirect: true,
-        },
+        options: { redirectTo: "habitick://auth", skipBrowserRedirect: true },
       });
       if (data?.url) window.open(data.url, "_blank");
     } else {
-      // Normal web browser — standard redirect, no extra tab
+      // Normal browser — standard redirect, no extra tab
       supabase.auth.signInWithOAuth({
         provider: "google",
         options: { redirectTo: window.location.origin },
       });
     }
   };
-  
+
   return (
     <div style={{ minHeight: "100vh", width: "100%", background: "#0d1117", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700;800&display=swap'); html, body, #root { margin: 0; padding: 0; width: 100%; min-height: 100vh; } * { box-sizing: border-box; } button,input { font-family: inherit; }`}</style>
