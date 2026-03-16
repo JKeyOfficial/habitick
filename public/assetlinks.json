@@ -1,0 +1,10 @@
+[{
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.androidmate.habitickwebapp",
+      "sha256_cert_fingerprints": [
+        "FA:61:B5:78:2D:87:A7:C2:46:AE:7C:C3:23:03:AD:EC:5D:D2:17:B6:CF:2E:14:3E:A0:23:BD:98:96:4B:F1:6C"
+      ]
+    }
+  }]
