@@ -138,20 +138,10 @@ function AuthScreen() {
     finally { setLoading(false); }
   };
 
-  const isWebView = /wv/.test(navigator.userAgent) && /Android/.test(navigator.userAgent);
-  const handleGoogle = async () => {
-    if (isWebView) {
-      supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: "habitick://callback" },
-      });
-    } else {
-      supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: window.location.origin },
-      });
-    }
-  };
+  const handleGoogle = () => supabase.auth.signInWithOAuth({ 
+    provider: "google", 
+    options: { redirectTo: window.location.origin } 
+  });
 
   return (
     <div style={{ minHeight: "100vh", width: "100%", background: "#0d1117", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
