@@ -141,15 +141,11 @@ function AuthScreen() {
   const isWebView = /wv/.test(navigator.userAgent) && /Android/.test(navigator.userAgent);
   const handleGoogle = async () => {
     if (isWebView) {
-      // Android WebView — Google blocks OAuth, open in external Chrome instead
-      const { data } = await supabase.auth.signInWithOAuth({
+      supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: window.location.origin, skipBrowserRedirect: true },
-
+        options: { redirectTo: "habitick://callback" },
       });
-      if (data?.url) window.open(data.url, "_blank");
     } else {
-      // Normal browser — standard redirect, no extra tab
       supabase.auth.signInWithOAuth({
         provider: "google",
         options: { redirectTo: window.location.origin },
