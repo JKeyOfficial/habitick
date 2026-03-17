@@ -138,11 +138,12 @@ function AuthScreen() {
     finally { setLoading(false); }
   };
 
-  const handleGoogle = () => supabase.auth.signInWithOAuth({ 
-    provider: "google", 
-    options: { redirectTo: window.location.origin } 
+  const isWebView = /wv/.test(navigator.userAgent) && /Android/.test(navigator.userAgent);
+  const handleGoogle = () => supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: window.location.origin },
   });
-  
+
   return (
     <div style={{ minHeight: "100vh", width: "100%", background: "#0d1117", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700;800&display=swap'); html, body, #root { margin: 0; padding: 0; width: 100%; min-height: 100vh; } * { box-sizing: border-box; } button,input { font-family: inherit; }`}</style>
@@ -155,7 +156,7 @@ function AuthScreen() {
           </div>
         </div>
         <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: "16px", padding: "28px" }}>
-          {mode !== "forgot" && (
+          {mode !== "forgot" && !isWebView && (
             <>
               <button onClick={handleGoogle} style={{ ...S.btnSecondary, display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", marginBottom: "20px" }}>
                 <svg width="18" height="18" viewBox="0 0 48 48">
@@ -967,6 +968,35 @@ function ProfileModal({ session, profile, onUpdate, onClose }) {
   const [savingPw, setSavingPw] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [showDeleteConfirm1, setShowDeleteConfirm1] = useState(false);
+  const [showDeleteConfirm2, setShowDeleteConfirm2] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== "DELETE") return;
+    setDeletingAccount(true);
+    try {
+      const uid = session.user.id;
+      // Delete all user data in order
+      await supabase.from("habit_completions").delete().eq("user_id", uid);
+      await supabase.from("habits").delete().eq("user_id", uid);
+      await supabase.from("todos").delete().eq("user_id", uid);
+      await supabase.from("pause_periods").delete().eq("user_id", uid);
+      await supabase.from("journal_entries").delete().eq("user_id", uid);
+      await supabase.from("profiles").delete().eq("id", uid);
+      // Delete the auth user via Supabase admin — requires a serverless function
+      await fetch("https://app.habitick.pro/api/delete-account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: uid }),
+      });
+      await supabase.auth.signOut();
+    } catch (err) {
+      showToast("Something went wrong. Please try again.", "error");
+      setDeletingAccount(false);
+    }
+  };
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || null);
   const [toast, setToast] = useState(null);
 
@@ -1143,9 +1173,51 @@ function ProfileModal({ session, profile, onUpdate, onClose }) {
         )}
 
         {/* Sign out */}
-        <div style={{ borderTop: "1px solid #1f2937", marginTop: "24px", paddingTop: "16px" }}>
+        <div style={{ borderTop: "1px solid #1f2937", marginTop: "24px", paddingTop: "16px", display: "flex", flexDirection: "column", gap: "10px" }}>
           <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "1px solid #374151", background: "transparent", color: "#6b7280", fontWeight: 600, fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>Sign out</button>
+          <button onClick={() => setShowDeleteConfirm1(true)} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "1px solid #7f1d1d", background: "transparent", color: "#f87171", fontWeight: 600, fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>Delete account</button>
         </div>
+
+        {/* Delete confirm — step 1 */}
+        {showDeleteConfirm1 && (
+          <div style={{ position: "fixed", inset: 0, background: "#000d", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+            <div style={{ background: "#111827", border: "1px solid #374151", borderRadius: "20px", padding: "28px", width: "100%", maxWidth: "360px", textAlign: "center" }}>
+              <div style={{ fontSize: "36px", marginBottom: "12px" }}>⚠️</div>
+              <h2 style={{ margin: "0 0 10px", fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "19px", color: "#f9fafb", letterSpacing: "-0.02em" }}>Delete your account?</h2>
+              <p style={{ color: "#9ca3af", fontSize: "14px", lineHeight: 1.6, marginBottom: "24px" }}>This will permanently delete all your habits, todos, journal entries and account data. <strong style={{ color: "#f87171" }}>This cannot be undone.</strong></p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <button onClick={() => { setShowDeleteConfirm1(false); setShowDeleteConfirm2(true); }} style={{ width: "100%", padding: "13px", borderRadius: "10px", border: "1px solid #7f1d1d", background: "#7f1d1d30", color: "#f87171", fontWeight: 700, fontSize: "14px", cursor: "pointer", fontFamily: "inherit" }}>Yes, I want to delete my account</button>
+                <button onClick={() => setShowDeleteConfirm1(false)} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "1px solid #374151", background: "transparent", color: "#6b7280", fontWeight: 600, fontSize: "14px", cursor: "pointer", fontFamily: "inherit" }}>Cancel, keep my account</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete confirm — step 2 (type DELETE) */}
+        {showDeleteConfirm2 && (
+          <div style={{ position: "fixed", inset: 0, background: "#000d", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+            <div style={{ background: "#111827", border: "1px solid #374151", borderRadius: "20px", padding: "28px", width: "100%", maxWidth: "360px", textAlign: "center" }}>
+              <div style={{ fontSize: "36px", marginBottom: "12px" }}>🗑️</div>
+              <h2 style={{ margin: "0 0 10px", fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "19px", color: "#f9fafb", letterSpacing: "-0.02em" }}>Are you absolutely sure?</h2>
+              <p style={{ color: "#9ca3af", fontSize: "14px", lineHeight: 1.6, marginBottom: "20px" }}>Type <strong style={{ color: "#f87171", letterSpacing: "0.05em" }}>DELETE</strong> below to confirm.</p>
+              <input
+                value={deleteConfirmText}
+                onChange={e => setDeleteConfirmText(e.target.value)}
+                placeholder="Type DELETE here"
+                style={{ width: "100%", padding: "12px", borderRadius: "8px", border: `1px solid ${deleteConfirmText === "DELETE" ? "#f87171" : "#374151"}`, background: "#0d1117", color: "#f9fafb", fontSize: "15px", fontFamily: "inherit", textAlign: "center", boxSizing: "border-box", outline: "none", letterSpacing: "0.05em", marginBottom: "16px" }}
+              />
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={deleteConfirmText !== "DELETE" || deletingAccount}
+                  style={{ width: "100%", padding: "13px", borderRadius: "10px", border: "none", background: deleteConfirmText === "DELETE" ? "#dc2626" : "#374151", color: deleteConfirmText === "DELETE" ? "#fff" : "#6b7280", fontWeight: 700, fontSize: "14px", cursor: deleteConfirmText === "DELETE" ? "pointer" : "default", fontFamily: "inherit", transition: "all 0.2s", opacity: deletingAccount ? 0.7 : 1 }}>
+                  {deletingAccount ? "Deleting..." : "Permanently delete everything"}
+                </button>
+                <button onClick={() => { setShowDeleteConfirm2(false); setDeleteConfirmText(""); }} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "1px solid #374151", background: "transparent", color: "#6b7280", fontWeight: 600, fontSize: "14px", cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        )}
     </DragSheet>
   );
 }
