@@ -352,7 +352,7 @@ function formatDueDate(dueDate, dueTime) {
   return dueTime ? `${dayLabel} at ${dueTime}` : dayLabel;
 }
 
-function TodoItem({ todo, onToggle, onDelete }) {
+function TodoItem({ todo, onToggle, onDelete, onEdit }) {
   const today = getTodayStr();
   const isOverdue = !todo.done && todo.due_date && todo.due_date < today;
   const isDueToday = !todo.done && todo.due_date === today;
@@ -371,28 +371,29 @@ function TodoItem({ todo, onToggle, onDelete }) {
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
         {todo.priority && <span style={{ fontSize: "10px", padding: "3px 10px", borderRadius: "999px", fontWeight: 700, border: "1px solid", background: todo.priority === "high" ? "#7f1d1d30" : todo.priority === "med" ? "#78350f30" : "#1c3a2a30", borderColor: todo.priority === "high" ? "#fca5a540" : todo.priority === "med" ? "#fcd34d40" : "#86efac40", color: todo.priority === "high" ? "#fca5a5" : todo.priority === "med" ? "#fcd34d" : "#86efac" }}>{todo.priority}</span>}
+        <button onClick={() => onEdit(todo)} style={{ background: "none", border: "none", cursor: "pointer", color: "#4b5563", fontSize: "13px", padding: "4px", borderRadius: "6px" }}>✏️</button>
         <button onClick={() => onDelete(todo.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#374151", fontSize: "13px", padding: "4px", borderRadius: "6px" }}>✕</button>
       </div>
     </div>
   );
 }
 
-function TodoModal({ onSave, onClose }) {
-  const [text, setText] = useState("");
-  const [priority, setPriority] = useState("");
-  const [dueDate, setDueDate] = useState("");
-  const [dueTime, setDueTime] = useState("");
+function TodoModal({ todo, onSave, onClose }) {
+  const [text, setText] = useState(todo?.text || "");
+  const [priority, setPriority] = useState(todo?.priority || "");
+  const [dueDate, setDueDate] = useState(todo?.due_date || "");
+  const [dueTime, setDueTime] = useState(todo?.due_time || "");
 
   const today = getTodayStr();
   const tomorrow = (() => { const d = new Date(); d.setDate(d.getDate() + 1); return getDateStr(d); })();
 
-  // Quick day options
-  const dayOptions = [
-    { label: "Today", value: today },
-    { label: "Tomorrow", value: tomorrow },
-    { label: "Custom", value: "custom" },
-  ];
-  const [dayMode, setDayMode] = useState("none"); // none | today | tomorrow | custom
+  const inferDayMode = () => {
+    if (!todo?.due_date) return "none";
+    if (todo.due_date === today) return "today";
+    if (todo.due_date === tomorrow) return "tomorrow";
+    return "custom";
+  };
+  const [dayMode, setDayMode] = useState(inferDayMode);
 
   const handleDaySelect = (mode) => {
     if (dayMode === mode) { setDayMode("none"); setDueDate(""); setDueTime(""); return; }
@@ -402,30 +403,32 @@ function TodoModal({ onSave, onClose }) {
     else if (mode === "custom") setDueDate("");
   };
 
+  const dayOptions = [
+    { label: "Today", mode: "today" },
+    { label: "Tomorrow", mode: "tomorrow" },
+    { label: "Custom", mode: "custom" },
+  ];
+
   return (
     <div style={{ position: "fixed", inset: 0, background: "#000a", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}>
       <div style={{ background: "#111827", border: "1px solid #374151", borderRadius: "16px", padding: "24px", width: "100%", maxWidth: "380px" }}>
-        <h2 style={{ margin: "0 0 18px", color: "#f9fafb", fontSize: "18px", fontFamily: "'Syne', sans-serif", fontWeight: 800 }}>New To-Do</h2>
+        <h2 style={{ margin: "0 0 18px", color: "#f9fafb", fontSize: "18px", fontFamily: "'Syne', sans-serif", fontWeight: 800 }}>{todo ? "Edit To-Do" : "New To-Do"}</h2>
 
-        {/* Task text */}
         <input value={text} onChange={e => setText(e.target.value)} style={{ ...S.input, marginBottom: "18px" }} placeholder="What needs to be done?" autoFocus onKeyDown={e => e.key === "Enter" && text.trim() && onSave({ text: text.trim(), priority, due_date: dueDate || null, due_time: dueTime || null })} />
 
-        {/* Due day */}
         <label style={{ ...S.label, marginBottom: "8px" }}>Due day (optional)</label>
         <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
-          {dayOptions.map(({ label, value }) => (
-            <button key={value} onClick={() => handleDaySelect(value === today ? "today" : value === tomorrow ? "tomorrow" : "custom")}
-              style={{ flex: 1, padding: "8px 4px", borderRadius: "8px", border: "1px solid", borderColor: (dayMode === "today" && value === today) || (dayMode === "tomorrow" && value === tomorrow) || (dayMode === "custom" && value === "custom") ? "#2563eb" : "#374151", background: (dayMode === "today" && value === today) || (dayMode === "tomorrow" && value === tomorrow) || (dayMode === "custom" && value === "custom") ? "#1d4ed8" : "#1f2937", color: (dayMode === "today" && value === today) || (dayMode === "tomorrow" && value === tomorrow) || (dayMode === "custom" && value === "custom") ? "#fff" : "#9ca3af", cursor: "pointer", fontSize: "12px", fontWeight: 600, fontFamily: "inherit" }}>{label}</button>
+          {dayOptions.map(({ label, mode }) => (
+            <button key={mode} onClick={() => handleDaySelect(mode)}
+              style={{ flex: 1, padding: "8px 4px", borderRadius: "8px", border: "1px solid", borderColor: dayMode === mode ? "#2563eb" : "#374151", background: dayMode === mode ? "#1d4ed8" : "#1f2937", color: dayMode === mode ? "#fff" : "#9ca3af", cursor: "pointer", fontSize: "12px", fontWeight: 600, fontFamily: "inherit" }}>{label}</button>
           ))}
         </div>
 
-        {/* Custom date picker */}
         {dayMode === "custom" && (
           <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} min={today}
             style={{ ...S.input, marginBottom: "12px", colorScheme: "dark" }} />
         )}
 
-        {/* Time — shown once a day is selected */}
         {dayMode !== "none" && (
           <>
             <label style={{ ...S.label, marginBottom: "8px" }}>Time (optional)</label>
@@ -434,7 +437,6 @@ function TodoModal({ onSave, onClose }) {
           </>
         )}
 
-        {/* Priority */}
         <label style={{ ...S.label, marginBottom: "8px" }}>Priority (optional)</label>
         <div style={{ display: "flex", gap: "8px", marginBottom: "20px" }}>
           {["", "high", "med", "low"].map(p => <button key={p} onClick={() => setPriority(p)} style={{ flex: 1, padding: "7px", borderRadius: "8px", border: "1px solid", borderColor: priority === p ? "#2563eb" : "#374151", background: priority === p ? "#1d4ed8" : "#1f2937", color: priority === p ? "#fff" : "#9ca3af", cursor: "pointer", fontSize: "12px", fontWeight: 600, fontFamily: "inherit" }}>{p === "" ? "None" : p[0].toUpperCase() + p.slice(1)}</button>)}
@@ -442,7 +444,7 @@ function TodoModal({ onSave, onClose }) {
 
         <div style={{ display: "flex", gap: "10px" }}>
           <button onClick={onClose} style={S.btnSecondary}>Cancel</button>
-          <button onClick={() => { if (text.trim()) onSave({ text: text.trim(), priority, due_date: dueDate || null, due_time: dueTime || null }); }} style={S.btnPrimary}>Add</button>
+          <button onClick={() => { if (text.trim()) onSave({ text: text.trim(), priority, due_date: dueDate || null, due_time: dueTime || null }); }} style={S.btnPrimary}>{todo ? "Save" : "Add"}</button>
         </div>
       </div>
     </div>
@@ -1350,6 +1352,7 @@ export default function HabiTick() {
   const [showHabitModal, setShowHabitModal] = useState(false);
   const [editingHabit, setEditingHabit] = useState(null);
   const [showTodoModal, setShowTodoModal] = useState(false);
+  const [editingTodo, setEditingTodo] = useState(null);
   const [showCompleted, setShowCompleted] = useState(false);
   const [showTodayOnly, setShowTodayOnly] = useState(false);
   const [journalEntries, setJournalEntries] = useState({}); // keyed by date string
@@ -1443,6 +1446,12 @@ export default function HabiTick() {
     const { data } = await supabase.from("todos").insert({ user_id: session.user.id, text, priority: priority || null, done: false, due_date: due_date || null, due_time: due_time || null }).select().single();
     setTodos(prev => [...prev, { ...data, doneDate: null }]);
     setShowTodoModal(false);
+  };
+
+  const saveTodo = async ({ text, priority, due_date, due_time }) => {
+    const { data } = await supabase.from("todos").update({ text, priority: priority || null, due_date: due_date || null, due_time: due_time || null }).eq("id", editingTodo.id).select().single();
+    setTodos(prev => prev.map(t => t.id === editingTodo.id ? { ...t, ...data } : t));
+    setShowTodoModal(false); setEditingTodo(null);
   };
 
   const toggleTodo = async id => {
@@ -1628,7 +1637,7 @@ export default function HabiTick() {
               <button onClick={() => setShowTodoModal(true)} style={{ width: "100%", padding: "13px", borderRadius: "10px", border: "1px solid #1f2937", background: "#111827", color: "#60a5fa", cursor: "pointer", fontWeight: 700, fontSize: "14px", marginBottom: "14px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", transition: "border-color 0.2s, background 0.2s" }}>+ Add New To-Do</button>
               <button onClick={() => setShowCompleted(p => !p)} style={{ padding: "7px 16px", borderRadius: "8px", border: "1px solid #374151", background: "#111827", color: "#9ca3af", cursor: "pointer", fontWeight: 600, fontSize: "13px", marginBottom: "14px" }}>{showCompleted ? "Hide Completed" : "Show Completed"}</button>
               {visibleTodos.length === 0 && <div style={{ color: "#4b5563", fontSize: "14px" }}>Nothing here yet!</div>}
-              {visibleTodos.map(t => <TodoItem key={t.id} todo={t} onToggle={toggleTodo} onDelete={deleteTodo} />)}
+              {visibleTodos.map(t => <TodoItem key={t.id} todo={t} onToggle={toggleTodo} onDelete={deleteTodo} onEdit={todo => { setEditingTodo(todo); setShowTodoModal(true); }} />)}
             </section>
           </>
         ) : tab === "analytics" ? (
@@ -1638,7 +1647,7 @@ export default function HabiTick() {
         ) : null}
       </main>
       {showHabitModal && <HabitModal habit={editingHabit} onSave={saveHabit} onClose={() => { setShowHabitModal(false); setEditingHabit(null); }} />}
-      {showTodoModal && <TodoModal onSave={addTodo} onClose={() => setShowTodoModal(false)} />}
+      {showTodoModal && <TodoModal todo={editingTodo} onSave={editingTodo ? saveTodo : addTodo} onClose={() => { setShowTodoModal(false); setEditingTodo(null); }} />}
       {showProfile && <ProfileModal session={session} profile={profile} onUpdate={setProfile} onClose={() => setShowProfile(false)} />}
       {showUpgradeModal && <UpgradeModal onUpgrade={handleUpgrade} onClose={() => setShowUpgradeModal(false)} reason={showUpgradeModal} />}
 
