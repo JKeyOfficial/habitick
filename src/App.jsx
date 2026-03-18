@@ -344,31 +344,105 @@ function HabitModal({ habit, onSave, onClose }) {
 }
 
 // ─── Todo Item + Modal ────────────────────────────────────────────────────────
+function formatDueDate(dueDate, dueTime) {
+  if (!dueDate) return null;
+  const today = getTodayStr();
+  const tomorrow = (() => { const d = new Date(); d.setDate(d.getDate() + 1); return getDateStr(d); })();
+  const dayLabel = dueDate === today ? "Today" : dueDate === tomorrow ? "Tomorrow" : parseDateLocal(dueDate).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+  return dueTime ? `${dayLabel} at ${dueTime}` : dayLabel;
+}
+
 function TodoItem({ todo, onToggle, onDelete }) {
+  const today = getTodayStr();
+  const isOverdue = !todo.done && todo.due_date && todo.due_date < today;
+  const isDueToday = !todo.done && todo.due_date === today;
+  const dueLabel = formatDueDate(todo.due_date, todo.due_time);
+
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "14px 16px", background: "#111827", border: "1px solid #1f2937", borderRadius: "12px", marginBottom: "8px", boxShadow: "0 1px 3px rgba(0,0,0,0.2)", transition: "border-color 0.15s" }}>
-      <button onClick={() => onToggle(todo.id)} style={{ width: "20px", height: "20px", borderRadius: "6px", border: "1.5px solid", borderColor: todo.done ? "#10b981" : "#374151", background: todo.done ? "#10b981" : "transparent", cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "11px", fontWeight: 900, transition: "all 0.15s" }}>{todo.done ? "✓" : ""}</button>
-      <span style={{ flex: 1, color: todo.done ? "#4b5563" : "#e5e7eb", fontSize: "14px", textDecoration: todo.done ? "line-through" : "none" }}>{todo.text}</span>
-      {todo.priority && <span style={{ fontSize: "10px", padding: "3px 10px", borderRadius: "999px", fontWeight: 700, border: "1px solid", background: todo.priority === "high" ? "#7f1d1d30" : todo.priority === "med" ? "#78350f30" : "#1c3a2a30", borderColor: todo.priority === "high" ? "#fca5a540" : todo.priority === "med" ? "#fcd34d40" : "#86efac40", color: todo.priority === "high" ? "#fca5a5" : todo.priority === "med" ? "#fcd34d" : "#86efac" }}>{todo.priority}</span>}
-      <button onClick={() => onDelete(todo.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#374151", fontSize: "13px", padding: "4px", borderRadius: "6px" }}>✕</button>
+    <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", padding: "14px 16px", background: "#111827", border: `1px solid ${isOverdue ? "#7f1d1d60" : "#1f2937"}`, borderRadius: "12px", marginBottom: "8px", boxShadow: "0 1px 3px rgba(0,0,0,0.2)", transition: "border-color 0.15s" }}>
+      <button onClick={() => onToggle(todo.id)} style={{ width: "20px", height: "20px", borderRadius: "6px", border: "1.5px solid", borderColor: todo.done ? "#10b981" : "#374151", background: todo.done ? "#10b981" : "transparent", cursor: "pointer", flexShrink: 0, marginTop: "1px", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "11px", fontWeight: 900, transition: "all 0.15s" }}>{todo.done ? "✓" : ""}</button>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: "block", color: todo.done ? "#4b5563" : "#e5e7eb", fontSize: "14px", textDecoration: todo.done ? "line-through" : "none" }}>{todo.text}</span>
+        {dueLabel && !todo.done && (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", marginTop: "5px", fontSize: "11px", fontWeight: 600, color: isOverdue ? "#f87171" : isDueToday ? "#fcd34d" : "#6b7280" }}>
+            {isOverdue ? "⚠️" : "🕐"} {dueLabel}
+          </span>
+        )}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
+        {todo.priority && <span style={{ fontSize: "10px", padding: "3px 10px", borderRadius: "999px", fontWeight: 700, border: "1px solid", background: todo.priority === "high" ? "#7f1d1d30" : todo.priority === "med" ? "#78350f30" : "#1c3a2a30", borderColor: todo.priority === "high" ? "#fca5a540" : todo.priority === "med" ? "#fcd34d40" : "#86efac40", color: todo.priority === "high" ? "#fca5a5" : todo.priority === "med" ? "#fcd34d" : "#86efac" }}>{todo.priority}</span>}
+        <button onClick={() => onDelete(todo.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#374151", fontSize: "13px", padding: "4px", borderRadius: "6px" }}>✕</button>
+      </div>
     </div>
   );
 }
+
 function TodoModal({ onSave, onClose }) {
   const [text, setText] = useState("");
   const [priority, setPriority] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [dueTime, setDueTime] = useState("");
+
+  const today = getTodayStr();
+  const tomorrow = (() => { const d = new Date(); d.setDate(d.getDate() + 1); return getDateStr(d); })();
+
+  // Quick day options
+  const dayOptions = [
+    { label: "Today", value: today },
+    { label: "Tomorrow", value: tomorrow },
+    { label: "Custom", value: "custom" },
+  ];
+  const [dayMode, setDayMode] = useState("none"); // none | today | tomorrow | custom
+
+  const handleDaySelect = (mode) => {
+    if (dayMode === mode) { setDayMode("none"); setDueDate(""); setDueTime(""); return; }
+    setDayMode(mode);
+    if (mode === "today") setDueDate(today);
+    else if (mode === "tomorrow") setDueDate(tomorrow);
+    else if (mode === "custom") setDueDate("");
+  };
+
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#000a", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ background: "#111827", border: "1px solid #374151", borderRadius: "16px", padding: "28px", width: "360px", maxWidth: "90vw" }}>
-        <h2 style={{ margin: "0 0 20px", color: "#f9fafb", fontSize: "18px" }}>New To-Do</h2>
-        <input value={text} onChange={e => setText(e.target.value)} style={{ ...S.input, marginBottom: "14px" }} placeholder="What needs to be done?" autoFocus onKeyDown={e => e.key === "Enter" && text.trim() && onSave({ text: text.trim(), priority })} />
-        <label style={S.label}>Priority (optional)</label>
-        <div style={{ display: "flex", gap: "8px" }}>
-          {["", "high", "med", "low"].map(p => <button key={p} onClick={() => setPriority(p)} style={{ flex: 1, padding: "7px", borderRadius: "8px", border: "1px solid", borderColor: priority === p ? "#2563eb" : "#374151", background: priority === p ? "#1d4ed8" : "#1f2937", color: priority === p ? "#fff" : "#9ca3af", cursor: "pointer", fontSize: "12px", fontWeight: 600 }}>{p === "" ? "None" : p[0].toUpperCase() + p.slice(1)}</button>)}
+    <div style={{ position: "fixed", inset: 0, background: "#000a", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}>
+      <div style={{ background: "#111827", border: "1px solid #374151", borderRadius: "16px", padding: "24px", width: "100%", maxWidth: "380px" }}>
+        <h2 style={{ margin: "0 0 18px", color: "#f9fafb", fontSize: "18px", fontFamily: "'Syne', sans-serif", fontWeight: 800 }}>New To-Do</h2>
+
+        {/* Task text */}
+        <input value={text} onChange={e => setText(e.target.value)} style={{ ...S.input, marginBottom: "18px" }} placeholder="What needs to be done?" autoFocus onKeyDown={e => e.key === "Enter" && text.trim() && onSave({ text: text.trim(), priority, due_date: dueDate || null, due_time: dueTime || null })} />
+
+        {/* Due day */}
+        <label style={{ ...S.label, marginBottom: "8px" }}>Due day (optional)</label>
+        <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+          {dayOptions.map(({ label, value }) => (
+            <button key={value} onClick={() => handleDaySelect(value === today ? "today" : value === tomorrow ? "tomorrow" : "custom")}
+              style={{ flex: 1, padding: "8px 4px", borderRadius: "8px", border: "1px solid", borderColor: (dayMode === "today" && value === today) || (dayMode === "tomorrow" && value === tomorrow) || (dayMode === "custom" && value === "custom") ? "#2563eb" : "#374151", background: (dayMode === "today" && value === today) || (dayMode === "tomorrow" && value === tomorrow) || (dayMode === "custom" && value === "custom") ? "#1d4ed8" : "#1f2937", color: (dayMode === "today" && value === today) || (dayMode === "tomorrow" && value === tomorrow) || (dayMode === "custom" && value === "custom") ? "#fff" : "#9ca3af", cursor: "pointer", fontSize: "12px", fontWeight: 600, fontFamily: "inherit" }}>{label}</button>
+          ))}
         </div>
-        <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
+
+        {/* Custom date picker */}
+        {dayMode === "custom" && (
+          <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} min={today}
+            style={{ ...S.input, marginBottom: "12px", colorScheme: "dark" }} />
+        )}
+
+        {/* Time — shown once a day is selected */}
+        {dayMode !== "none" && (
+          <>
+            <label style={{ ...S.label, marginBottom: "8px" }}>Time (optional)</label>
+            <input type="time" value={dueTime} onChange={e => setDueTime(e.target.value)}
+              style={{ ...S.input, marginBottom: "18px", colorScheme: "dark" }} />
+          </>
+        )}
+
+        {/* Priority */}
+        <label style={{ ...S.label, marginBottom: "8px" }}>Priority (optional)</label>
+        <div style={{ display: "flex", gap: "8px", marginBottom: "20px" }}>
+          {["", "high", "med", "low"].map(p => <button key={p} onClick={() => setPriority(p)} style={{ flex: 1, padding: "7px", borderRadius: "8px", border: "1px solid", borderColor: priority === p ? "#2563eb" : "#374151", background: priority === p ? "#1d4ed8" : "#1f2937", color: priority === p ? "#fff" : "#9ca3af", cursor: "pointer", fontSize: "12px", fontWeight: 600, fontFamily: "inherit" }}>{p === "" ? "None" : p[0].toUpperCase() + p.slice(1)}</button>)}
+        </div>
+
+        <div style={{ display: "flex", gap: "10px" }}>
           <button onClick={onClose} style={S.btnSecondary}>Cancel</button>
-          <button onClick={() => { if (text.trim()) onSave({ text: text.trim(), priority }); }} style={S.btnPrimary}>Add</button>
+          <button onClick={() => { if (text.trim()) onSave({ text: text.trim(), priority, due_date: dueDate || null, due_time: dueTime || null }); }} style={S.btnPrimary}>Add</button>
         </div>
       </div>
     </div>
@@ -636,7 +710,7 @@ function AnalyticsTab({ habits, todos, pausePeriods, isPremium, journalEntries }
         </div>
         <div style={{ display: "flex", alignItems: "flex-end", gap: "3px", height: "120px", overflowX: "auto" }}>
           {finalChartData.map((d, i) => (
-            <div key={i} style={{ flex: "0 0 auto", minWidth: finalChartData.length > 14 ? "18px" : undefined, display: "flex", flexDirection: "column", alignItems: "center", height: "100%"}}>
+            <div key={i} style={{ flex: "0 0 auto", minWidth: finalChartData.length > 14 ? "18px" : undefined, display: "flex", flexDirection: "column", alignItems: "center", height: "100%", flex: 1 }}>
               <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-end", gap: "2px", width: "100%" }}>
                 <div style={{ background: "#3b82f6", borderRadius: "4px 4px 0 0", height: `${(d.habits / maxVal) * 90}%`, minHeight: d.habits > 0 ? "4px" : "0", transition: "height 0.5s" }} />
                 <div style={{ background: "#22c55e", borderRadius: "4px 4px 0 0", height: `${(d.tasks / maxVal) * 90}%`, minHeight: d.tasks > 0 ? "4px" : "0", transition: "height 0.5s" }} />
@@ -1359,14 +1433,14 @@ export default function HabiTick() {
   };
 
   // ── Todo actions ───────────────────────────────────────────────────────────
-  const addTodo = async ({ text, priority }) => {
+  const addTodo = async ({ text, priority, due_date, due_time }) => {
     const activeTodos = todos.filter(t => !t.done);
     if (!isPremium && activeTodos.length >= FREE_TODO_LIMIT) {
       setShowTodoModal(false);
       setShowUpgradeModal("todos");
       return;
     }
-    const { data } = await supabase.from("todos").insert({ user_id: session.user.id, text, priority: priority || null, done: false }).select().single();
+    const { data } = await supabase.from("todos").insert({ user_id: session.user.id, text, priority: priority || null, done: false, due_date: due_date || null, due_time: due_time || null }).select().single();
     setTodos(prev => [...prev, { ...data, doneDate: null }]);
     setShowTodoModal(false);
   };
@@ -1402,7 +1476,17 @@ export default function HabiTick() {
   const doneToday = habits.filter(h => (h.frequency === "daily" || (h.days && h.days.includes(todayDow))) && (h.completedDates || []).includes(today)).length;
   const totalToday = habits.filter(h => h.frequency === "daily" || (h.days && h.days.includes(todayDow))).length;
   const currentStreak = calcStreak(habits, pausePeriods);
-  const visibleTodos = showCompleted ? todos : todos.filter(t => !t.done);
+  const priorityOrder = { high: 1, med: 2, low: 3, "": 4 };
+  const visibleTodos = (showCompleted ? todos : todos.filter(t => !t.done)).slice().sort((a, b) => {
+    // Completed todos sink to bottom
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    // Sort by due date/time first — no due date goes last
+    const aDate = a.due_date ? `${a.due_date}${a.due_time ? `T${a.due_time}` : "T23:59"}` : "9999";
+    const bDate = b.due_date ? `${b.due_date}${b.due_time ? `T${b.due_time}` : "T23:59"}` : "9999";
+    if (aDate !== bDate) return aDate < bDate ? -1 : 1;
+    // Same day — sort by priority
+    return (priorityOrder[a.priority || ""] || 4) - (priorityOrder[b.priority || ""] || 4);
+  });
 
   // ── Premium ────────────────────────────────────────────────────────────────
   const isPremium = profile?.is_premium === true || profile?.is_lifetime === true;
