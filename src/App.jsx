@@ -149,7 +149,7 @@ function AuthScreen() {
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700;800&display=swap'); html, body, #root { margin: 0; padding: 0; width: 100%; min-height: 100vh; } * { box-sizing: border-box; } button,input { font-family: inherit; }`}</style>
       <div style={{ width: "380px", maxWidth: "90vw" }}>
         <div style={{ textAlign: "center", marginBottom: "32px" }}>
-          <div style={{ fontSize: "36px", marginBottom: "8px" }}>⚡</div>
+          <div style={{marginBottom: "8px" }}><img src="habitick-logo.png" alt="HabiTick" style={{ width: "36px", height: "36px" }} /></div>
           <div style={{ fontWeight: 800, fontSize: "24px", color: "#f9fafb" }}>HabiTick</div>
           <div style={{ color: "#6b7280", fontSize: "14px", marginTop: "4px" }}>
             {mode === "signup" ? "Create your account" : mode === "forgot" ? "Reset your password" : "Welcome back"}
@@ -902,6 +902,131 @@ function JournalTab({ journalEntries, setJournalEntries, session, today, isPremi
 }
 
 
+// ─── Onboarding ───────────────────────────────────────────────────────────────
+function OnboardingScreen({ session, onComplete }) {
+  const [step, setStep] = useState(0); // 0=welcome, 1=username+photo, 2=allset
+  const [username, setUsername] = useState("");
+  const [usernameErr, setUsernameErr] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const uploadAvatar = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { setUsernameErr("Image must be under 2MB"); return; }
+    setUploadingAvatar(true);
+    const ext = file.name.split(".").pop();
+    const path = `${session.user.id}/avatar.${ext}`;
+    const { error: upErr } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+    if (upErr) { setUsernameErr("Upload failed"); setUploadingAvatar(false); return; }
+    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+    setAvatarUrl(data.publicUrl + "?t=" + Date.now());
+    setUploadingAvatar(false);
+  };
+
+  const handleSave = async () => {
+    setUsernameErr("");
+    if (username.length < 3) { setUsernameErr("Must be at least 3 characters"); return; }
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) { setUsernameErr("Letters, numbers and underscores only"); return; }
+    setSaving(true);
+    const { error } = await supabase.from("profiles").upsert({
+      id: session.user.id,
+      username: username.trim(),
+      avatar_url: avatarUrl || null,
+      updated_at: new Date().toISOString(),
+    });
+    if (error?.message?.includes("unique")) { setUsernameErr("Username already taken"); setSaving(false); return; }
+    if (error) { setUsernameErr(error.message); setSaving(false); return; }
+    setSaving(false);
+    setStep(2);
+  };
+
+  const avatarLetter = (username || session.user.email || "?")[0].toUpperCase();
+
+  const fadeUp = { animation: "fadeUp 0.4s ease forwards" };
+
+  if (step === 0) return (
+    <div style={{ minHeight: "100vh", background: "#0d1117", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', system-ui, sans-serif", padding: "24px" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;600;700;800&display=swap'); @keyframes fadeUp { from { opacity:0; transform:translateY(16px);} to {opacity:1;transform:translateY(0);} } * { box-sizing: border-box; }`}</style>
+      <div style={{ textAlign: "center", maxWidth: "400px", width: "100%", ...fadeUp }}>
+        <div style={{ fontSize: "64px", marginBottom: "20px" }}>⚡</div>
+        <h1 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "36px", color: "#f9fafb", margin: "0 0 14px", letterSpacing: "-0.03em" }}>Welcome to HabiTick</h1>
+        <p style={{ color: "#6b7280", fontSize: "16px", lineHeight: 1.6, margin: "0 0 40px" }}>The habit tracker that grows with you.<br/>Let's get you set up in 30 seconds.</p>
+        <button onClick={() => setStep(1)} style={{ width: "100%", padding: "15px", borderRadius: "12px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "16px", cursor: "pointer", fontFamily: "inherit" }}>Let's go →</button>
+      </div>
+    </div>
+  );
+
+  if (step === 1) return (
+    <div style={{ minHeight: "100vh", background: "#0d1117", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', system-ui, sans-serif", padding: "24px" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;600;700;800&display=swap'); @keyframes fadeUp { from { opacity:0; transform:translateY(16px);} to {opacity:1;transform:translateY(0);} } * { box-sizing: border-box; } input { outline: none; }`}</style>
+      <div style={{ width: "100%", maxWidth: "400px", ...fadeUp }}>
+        <div style={{ textAlign: "center", marginBottom: "32px" }}>
+          <div style={{ fontSize: "28px", marginBottom: "8px" }}>👤</div>
+          <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "26px", color: "#f9fafb", margin: "0 0 8px", letterSpacing: "-0.02em" }}>Set up your profile</h2>
+          <p style={{ color: "#6b7280", fontSize: "14px", margin: 0 }}>Choose a username and optionally add a photo</p>
+        </div>
+
+        {/* Avatar */}
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: "28px" }}>
+          <label style={{ position: "relative", cursor: "pointer" }}>
+            {avatarUrl
+              ? <img src={avatarUrl} alt="avatar" style={{ width: "88px", height: "88px", borderRadius: "50%", objectFit: "cover", border: "3px solid #2563eb" }} />
+              : <div style={{ width: "88px", height: "88px", borderRadius: "50%", background: "#1f2937", border: "2px dashed #374151", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+                  <span style={{ fontSize: "24px" }}>{uploadingAvatar ? "⏳" : "📷"}</span>
+                  <span style={{ fontSize: "10px", color: "#6b7280", fontWeight: 600 }}>Add photo</span>
+                </div>
+            }
+            {avatarUrl && (
+              <div style={{ position: "absolute", bottom: 0, right: 0, width: "26px", height: "26px", borderRadius: "50%", background: "#2563eb", border: "2px solid #0d1117", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px" }}>📷</div>
+            )}
+            <input type="file" accept="image/*" onChange={uploadAvatar} style={{ display: "none" }} />
+          </label>
+        </div>
+
+        {/* Username */}
+        <label style={{ color: "#9ca3af", fontSize: "13px", display: "block", marginBottom: "6px" }}>Username <span style={{ color: "#f87171" }}>*</span></label>
+        <input
+          value={username}
+          onChange={e => setUsername(e.target.value)}
+          placeholder="e.g. jacob_h"
+          autoFocus
+          onKeyDown={e => e.key === "Enter" && handleSave()}
+          style={{ width: "100%", padding: "12px 14px", borderRadius: "10px", border: `1px solid ${usernameErr ? "#f87171" : "#374151"}`, background: "#1f2937", color: "#f9fafb", fontSize: "15px", fontFamily: "inherit", marginBottom: "6px" }}
+        />
+        <div style={{ fontSize: "11px", color: "#374151", marginBottom: usernameErr ? "6px" : "24px" }}>Letters, numbers and underscores · min 3 chars</div>
+        {usernameErr && <div style={{ color: "#f87171", fontSize: "13px", marginBottom: "16px" }}>{usernameErr}</div>}
+
+        <button onClick={handleSave} disabled={saving || !username.trim()} style={{ width: "100%", padding: "14px", borderRadius: "12px", border: "none", background: username.trim().length >= 3 ? "#2563eb" : "#1f2937", color: username.trim().length >= 3 ? "#fff" : "#4b5563", fontWeight: 700, fontSize: "15px", cursor: username.trim().length >= 3 ? "pointer" : "default", fontFamily: "inherit", transition: "all 0.2s", opacity: saving ? 0.7 : 1 }}>
+          {saving ? "Saving..." : "Continue →"}
+        </button>
+        <button onClick={() => setStep(0)} style={{ width: "100%", marginTop: "10px", padding: "12px", borderRadius: "12px", border: "none", background: "transparent", color: "#4b5563", fontWeight: 600, fontSize: "14px", cursor: "pointer", fontFamily: "inherit" }}>← Back</button>
+      </div>
+    </div>
+  );
+
+  if (step === 2) return (
+    <div style={{ minHeight: "100vh", background: "#0d1117", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', system-ui, sans-serif", padding: "24px" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;600;700;800&display=swap'); @keyframes fadeUp { from { opacity:0; transform:translateY(16px);} to {opacity:1;transform:translateY(0);} } @keyframes pop { 0%{transform:scale(0.5);opacity:0} 70%{transform:scale(1.15)} 100%{transform:scale(1);opacity:1} } * { box-sizing: border-box; }`}</style>
+      <div style={{ textAlign: "center", maxWidth: "400px", width: "100%", ...fadeUp }}>
+        <div style={{ fontSize: "72px", marginBottom: "20px", animation: "pop 0.5s ease forwards" }}>🎉</div>
+        <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "30px", color: "#f9fafb", margin: "0 0 10px", letterSpacing: "-0.02em" }}>You're all set, {username}!</h2>
+        <p style={{ color: "#6b7280", fontSize: "15px", lineHeight: 1.6, margin: "0 0 40px" }}>Time to build your first habit.<br/>Start small — one habit changes everything.</p>
+        <button
+          onClick={() => {
+            const { data } = supabase.from("profiles").select("*").eq("id", session.user.id).single().then(({ data }) => onComplete(data));
+          }}
+          style={{ width: "100%", padding: "15px", borderRadius: "12px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "16px", cursor: "pointer", fontFamily: "inherit" }}>
+          + Add my first habit →
+        </button>
+      </div>
+    </div>
+  );
+
+  return null;
+}
+
 // ─── DragSheet ────────────────────────────────────────────────────────────────
 function DragSheet({ onClose, children }) {
   const [dragY, setDragY] = useState(0);
@@ -1519,6 +1644,7 @@ export default function HabiTick() {
   // ── Guards ─────────────────────────────────────────────────────────────────
   if (session === undefined) return <div style={{ minHeight: "100vh", background: "#0d1117", display: "flex", alignItems: "center", justifyContent: "center", color: "#6b7280", fontFamily: "system-ui" }}>Loading...</div>;
   if (!session) return <AuthScreen />;
+  if (!loading && profile && !profile.username) return <OnboardingScreen session={session} onComplete={p => { setProfile(p); setShowHabitModal(true); }} />;
 
   // ── UI ─────────────────────────────────────────────────────────────────────
   return (
