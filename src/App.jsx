@@ -54,7 +54,9 @@ function getCalendarDays(year, month) {
 // ─── Streak logic ─────────────────────────────────────────────────────────────
 function isDayComplete(habits, dateStr) {
   const dow = parseDateLocal(dateStr).getDay();
-  const scheduled = habits.filter(h => h.frequency === "daily" || (h.days && h.days.includes(dow)));
+  // Only consider habits that existed on this date
+  const existing = habits.filter(h => (h.createdDate || h.created_date || dateStr).substring(0, 10) <= dateStr);
+  const scheduled = existing.filter(h => h.frequency === "daily" || (h.days && h.days.includes(dow)));
   if (scheduled.length === 0) return null; // rest day — counts but doesn't require completion
   return scheduled.every(h => (h.completedDates || []).includes(dateStr));
 }
@@ -149,7 +151,7 @@ function AuthScreen() {
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700;800&display=swap'); html, body, #root { margin: 0; padding: 0; width: 100%; min-height: 100vh; } * { box-sizing: border-box; } button,input { font-family: inherit; }`}</style>
       <div style={{ width: "380px", maxWidth: "90vw" }}>
         <div style={{ textAlign: "center", marginBottom: "32px" }}>
-          <div style={{marginBottom: "8px" }}><img src="/habitick-blue-logo.png" alt="HabiTick" style={{ width: "36px", height: "36px" }} /></div>
+          <div style={{ fontSize: "36px", marginBottom: "8px" }}>⚡</div>
           <div style={{ fontWeight: 800, fontSize: "24px", color: "#f9fafb" }}>HabiTick</div>
           <div style={{ color: "#6b7280", fontSize: "14px", marginTop: "4px" }}>
             {mode === "signup" ? "Create your account" : mode === "forgot" ? "Reset your password" : "Welcome back"}
