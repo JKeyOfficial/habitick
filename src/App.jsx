@@ -291,12 +291,10 @@ function RoutineCard({ routine, habits, today, onToggle, onDelete, onDeleteRouti
   const allDone = totalCount > 0 && doneCount === totalCount;
 
   const handleDragOver = e => { e.preventDefault(); setDragOver(true); };
-  const handleDragLeave = e => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(false); };
+  const handleDragLeave = () => setDragOver(false);
   const handleDrop = e => {
     e.preventDefault(); setDragOver(false);
     const habitId = e.dataTransfer.getData("habitId");
-    // Only join routine if dropped on the routine background, not on a habit card
-    // (habit cards stopPropagation their own onDrop, so this only fires for the background)
     if (habitId) onDropOnRoutine(habitId, routine.id);
   };
 
@@ -385,13 +383,12 @@ function RoutineCard({ routine, habits, today, onToggle, onDelete, onDeleteRouti
 
 // ─── Routine Modal ────────────────────────────────────────────────────────────
 const ROUTINE_EMOJIS = ["📋","🌅","🌙","💪","🧘","🏃","📚","🎯","✨","🔥","⚡","🎸","🥗","💻","🧠"];
-function RoutineModal({ routine, habitsList, onSave, onClose, onEject }) {
+function RoutineModal({ routine, onSave, onClose }) {
   const [name, setName] = useState(routine?.name || "");
   const [emoji, setEmoji] = useState(routine?.emoji || "📋");
-  const routineHabits = habitsList?.filter(h => h.routine_id === routine?.id) || [];
   return (
     <div style={{ position: "fixed", inset: 0, background: "#000a", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}>
-      <div style={{ background: "#111827", border: "1px solid #374151", borderRadius: "16px", padding: "28px", width: "100%", maxWidth: "380px", maxHeight: "90vh", overflowY: "auto" }}>
+      <div style={{ background: "#111827", border: "1px solid #374151", borderRadius: "16px", padding: "28px", width: "100%", maxWidth: "380px" }}>
         <h2 style={{ margin: "0 0 20px", color: "#f9fafb", fontSize: "18px", fontFamily: "'Syne', sans-serif", fontWeight: 800 }}>{routine ? "Edit Routine" : "New Routine"}</h2>
         <label style={S.label}>Routine name</label>
         <input value={name} onChange={e => setName(e.target.value)} style={{ ...S.input, marginBottom: "18px" }} placeholder="e.g. Morning Routine" autoFocus onKeyDown={e => e.key === "Enter" && name.trim() && onSave({ name: name.trim(), emoji })} />
@@ -401,22 +398,6 @@ function RoutineModal({ routine, habitsList, onSave, onClose, onEject }) {
             <button key={e} onClick={() => setEmoji(e)} style={{ width: "40px", height: "40px", borderRadius: "10px", border: `2px solid ${emoji === e ? "#2563eb" : "#1f2937"}`, background: emoji === e ? "#1d4ed820" : "#1f2937", fontSize: "20px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}>{e}</button>
           ))}
         </div>
-        {routine && routineHabits.length > 0 && (
-          <>
-            <label style={{ ...S.label, marginBottom: "10px", display: "block" }}>Habits in this routine</label>
-            <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "20px" }}>
-              {routineHabits.map(h => (
-                <div key={h.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#0d1117", border: "1px solid #1f2937", borderRadius: "8px", padding: "10px 12px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#2563eb" }} />
-                    <span style={{ color: "#e5e7eb", fontSize: "14px", fontWeight: 600 }}>{h.name}</span>
-                  </div>
-                  <button onClick={() => onEject(h.id)} style={{ background: "none", border: "1px solid #374151", borderRadius: "6px", color: "#6b7280", fontSize: "11px", fontWeight: 600, cursor: "pointer", padding: "3px 8px", fontFamily: "inherit" }}>↗ Remove</button>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
         <div style={{ display: "flex", gap: "10px" }}>
           <button onClick={onClose} style={S.btnSecondary}>Cancel</button>
           <button onClick={() => { if (name.trim()) onSave({ name: name.trim(), emoji }); }} style={S.btnPrimary}>{routine ? "Save" : "Create Routine"}</button>
@@ -429,8 +410,7 @@ function RoutineModal({ routine, habitsList, onSave, onClose, onEject }) {
 // ─── Habit Card ───────────────────────────────────────────────────────────────
 function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, pausePeriods, isPremium, draggable: isDraggable, onDragStart, onDragEnd, onDragEnter, isDropTarget, onEjectFromRoutine, inRoutine }) {
   const [isDragging, setIsDragging] = useState(false);
-  // Default open on desktop (>=768px), closed on mobile
-  const [calOpen, setCalOpen] = useState(() => window.innerWidth >= 768);
+  const [calOpen, setCalOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const todayDow = new Date().getDay();
   const isScheduledToday = habit.frequency === "daily" || (habit.days && habit.days.includes(todayDow));
@@ -454,11 +434,9 @@ function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, pausePe
       draggable={isDraggable}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-      onDragEnter={e => { e.preventDefault(); e.stopPropagation(); if (onDragEnter) onDragEnter(habit.id); }}
-      onDragLeave={e => { e.preventDefault(); if (onDragEnter) onDragEnter(null); }}
-      onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
-      onDrop={e => { e.preventDefault(); e.stopPropagation(); /* habit-on-habit drop handled by dragEnd */ }}
-      style={{ background: "#111827", border: `1px solid ${isDropTarget ? "#2563eb" : "#1f2937"}`, borderRadius: "14px", padding: "18px", boxShadow: isDropTarget ? "0 0 0 2px #2563eb40" : "0 1px 3px rgba(0,0,0,0.3)", transition: "border-color 0.15s, box-shadow 0.15s, opacity 0.2s", display: "flex", flexDirection: "column", opacity: isDragging ? 0.35 : 1, cursor: isDraggable ? "grab" : "default" }}>
+      onDragEnter={e => { e.preventDefault(); if (onDragEnter) onDragEnter(habit.id); }}
+      onDragOver={e => e.preventDefault()}
+      style={{ background: "#111827", border: `1px solid ${isDropTarget ? "#2563eb" : "#1f2937"}`, borderRadius: "14px", padding: "18px", minWidth: "240px", flex: "1 1 260px", maxWidth: "340px", boxShadow: isDropTarget ? "0 0 0 2px #2563eb40" : "0 1px 3px rgba(0,0,0,0.3)", transition: "border-color 0.15s, box-shadow 0.15s, opacity 0.2s", display: "flex", flexDirection: "column", opacity: isDragging ? 0.35 : 1, cursor: isDraggable ? "grab" : "default" }}>
 
       {/* Header row */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: calOpen ? "10px" : "0" }}>
@@ -496,13 +474,18 @@ function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, pausePe
         </div>
       )}
 
-      {/* Pushes button to bottom regardless of content height */}
-      <div style={{ flex: 1 }} />
-
       {isScheduledToday && !isPaused && (
         <button onClick={() => onToggle(habit.id, today)}
           style={{ width: "100%", marginTop: "12px", padding: "10px", borderRadius: "8px", border: "1px solid", cursor: "pointer", fontWeight: 700, fontSize: "13px", fontFamily: "inherit", background: doneToday ? "#10b98120" : "#2563eb", borderColor: doneToday ? "#10b98140" : "#2563eb", color: doneToday ? "#10b981" : "#fff", transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
           {doneToday ? "✓ Done!" : "Mark as Done Today"}
+        </button>
+      )}
+
+      {/* Mobile: remove from routine — tap instead of drag */}
+      {inRoutine && onEjectFromRoutine && (
+        <button onClick={() => onEjectFromRoutine(habit.id)}
+          style={{ width: "100%", marginTop: "8px", padding: "8px", borderRadius: "8px", border: "1px solid #1f2937", background: "transparent", color: "#4b5563", fontWeight: 600, fontSize: "12px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+          ↗ Remove from routine
         </button>
       )}
     </div>
@@ -1927,8 +1910,7 @@ export default function HabiTick() {
         .ht-header-pills { display: flex; gap: 8px; align-items: center; }
         .ht-main { max-width: 1200px; margin: 0 auto; padding: 24px 40px 100px; }
         .ht-tabs { display: flex; justify-content: center; gap: 6px; padding: 18px 16px 10px; }
-        .ht-habit-grid { display: flex; flex-wrap: wrap; gap: 14px; align-items: stretch; }
-        .ht-habit-grid > * { flex: 1 1 260px; max-width: 340px; min-width: 240px; box-sizing: border-box; }
+        .ht-habit-grid { display: flex; flex-wrap: wrap; gap: 14px; }
         .ht-bottom-nav { display: none; }
         .ht-header-username { display: inline; }
         .ht-founder-banner { position: relative; z-index: 45; }
@@ -2106,7 +2088,7 @@ export default function HabiTick() {
       </main>
       {showHabitModal && <HabitModal habit={editingHabit} onSave={saveHabit} onClose={() => { setShowHabitModal(false); setEditingHabit(null); }} />}
       {showTodoModal && <TodoModal todo={editingTodo} onSave={editingTodo ? saveTodo : addTodo} onClose={() => { setShowTodoModal(false); setEditingTodo(null); }} />}
-      {showRoutineModal && <RoutineModal routine={editingRoutine} habitsList={habits} onSave={saveRoutine} onEject={habitId => moveHabitToRoutine(habitId, null)} onClose={() => { setShowRoutineModal(false); setEditingRoutine(null); }} />}
+      {showRoutineModal && <RoutineModal routine={editingRoutine} onSave={saveRoutine} onClose={() => { setShowRoutineModal(false); setEditingRoutine(null); }} />}
 
       {/* Live floating drag card */}
       {draggedHabitId && draggedHabit && (
