@@ -276,15 +276,151 @@ function MiniCalendar({ habit, today, onToggle, pausePeriods, isPremium }) {
   );
 }
 
+// ─── Routine Card ────────────────────────────────────────────────────────────
+function RoutineCard({ routine, habits, today, onToggle, onDelete, onDeleteRoutine, onEdit, isPaused, pausePeriods, isPremium, dragState, onDragStartHabit, onDragEndHabit, onDropOnRoutine, onDropOnStandalone }) {
+  const [dragOver, setDragOver] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const todayDow = new Date().getDay();
+
+  const scheduledHabits = habits.filter(h =>
+    h.frequency === "daily" || (h.days && h.days.includes(todayDow))
+  );
+  const doneCount = scheduledHabits.filter(h => (h.completedDates || []).includes(today)).length;
+  const totalCount = scheduledHabits.length;
+  const allDone = totalCount > 0 && doneCount === totalCount;
+
+  const handleDragOver = e => { e.preventDefault(); setDragOver(true); };
+  const handleDragLeave = () => setDragOver(false);
+  const handleDrop = e => {
+    e.preventDefault(); setDragOver(false);
+    const habitId = e.dataTransfer.getData("habitId");
+    if (habitId) onDropOnRoutine(habitId, routine.id);
+  };
+
+  return (
+    <div
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      style={{
+        border: `2px solid ${allDone ? "#10b981" : dragOver ? "#2563eb" : "#1f2937"}`,
+        borderRadius: "18px",
+        padding: "18px",
+        marginBottom: "20px",
+        background: allDone ? "#10b98108" : dragOver ? "#2563eb08" : "#0d1117",
+        transition: "border-color 0.3s, background 0.3s",
+        position: "relative",
+      }}>
+
+      {/* Routine header */}
+      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: collapsed ? 0 : "16px" }}>
+        <span style={{ fontSize: "20px" }}>{routine.emoji || "📋"}</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "16px", color: allDone ? "#10b981" : "#f9fafb", letterSpacing: "-0.01em" }}>{routine.name}</span>
+            {allDone && <span style={{ fontSize: "12px", color: "#10b981", fontWeight: 700 }}>✓ Complete!</span>}
+          </div>
+          {totalCount > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px" }}>
+              <div style={{ flex: 1, maxWidth: "120px", height: "4px", borderRadius: "999px", background: "#1f2937", overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${totalCount > 0 ? (doneCount / totalCount) * 100 : 0}%`, background: allDone ? "#10b981" : "#2563eb", borderRadius: "999px", transition: "width 0.4s ease" }} />
+              </div>
+              <span style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600 }}>{doneCount}/{totalCount} done</span>
+            </div>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
+          <button onClick={() => onEdit(routine)} style={{ background: "none", border: "none", cursor: "pointer", color: "#4b5563", fontSize: "13px", padding: "4px 6px", borderRadius: "6px" }}>✏️</button>
+          <button onClick={() => onDeleteRoutine(routine.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#4b5563", fontSize: "13px", padding: "4px 6px", borderRadius: "6px" }}>✕</button>
+          <button onClick={() => setCollapsed(c => !c)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6b7280", fontSize: "16px", padding: "4px 6px", borderRadius: "6px", lineHeight: 1 }}>{collapsed ? "›" : "‹"}</button>
+        </div>
+      </div>
+
+      {/* Habits grid inside routine */}
+      {!collapsed && (
+        <>
+          {habits.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "28px 16px", color: "#374151", fontSize: "14px", border: "1px dashed #1f2937", borderRadius: "12px" }}>
+              Drag habits here to add them to this routine
+            </div>
+          ) : (
+            <div className="ht-habit-grid">
+              {habits.map(h => (
+                <HabitCard
+                  key={h.id}
+                  habit={h}
+                  today={today}
+                  onToggle={onToggle}
+                  onDelete={onDelete}
+                  onEdit={onEdit}
+                  isPaused={isPaused}
+                  pausePeriods={pausePeriods}
+                  isPremium={isPremium}
+                  draggable
+                  onDragStart={onDragStartHabit}
+                  onDragEnd={onDragEndHabit}
+                />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Routine Modal ────────────────────────────────────────────────────────────
+const ROUTINE_EMOJIS = ["📋","🌅","🌙","💪","🧘","🏃","📚","🎯","✨","🔥","⚡","🎸","🥗","💻","🧠"];
+function RoutineModal({ routine, onSave, onClose }) {
+  const [name, setName] = useState(routine?.name || "");
+  const [emoji, setEmoji] = useState(routine?.emoji || "📋");
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#000a", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}>
+      <div style={{ background: "#111827", border: "1px solid #374151", borderRadius: "16px", padding: "28px", width: "100%", maxWidth: "380px" }}>
+        <h2 style={{ margin: "0 0 20px", color: "#f9fafb", fontSize: "18px", fontFamily: "'Syne', sans-serif", fontWeight: 800 }}>{routine ? "Edit Routine" : "New Routine"}</h2>
+        <label style={S.label}>Routine name</label>
+        <input value={name} onChange={e => setName(e.target.value)} style={{ ...S.input, marginBottom: "18px" }} placeholder="e.g. Morning Routine" autoFocus onKeyDown={e => e.key === "Enter" && name.trim() && onSave({ name: name.trim(), emoji })} />
+        <label style={S.label}>Icon</label>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "24px", marginTop: "8px" }}>
+          {ROUTINE_EMOJIS.map(e => (
+            <button key={e} onClick={() => setEmoji(e)} style={{ width: "40px", height: "40px", borderRadius: "10px", border: `2px solid ${emoji === e ? "#2563eb" : "#1f2937"}`, background: emoji === e ? "#1d4ed820" : "#1f2937", fontSize: "20px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}>{e}</button>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: "10px" }}>
+          <button onClick={onClose} style={S.btnSecondary}>Cancel</button>
+          <button onClick={() => { if (name.trim()) onSave({ name: name.trim(), emoji }); }} style={S.btnPrimary}>{routine ? "Save" : "Create Routine"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Habit Card ───────────────────────────────────────────────────────────────
-function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, pausePeriods, isPremium }) {
+function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, pausePeriods, isPremium, draggable: isDraggable, onDragStart, onDragEnd }) {
+  const [isDragging, setIsDragging] = useState(false);
   const todayDow = new Date().getDay();
   const isScheduledToday = habit.frequency === "daily" || (habit.days && habit.days.includes(todayDow));
   const doneToday = habit.completedDates?.includes(today);
+
+  const handleDragStart = e => {
+    e.dataTransfer.setData("habitId", habit.id);
+    setIsDragging(true);
+    if (onDragStart) onDragStart(habit.id);
+  };
+  const handleDragEnd = () => {
+    setIsDragging(false);
+    if (onDragEnd) onDragEnd();
+  };
+
   return (
-    <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: "14px", padding: "18px", minWidth: "240px", flex: "1 1 260px", maxWidth: "340px", boxShadow: "0 1px 3px rgba(0,0,0,0.3)", transition: "border-color 0.2s", display: "flex", flexDirection: "column" }}>
+    <div
+      draggable={isDraggable}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: "14px", padding: "18px", minWidth: "240px", flex: "1 1 260px", maxWidth: "340px", boxShadow: "0 1px 3px rgba(0,0,0,0.3)", transition: "border-color 0.2s, opacity 0.2s", display: "flex", flexDirection: "column", opacity: isDragging ? 0.4 : 1, cursor: isDraggable ? "grab" : "default" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "10px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          {isDraggable && <span style={{ color: "#374151", fontSize: "14px", cursor: "grab", userSelect: "none" }}>⠿</span>}
           <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: doneToday ? "#10b981" : "#2563eb", flexShrink: 0, marginTop: "1px" }} />
           <div>
             <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "15px", color: "#f9fafb", letterSpacing: "-0.01em" }}>{habit.name}</div>
@@ -1489,7 +1625,10 @@ export default function HabiTick() {
   const [profile, setProfile] = useState(null);
   const [showProfile, setShowProfile] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [lifetimeBannerDismissed, setLifetimeBannerDismissed] = useState(false);
+  const [routines, setRoutines] = useState([]);
+  const [showRoutineModal, setShowRoutineModal] = useState(false);
+  const [editingRoutine, setEditingRoutine] = useState(null);
+  const [draggedHabitId, setDraggedHabitId] = useState(null);
 
   const today = getTodayStr();
   const todayDow = new Date().getDay();
@@ -1511,13 +1650,14 @@ export default function HabiTick() {
   const loadAll = async () => {
     setLoading(true);
     const uid = session.user.id;
-    const [habitsRes, completionsRes, todosRes, pauseRes, journalRes, profileRes] = await Promise.all([
+    const [habitsRes, completionsRes, todosRes, pauseRes, journalRes, profileRes, routinesRes] = await Promise.all([
       supabase.from("habits").select("*").eq("user_id", uid).order("created_at"),
       supabase.from("habit_completions").select("habit_id, completed_date").eq("user_id", uid),
       supabase.from("todos").select("*").eq("user_id", uid).order("created_at"),
       supabase.from("pause_periods").select("*").eq("user_id", uid).order("created_at"),
       supabase.from("journal_entries").select("*").eq("user_id", uid).order("entry_date"),
       supabase.from("profiles").select("*").eq("id", uid).single(),
+      supabase.from("routines").select("*").eq("user_id", uid).order("created_at"),
     ]);
     const completionsByHabit = {};
     (completionsRes.data || []).forEach(c => {
@@ -1531,10 +1671,35 @@ export default function HabiTick() {
     (journalRes.data || []).forEach(e => { entriesMap[e.entry_date.substring(0, 10)] = e; });
     setJournalEntries(entriesMap);
     setProfile(profileRes.data || null);
+    setRoutines(routinesRes.data || []);
     setLoading(false);
   };
 
-  // ── Habit actions ──────────────────────────────────────────────────────────
+  // ── Routine actions ────────────────────────────────────────────────────────
+  const saveRoutine = async ({ name, emoji }) => {
+    if (editingRoutine) {
+      const { data } = await supabase.from("routines").update({ name, emoji }).eq("id", editingRoutine.id).select().single();
+      setRoutines(prev => prev.map(r => r.id === editingRoutine.id ? data : r));
+    } else {
+      const { data } = await supabase.from("routines").insert({ user_id: session.user.id, name, emoji }).select().single();
+      setRoutines(prev => [...prev, data]);
+    }
+    setShowRoutineModal(false); setEditingRoutine(null);
+  };
+
+  const deleteRoutine = async id => {
+    // Remove routine_id from all habits in this routine first
+    await supabase.from("habits").update({ routine_id: null }).eq("routine_id", id);
+    setHabits(prev => prev.map(h => h.routine_id === id ? { ...h, routine_id: null } : h));
+    await supabase.from("routines").delete().eq("id", id);
+    setRoutines(prev => prev.filter(r => r.id !== id));
+  };
+
+  const moveHabitToRoutine = async (habitId, routineId) => {
+    // routineId can be null (move back to standalone)
+    await supabase.from("habits").update({ routine_id: routineId }).eq("id", habitId);
+    setHabits(prev => prev.map(h => h.id === habitId ? { ...h, routine_id: routineId } : h));
+  };
   const toggleHabit = async (habitId, dateStr) => {
     const habit = habits.find(h => h.id === habitId);
     const isDone = habit.completedDates.includes(dateStr);
@@ -1743,8 +1908,9 @@ export default function HabiTick() {
                   <button onClick={() => setShowUpgradeModal(true)} style={{ padding: "7px 14px", borderRadius: "8px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "13px", cursor: "pointer", whiteSpace: "nowrap" }}>Upgrade →</button>
                 </div>
               ) : (
-                <button onClick={() => { setEditingHabit(null); setShowHabitModal(true); }} style={{ width: "100%", padding: "13px", borderRadius: "10px", border: "1px solid #1f2937", background: "#111827", color: "#60a5fa", cursor: "pointer", fontWeight: 700, fontSize: "14px", marginBottom: "14px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", transition: "border-color 0.2s, background 0.2s" }}>+ Add New Habit</button>
+                <button onClick={() => { setEditingHabit(null); setShowHabitModal(true); }} style={{ width: "100%", padding: "13px", borderRadius: "10px", border: "1px solid #1f2937", background: "#111827", color: "#60a5fa", cursor: "pointer", fontWeight: 700, fontSize: "14px", marginBottom: "10px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", transition: "border-color 0.2s, background 0.2s" }}>+ Add New Habit</button>
               )}
+              <button onClick={() => { setEditingRoutine(null); setShowRoutineModal(true); }} style={{ width: "100%", padding: "13px", borderRadius: "10px", border: "1px solid #1f2937", background: "#111827", color: "#a78bfa", cursor: "pointer", fontWeight: 700, fontSize: "14px", marginBottom: "14px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", transition: "border-color 0.2s, background 0.2s" }}>+ New Routine</button>
               <div style={{ display: "flex", gap: "10px", marginBottom: "16px", flexWrap: "wrap", alignItems: "center" }}>
                 <button onClick={() => setShowTodayOnly(p => { localStorage.setItem("ht_showTodayOnly", String(!p)); return !p; })} style={{ padding: "7px 16px", borderRadius: "8px", border: "1px solid", borderColor: showTodayOnly ? "#2563eb" : "#374151", background: showTodayOnly ? "#1d4ed8" : "#111827", color: showTodayOnly ? "#fff" : "#9ca3af", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}>{showTodayOnly ? "Show All Habits" : "Show Today's Habits"}</button>
                 <button onClick={togglePause} style={{ padding: "7px 16px", borderRadius: "8px", border: "1px solid", borderColor: isPaused ? "#f59e0b" : "#374151", background: isPaused ? "#78350f" : "#111827", color: isPaused ? "#fcd34d" : "#9ca3af", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}>{isPaused ? "⏸ Holiday Mode ON — Resume" : "⏸ Pause / Holiday Mode"}</button>
@@ -1759,8 +1925,70 @@ export default function HabiTick() {
                 </div>
               )}
               <div className="ht-habit-grid">
-                {todayHabits.length === 0 && <div style={{ color: "#4b5563", fontSize: "14px", padding: "20px 0" }}>No habits yet. Add your first one!</div>}
-                {todayHabits.map(h => <HabitCard key={h.id} habit={h} today={today} onToggle={toggleHabit} onDelete={deleteHabit} isPaused={isPaused} pausePeriods={pausePeriods} isPremium={isPremium} onEdit={habit => { setEditingHabit(habit); setShowHabitModal(true); }} />)}
+                {/* Routine cards */}
+                {routines.map(routine => {
+                  const routineHabits = todayHabits.filter(h => h.routine_id === routine.id);
+                  return (
+                    <RoutineCard
+                      key={routine.id}
+                      routine={routine}
+                      habits={routineHabits}
+                      today={today}
+                      onToggle={toggleHabit}
+                      onDelete={deleteHabit}
+                      onDeleteRoutine={deleteRoutine}
+                      onEdit={thing => {
+                        // distinguish habit vs routine by checking for habit.frequency
+                        if (thing.frequency !== undefined) { setEditingHabit(thing); setShowHabitModal(true); }
+                        else { setEditingRoutine(thing); setShowRoutineModal(true); }
+                      }}
+                      isPaused={isPaused}
+                      pausePeriods={pausePeriods}
+                      isPremium={isPremium}
+                      dragState={draggedHabitId}
+                      onDragStartHabit={id => setDraggedHabitId(id)}
+                      onDragEndHabit={() => setDraggedHabitId(null)}
+                      onDropOnRoutine={moveHabitToRoutine}
+                    />
+                  );
+                })}
+
+                {/* Standalone habits — with drop zone to remove from routine */}
+                {(() => {
+                  const standaloneHabits = todayHabits.filter(h => !h.routine_id);
+                  const [standaloneDragOver, setStandaloneDragOver] = React.useState(false);
+                  const showDropZone = draggedHabitId && habits.find(h => h.id === draggedHabitId)?.routine_id;
+                  return (
+                    <div
+                      onDragOver={e => { e.preventDefault(); setStandaloneDragOver(true); }}
+                      onDragLeave={() => setStandaloneDragOver(false)}
+                      onDrop={e => { e.preventDefault(); setStandaloneDragOver(false); const id = e.dataTransfer.getData("habitId"); if (id) moveHabitToRoutine(id, null); }}
+                      style={{ display: "contents" }}>
+                      {showDropZone && (
+                        <div style={{ gridColumn: "1 / -1", border: `2px dashed ${standaloneDragOver ? "#2563eb" : "#374151"}`, borderRadius: "14px", padding: "20px", textAlign: "center", color: standaloneDragOver ? "#60a5fa" : "#374151", fontSize: "14px", fontWeight: 600, transition: "all 0.2s", background: standaloneDragOver ? "#2563eb08" : "transparent", marginBottom: "8px" }}>
+                          ↓ Drop here to remove from routine
+                        </div>
+                      )}
+                      {standaloneHabits.length === 0 && routines.length === 0 && <div style={{ color: "#4b5563", fontSize: "14px", padding: "20px 0" }}>No habits yet. Add your first one!</div>}
+                      {standaloneHabits.map(h => (
+                        <HabitCard
+                          key={h.id}
+                          habit={h}
+                          today={today}
+                          onToggle={toggleHabit}
+                          onDelete={deleteHabit}
+                          isPaused={isPaused}
+                          pausePeriods={pausePeriods}
+                          isPremium={isPremium}
+                          onEdit={habit => { setEditingHabit(habit); setShowHabitModal(true); }}
+                          draggable
+                          onDragStart={id => setDraggedHabitId(id)}
+                          onDragEnd={() => setDraggedHabitId(null)}
+                        />
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
             </section>
             <section>
@@ -1779,6 +2007,7 @@ export default function HabiTick() {
       </main>
       {showHabitModal && <HabitModal habit={editingHabit} onSave={saveHabit} onClose={() => { setShowHabitModal(false); setEditingHabit(null); }} />}
       {showTodoModal && <TodoModal todo={editingTodo} onSave={editingTodo ? saveTodo : addTodo} onClose={() => { setShowTodoModal(false); setEditingTodo(null); }} />}
+      {showRoutineModal && <RoutineModal routine={editingRoutine} onSave={saveRoutine} onClose={() => { setShowRoutineModal(false); setEditingRoutine(null); }} />}
       {showProfile && <ProfileModal session={session} profile={profile} onUpdate={setProfile} onClose={() => setShowProfile(false)} />}
       {showUpgradeModal && <UpgradeModal onUpgrade={handleUpgrade} onClose={() => setShowUpgradeModal(false)} reason={showUpgradeModal} />}
 
