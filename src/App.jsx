@@ -850,7 +850,7 @@ function AnalyticsTab({ habits, todos, pausePeriods, isPremium, journalEntries }
         </div>
         <div key={range} style={{ display: "flex", alignItems: "flex-end", gap: "3px", height: "120px", overflowX: "auto" }}>
           {finalChartData.map((d, i) => (
-            <div key={i} style={{ flex: "0 0 auto", minWidth: finalChartData.length > 14 ? "18px" : undefined, display: "flex", flexDirection: "column", alignItems: "center", height: "100%", flex: 1 }}>
+            <div key={i} style={{ minWidth: finalChartData.length > 14 ? "18px" : undefined, display: "flex", flexDirection: "column", alignItems: "center", height: "100%", flex: 1 }}>
               <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-end", gap: "2px", width: "100%" }}>
                 <div style={{ background: "#3b82f6", borderRadius: "4px 4px 0 0", height: `${(d.habits / maxVal) * 90}%`, minHeight: d.habits > 0 ? "4px" : "0", transition: "height 0.5s" }} />
                 <div style={{ background: "#22c55e", borderRadius: "4px 4px 0 0", height: `${(d.tasks / maxVal) * 90}%`, minHeight: d.tasks > 0 ? "4px" : "0", transition: "height 0.5s" }} />
@@ -1630,6 +1630,7 @@ export default function HabiTick() {
   const [editingRoutine, setEditingRoutine] = useState(null);
   const [draggedHabitId, setDraggedHabitId] = useState(null);
   const [standaloneDragOver, setStandaloneDragOver] = useState(false);
+  const [lifetimeBannerDismissed, setLifetimeBannerDismissed] = useState(false);
 
   const today = getTodayStr();
   const todayDow = new Date().getDay();
