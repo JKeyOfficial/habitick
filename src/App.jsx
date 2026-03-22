@@ -496,7 +496,7 @@ function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, pausePe
         </div>
       )}
 
-      {/* Spacer pushes button to bottom even when not scheduled today */}
+      {/* Pushes button to bottom regardless of content height */}
       <div style={{ flex: 1 }} />
 
       {isScheduledToday && !isPaused && (
