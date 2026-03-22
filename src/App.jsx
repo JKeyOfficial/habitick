@@ -277,9 +277,10 @@ function MiniCalendar({ habit, today, onToggle, pausePeriods, isPremium }) {
 }
 
 // ─── Routine Card ────────────────────────────────────────────────────────────
-function RoutineCard({ routine, habits, today, onToggle, onDelete, onDeleteRoutine, onEdit, isPaused, pausePeriods, isPremium, dragState, dropTargetId, onDragStartHabit, onDragEndHabit, onDragEnterHabit, onDropOnRoutine, onDropOnStandalone }) {
+function RoutineCard({ routine, habits, today, onToggle, onDelete, onDeleteRoutine, onEdit, onEjectFromRoutine, isPaused, pausePeriods, isPremium, dragState, dropTargetId, onDragStartHabit, onDragEndHabit, onDragEnterHabit, onDropOnRoutine, onDropOnStandalone }) {
   const [dragOver, setDragOver] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const todayDow = new Date().getDay();
 
   const scheduledHabits = habits.filter(h =>
@@ -331,7 +332,14 @@ function RoutineCard({ routine, habits, today, onToggle, onDelete, onDeleteRouti
         </div>
         <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
           <button onClick={() => onEdit(routine)} style={{ background: "none", border: "none", cursor: "pointer", color: "#4b5563", fontSize: "13px", padding: "4px 6px", borderRadius: "6px" }}>✏️</button>
-          <button onClick={() => onDeleteRoutine(routine.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#4b5563", fontSize: "13px", padding: "4px 6px", borderRadius: "6px" }}>✕</button>
+          {confirmDelete ? (
+            <>
+              <button onClick={() => onDeleteRoutine(routine.id)} style={{ background: "#7f1d1d", border: "1px solid #f87171", borderRadius: "6px", color: "#f87171", fontSize: "11px", fontWeight: 700, cursor: "pointer", padding: "3px 8px", fontFamily: "inherit" }}>Delete</button>
+              <button onClick={() => setConfirmDelete(false)} style={{ background: "none", border: "1px solid #374151", borderRadius: "6px", color: "#6b7280", fontSize: "11px", fontWeight: 700, cursor: "pointer", padding: "3px 8px", fontFamily: "inherit" }}>Cancel</button>
+            </>
+          ) : (
+            <button onClick={() => setConfirmDelete(true)} style={{ background: "none", border: "none", cursor: "pointer", color: "#4b5563", fontSize: "13px", padding: "4px 6px", borderRadius: "6px" }}>✕</button>
+          )}
           <button onClick={() => setCollapsed(c => !c)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6b7280", fontSize: "16px", padding: "4px 6px", borderRadius: "6px", lineHeight: 1 }}>{collapsed ? "›" : "‹"}</button>
         </div>
       </div>
@@ -361,6 +369,8 @@ function RoutineCard({ routine, habits, today, onToggle, onDelete, onDeleteRouti
                   onDragEnd={onDragEndHabit}
                   onDragEnter={onDragEnterHabit}
                   isDropTarget={dropTargetId === h.id && dragState !== h.id}
+                  onEjectFromRoutine={onEjectFromRoutine}
+                  inRoutine
                 />
               ))}
             </div>
@@ -398,9 +408,10 @@ function RoutineModal({ routine, onSave, onClose }) {
 }
 
 // ─── Habit Card ───────────────────────────────────────────────────────────────
-function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, pausePeriods, isPremium, draggable: isDraggable, onDragStart, onDragEnd, onDragEnter, isDropTarget }) {
+function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, pausePeriods, isPremium, draggable: isDraggable, onDragStart, onDragEnd, onDragEnter, isDropTarget, onEjectFromRoutine, inRoutine }) {
   const [isDragging, setIsDragging] = useState(false);
   const [calOpen, setCalOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const todayDow = new Date().getDay();
   const isScheduledToday = habit.frequency === "daily" || (habit.days && habit.days.includes(todayDow));
   const doneToday = habit.completedDates?.includes(today);
@@ -427,11 +438,9 @@ function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, pausePe
       onDragOver={e => e.preventDefault()}
       style={{ background: "#111827", border: `1px solid ${isDropTarget ? "#2563eb" : "#1f2937"}`, borderRadius: "14px", padding: "18px", minWidth: "240px", flex: "1 1 260px", maxWidth: "340px", boxShadow: isDropTarget ? "0 0 0 2px #2563eb40" : "0 1px 3px rgba(0,0,0,0.3)", transition: "border-color 0.15s, box-shadow 0.15s, opacity 0.2s", display: "flex", flexDirection: "column", opacity: isDragging ? 0.35 : 1, cursor: isDraggable ? "grab" : "default" }}>
 
-      {/* Header row — click body area to toggle calendar */}
+      {/* Header row */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: calOpen ? "10px" : "0" }}>
-        <div
-          onClick={() => setCalOpen(o => !o)}
-          style={{ display: "flex", alignItems: "center", gap: "10px", flex: 1, cursor: "pointer", userSelect: "none" }}>
+        <div onClick={() => setCalOpen(o => !o)} style={{ display: "flex", alignItems: "center", gap: "10px", flex: 1, cursor: "pointer", userSelect: "none" }}>
           {isDraggable && <span style={{ color: "#374151", fontSize: "14px", cursor: "grab", userSelect: "none" }} onClick={e => e.stopPropagation()}>⠿</span>}
           <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: doneToday ? "#10b981" : "#2563eb", flexShrink: 0, marginTop: "1px" }} />
           <div style={{ flex: 1 }}>
@@ -447,7 +456,14 @@ function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, pausePe
         </div>
         <div style={{ display: "flex", gap: "4px", marginLeft: "8px" }}>
           <button onClick={e => { e.stopPropagation(); onEdit(habit); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#4b5563", fontSize: "13px", padding: "4px", borderRadius: "6px" }}>✏️</button>
-          <button onClick={e => { e.stopPropagation(); onDelete(habit.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#4b5563", fontSize: "13px", padding: "4px", borderRadius: "6px" }}>✕</button>
+          {confirmDelete ? (
+            <>
+              <button onClick={e => { e.stopPropagation(); onDelete(habit.id); }} style={{ background: "#7f1d1d", border: "1px solid #f87171", borderRadius: "6px", color: "#f87171", fontSize: "11px", fontWeight: 700, cursor: "pointer", padding: "3px 8px", fontFamily: "inherit" }}>Delete</button>
+              <button onClick={e => { e.stopPropagation(); setConfirmDelete(false); }} style={{ background: "none", border: "1px solid #374151", borderRadius: "6px", color: "#6b7280", fontSize: "11px", fontWeight: 700, cursor: "pointer", padding: "3px 8px", fontFamily: "inherit" }}>Cancel</button>
+            </>
+          ) : (
+            <button onClick={e => { e.stopPropagation(); setConfirmDelete(true); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#4b5563", fontSize: "13px", padding: "4px", borderRadius: "6px" }}>✕</button>
+          )}
         </div>
       </div>
 
@@ -462,6 +478,14 @@ function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, pausePe
         <button onClick={() => onToggle(habit.id, today)}
           style={{ width: "100%", marginTop: "12px", padding: "10px", borderRadius: "8px", border: "1px solid", cursor: "pointer", fontWeight: 700, fontSize: "13px", fontFamily: "inherit", background: doneToday ? "#10b98120" : "#2563eb", borderColor: doneToday ? "#10b98140" : "#2563eb", color: doneToday ? "#10b981" : "#fff", transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
           {doneToday ? "✓ Done!" : "Mark as Done Today"}
+        </button>
+      )}
+
+      {/* Mobile: remove from routine — tap instead of drag */}
+      {inRoutine && onEjectFromRoutine && (
+        <button onClick={() => onEjectFromRoutine(habit.id)}
+          style={{ width: "100%", marginTop: "8px", padding: "8px", borderRadius: "8px", border: "1px solid #1f2937", background: "transparent", color: "#4b5563", fontWeight: 600, fontSize: "12px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+          ↗ Remove from routine
         </button>
       )}
     </div>
@@ -1996,6 +2020,7 @@ export default function HabiTick() {
                       onToggle={toggleHabit}
                       onDelete={deleteHabit}
                       onDeleteRoutine={deleteRoutine}
+                      onEjectFromRoutine={habitId => moveHabitToRoutine(habitId, null)}
                       onEdit={thing => {
                         // distinguish habit vs routine by checking for habit.frequency
                         if (thing.frequency !== undefined) { setEditingHabit(thing); setShowHabitModal(true); }
