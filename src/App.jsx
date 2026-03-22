@@ -1629,6 +1629,7 @@ export default function HabiTick() {
   const [showRoutineModal, setShowRoutineModal] = useState(false);
   const [editingRoutine, setEditingRoutine] = useState(null);
   const [draggedHabitId, setDraggedHabitId] = useState(null);
+  const [standaloneDragOver, setStandaloneDragOver] = useState(false);
 
   const today = getTodayStr();
   const todayDow = new Date().getDay();
@@ -1954,41 +1955,34 @@ export default function HabiTick() {
                 })}
 
                 {/* Standalone habits — with drop zone to remove from routine */}
-                {(() => {
-                  const standaloneHabits = todayHabits.filter(h => !h.routine_id);
-                  const [standaloneDragOver, setStandaloneDragOver] = React.useState(false);
-                  const showDropZone = draggedHabitId && habits.find(h => h.id === draggedHabitId)?.routine_id;
-                  return (
-                    <div
-                      onDragOver={e => { e.preventDefault(); setStandaloneDragOver(true); }}
-                      onDragLeave={() => setStandaloneDragOver(false)}
-                      onDrop={e => { e.preventDefault(); setStandaloneDragOver(false); const id = e.dataTransfer.getData("habitId"); if (id) moveHabitToRoutine(id, null); }}
-                      style={{ display: "contents" }}>
-                      {showDropZone && (
-                        <div style={{ gridColumn: "1 / -1", border: `2px dashed ${standaloneDragOver ? "#2563eb" : "#374151"}`, borderRadius: "14px", padding: "20px", textAlign: "center", color: standaloneDragOver ? "#60a5fa" : "#374151", fontSize: "14px", fontWeight: 600, transition: "all 0.2s", background: standaloneDragOver ? "#2563eb08" : "transparent", marginBottom: "8px" }}>
-                          ↓ Drop here to remove from routine
-                        </div>
-                      )}
-                      {standaloneHabits.length === 0 && routines.length === 0 && <div style={{ color: "#4b5563", fontSize: "14px", padding: "20px 0" }}>No habits yet. Add your first one!</div>}
-                      {standaloneHabits.map(h => (
-                        <HabitCard
-                          key={h.id}
-                          habit={h}
-                          today={today}
-                          onToggle={toggleHabit}
-                          onDelete={deleteHabit}
-                          isPaused={isPaused}
-                          pausePeriods={pausePeriods}
-                          isPremium={isPremium}
-                          onEdit={habit => { setEditingHabit(habit); setShowHabitModal(true); }}
-                          draggable
-                          onDragStart={id => setDraggedHabitId(id)}
-                          onDragEnd={() => setDraggedHabitId(null)}
-                        />
-                      ))}
-                    </div>
-                  );
-                })()}
+                {draggedHabitId && habits.find(h => h.id === draggedHabitId)?.routine_id && (
+                  <div
+                    onDragOver={e => { e.preventDefault(); setStandaloneDragOver(true); }}
+                    onDragLeave={() => setStandaloneDragOver(false)}
+                    onDrop={e => { e.preventDefault(); setStandaloneDragOver(false); const id = e.dataTransfer.getData("habitId"); if (id) moveHabitToRoutine(id, null); }}
+                    style={{ gridColumn: "1 / -1", border: `2px dashed ${standaloneDragOver ? "#2563eb" : "#374151"}`, borderRadius: "14px", padding: "20px", textAlign: "center", color: standaloneDragOver ? "#60a5fa" : "#374151", fontSize: "14px", fontWeight: 600, transition: "all 0.2s", background: standaloneDragOver ? "#2563eb08" : "transparent", marginBottom: "8px" }}>
+                    ↓ Drop here to remove from routine
+                  </div>
+                )}
+                {todayHabits.filter(h => !h.routine_id).length === 0 && routines.length === 0 && (
+                  <div style={{ color: "#4b5563", fontSize: "14px", padding: "20px 0" }}>No habits yet. Add your first one!</div>
+                )}
+                {todayHabits.filter(h => !h.routine_id).map(h => (
+                  <HabitCard
+                    key={h.id}
+                    habit={h}
+                    today={today}
+                    onToggle={toggleHabit}
+                    onDelete={deleteHabit}
+                    isPaused={isPaused}
+                    pausePeriods={pausePeriods}
+                    isPremium={isPremium}
+                    onEdit={habit => { setEditingHabit(habit); setShowHabitModal(true); }}
+                    draggable
+                    onDragStart={id => setDraggedHabitId(id)}
+                    onDragEnd={() => setDraggedHabitId(null)}
+                  />
+                ))}
               </div>
             </section>
             <section>
