@@ -496,6 +496,9 @@ function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, pausePe
         </div>
       )}
 
+      {/* Spacer pushes button to bottom even when not scheduled today */}
+      <div style={{ flex: 1 }} />
+
       {isScheduledToday && !isPaused && (
         <button onClick={() => onToggle(habit.id, today)}
           style={{ width: "100%", marginTop: "12px", padding: "10px", borderRadius: "8px", border: "1px solid", cursor: "pointer", fontWeight: 700, fontSize: "13px", fontFamily: "inherit", background: doneToday ? "#10b98120" : "#2563eb", borderColor: doneToday ? "#10b98140" : "#2563eb", color: doneToday ? "#10b981" : "#fff", transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
@@ -1924,8 +1927,8 @@ export default function HabiTick() {
         .ht-header-pills { display: flex; gap: 8px; align-items: center; }
         .ht-main { max-width: 1200px; margin: 0 auto; padding: 24px 40px 100px; }
         .ht-tabs { display: flex; justify-content: center; gap: 6px; padding: 18px 16px 10px; }
-        .ht-habit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; align-items: stretch; }
-        .ht-habit-grid > * { height: 100%; }
+        .ht-habit-grid { display: flex; flex-wrap: wrap; gap: 14px; align-items: stretch; }
+        .ht-habit-grid > * { flex: 1 1 260px; max-width: 340px; min-width: 240px; box-sizing: border-box; }
         .ht-bottom-nav { display: none; }
         .ht-header-username { display: inline; }
         .ht-founder-banner { position: relative; z-index: 45; }
@@ -1933,8 +1936,8 @@ export default function HabiTick() {
           .ht-header-pills { display: none; }
           .ht-main { padding: 100px 16px 90px; }
           .ht-tabs { display: none; }
-          .ht-habit-grid { grid-template-columns: 1fr; }
-          .ht-habit-grid > * { max-width: 100% !important; min-width: 0 !important; }
+          .ht-habit-grid { flex-direction: column; }
+          .ht-habit-grid > * { max-width: 100% !important; min-width: 0 !important; flex: 1 1 100% !important; }
           .ht-bottom-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; background: #0d1117; border-top: 1px solid #1f2937; z-index: 50; padding: 8px 0 20px; justify-content: space-around; }
           .ht-header-username { display: none; }
           .ht-analytics-grid { grid-template-columns: repeat(2, 1fr) !important; }
