@@ -291,10 +291,12 @@ function RoutineCard({ routine, habits, today, onToggle, onDelete, onDeleteRouti
   const allDone = totalCount > 0 && doneCount === totalCount;
 
   const handleDragOver = e => { e.preventDefault(); setDragOver(true); };
-  const handleDragLeave = () => setDragOver(false);
+  const handleDragLeave = e => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(false); };
   const handleDrop = e => {
     e.preventDefault(); setDragOver(false);
     const habitId = e.dataTransfer.getData("habitId");
+    // Only join routine if dropped on the routine background, not on a habit card
+    // (habit cards stopPropagation their own onDrop, so this only fires for the background)
     if (habitId) onDropOnRoutine(habitId, routine.id);
   };
 
@@ -427,7 +429,8 @@ function RoutineModal({ routine, habitsList, onSave, onClose, onEject }) {
 // ─── Habit Card ───────────────────────────────────────────────────────────────
 function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, pausePeriods, isPremium, draggable: isDraggable, onDragStart, onDragEnd, onDragEnter, isDropTarget, onEjectFromRoutine, inRoutine }) {
   const [isDragging, setIsDragging] = useState(false);
-  const [calOpen, setCalOpen] = useState(false);
+  // Default open on desktop (>=768px), closed on mobile
+  const [calOpen, setCalOpen] = useState(() => window.innerWidth >= 768);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const todayDow = new Date().getDay();
   const isScheduledToday = habit.frequency === "daily" || (habit.days && habit.days.includes(todayDow));
@@ -451,10 +454,11 @@ function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, pausePe
       draggable={isDraggable}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-      onDragEnter={e => { e.preventDefault(); if (onDragEnter) onDragEnter(habit.id); }}
+      onDragEnter={e => { e.preventDefault(); e.stopPropagation(); if (onDragEnter) onDragEnter(habit.id); }}
       onDragLeave={e => { e.preventDefault(); if (onDragEnter) onDragEnter(null); }}
-      onDragOver={e => e.preventDefault()}
-      style={{ background: "#111827", border: `1px solid ${isDropTarget ? "#2563eb" : "#1f2937"}`, borderRadius: "14px", padding: "18px", minWidth: "240px", flex: "1 1 260px", maxWidth: "340px", boxShadow: isDropTarget ? "0 0 0 2px #2563eb40" : "0 1px 3px rgba(0,0,0,0.3)", transition: "border-color 0.15s, box-shadow 0.15s, opacity 0.2s", display: "flex", flexDirection: "column", opacity: isDragging ? 0.35 : 1, cursor: isDraggable ? "grab" : "default" }}>
+      onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
+      onDrop={e => { e.preventDefault(); e.stopPropagation(); /* habit-on-habit drop handled by dragEnd */ }}
+      style={{ background: "#111827", border: `1px solid ${isDropTarget ? "#2563eb" : "#1f2937"}`, borderRadius: "14px", padding: "18px", boxShadow: isDropTarget ? "0 0 0 2px #2563eb40" : "0 1px 3px rgba(0,0,0,0.3)", transition: "border-color 0.15s, box-shadow 0.15s, opacity 0.2s", display: "flex", flexDirection: "column", opacity: isDragging ? 0.35 : 1, cursor: isDraggable ? "grab" : "default" }}>
 
       {/* Header row */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: calOpen ? "10px" : "0" }}>
@@ -1920,7 +1924,8 @@ export default function HabiTick() {
         .ht-header-pills { display: flex; gap: 8px; align-items: center; }
         .ht-main { max-width: 1200px; margin: 0 auto; padding: 24px 40px 100px; }
         .ht-tabs { display: flex; justify-content: center; gap: 6px; padding: 18px 16px 10px; }
-        .ht-habit-grid { display: flex; flex-wrap: wrap; gap: 14px; }
+        .ht-habit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; align-items: stretch; }
+        .ht-habit-grid > * { height: 100%; }
         .ht-bottom-nav { display: none; }
         .ht-header-username { display: inline; }
         .ht-founder-banner { position: relative; z-index: 45; }
@@ -1928,8 +1933,8 @@ export default function HabiTick() {
           .ht-header-pills { display: none; }
           .ht-main { padding: 100px 16px 90px; }
           .ht-tabs { display: none; }
-          .ht-habit-grid { flex-direction: column; }
-          .ht-habit-grid > * { max-width: 100% !important; min-width: 0 !important; flex: 1 1 100% !important; }
+          .ht-habit-grid { grid-template-columns: 1fr; }
+          .ht-habit-grid > * { max-width: 100% !important; min-width: 0 !important; }
           .ht-bottom-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; background: #0d1117; border-top: 1px solid #1f2937; z-index: 50; padding: 8px 0 20px; justify-content: space-around; }
           .ht-header-username { display: none; }
           .ht-analytics-grid { grid-template-columns: repeat(2, 1fr) !important; }
