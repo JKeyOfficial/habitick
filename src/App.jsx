@@ -79,10 +79,14 @@ function isDatePaused(pausePeriods, dateStr) {
 //   • A shield absorbs one missed day, keeping the streak alive but NOT
 //     incrementing the streak count for that day.
 //   • No DB column needed — derived fresh from completion history each time.
-function calcStats(habits, pausePeriods, isPremium) {
-  if (habits.length === 0) return { currentStreak: 0, bestStreak: 0, shields: 0, cumulativeCompletedDays: 0 };
-
+function calcStats(habits, pausePeriods, isPremium, profile = null) {
   const today = getDateStr(new Date());
+  const initialShields = (profile && profile.initial_shields) ? Number(profile.initial_shields) : 0;
+  const initialShieldsDate = profile && profile.initial_shields_granted_at ? (profile.initial_shields_granted_at || '').substring(0, 10) : null;
+  if (habits.length === 0) {
+    const availableInitial = (initialShields > 0 && initialShieldsDate && initialShieldsDate <= today) ? Math.min(initialShields, 5) : 0;
+    return { currentStreak: 0, bestStreak: 0, shields: availableInitial, cumulativeCompletedDays: 0 };
+  }
   const MAX_SHIELDS = 5;
   // Pro: 1 shield per 7 cumulative completed days
   // Free: 1 shield per 14 cumulative completed days
@@ -102,16 +106,29 @@ function calcStats(habits, pausePeriods, isPremium) {
   let cumulativeCompletedDays = 0;
   let shieldsEarnedThresholds = 0; // how many shield thresholds crossed so far
   let shieldsPool = 0;             // shields available (capped at MAX_SHIELDS)
+  let shieldGrants = [];           // list of grant dates (YYYY-MM-DD) for each shield
   let bestStreak = 0;
   let tempStreak = 0;              // for best-streak tracking (no shield protection)
 
+  // If the user's profile contains an initial shield grant, only apply it
+  // once the forward iteration reaches the grant date so it cannot be
+  // retroactively applied to days before it was given.
+
   const fwd = new Date(parseDateLocal(earliestHabitDate));
   const fwdEnd = new Date(parseDateLocal(today));
+  let initialShieldsApplied = false;
 
   while (fwd <= fwdEnd) {
     const ds = getDateStr(fwd);
 
     if (!isDatePaused(pausePeriods, ds)) {
+      // If this date is the initial-shields grant date, add them now (once)
+      if (initialShields > 0 && initialShieldsDate && ds === initialShieldsDate && !initialShieldsApplied) {
+        for (let k = 0; k < initialShields; k++) shieldGrants.push(ds);
+        initialShieldsApplied = true;
+        shieldsPool = Math.min(shieldGrants.length, MAX_SHIELDS);
+      }
+
       const complete = isDayComplete(normalisedHabits, ds);
 
       if (complete === true) {
@@ -120,8 +137,10 @@ function calcStats(habits, pausePeriods, isPremium) {
         // Check if a new shield threshold was crossed
         const newThresholds = Math.floor(cumulativeCompletedDays / shieldThreshold);
         if (newThresholds > shieldsEarnedThresholds) {
-          shieldsPool = Math.min(shieldsPool + (newThresholds - shieldsEarnedThresholds), MAX_SHIELDS);
+          const delta = newThresholds - shieldsEarnedThresholds;
+          for (let k = 0; k < delta; k++) shieldGrants.push(ds);
           shieldsEarnedThresholds = newThresholds;
+          shieldsPool = Math.min(shieldGrants.length, MAX_SHIELDS);
         }
 
         // Best-streak tracking (consecutive, no shield protection)
@@ -144,7 +163,10 @@ function calcStats(habits, pausePeriods, isPremium) {
   // ── Backward pass: compute CURRENT streak, using shields on missed days ──
   // Shields protect a missed day (streak doesn't break) but do NOT add to the count.
   let currentStreak = 0;
-  let shields = shieldsPool; // start with all earned shields; consume as we hit missed days
+  // Keep only the most recent MAX_SHIELDS grants
+  if (shieldGrants.length > MAX_SHIELDS) shieldGrants = shieldGrants.slice(-MAX_SHIELDS);
+  // copy grant-date list; we'll consume entries as we hit missed days
+  let shieldsList = shieldGrants.slice();
 
   const d = new Date();
   d.setHours(0, 0, 0, 0);
@@ -168,13 +190,17 @@ function calcStats(habits, pausePeriods, isPremium) {
       continue;
     }
     if (!complete) {
-      // Missed day — use a shield if available
-      if (shields > 0) {
-        shields--; // shield consumed: streak is saved but NOT incremented
+      // Missed day — use a shield if available that was granted on or before this date
+      let foundIdx = -1;
+      for (let j = shieldsList.length - 1; j >= 0; j--) {
+        if (shieldsList[j] <= ds) { foundIdx = j; break; }
+      }
+      if (foundIdx >= 0) {
+        shieldsList.splice(foundIdx, 1); // consume that shield
         d.setDate(d.getDate() - 1);
         continue;
       }
-      break; // No shield → streak ends here
+      break; // No applicable shield → streak ends here
     }
 
     // Completed day
@@ -182,7 +208,8 @@ function calcStats(habits, pausePeriods, isPremium) {
     d.setDate(d.getDate() - 1);
   }
 
-  return { currentStreak, bestStreak, shields, cumulativeCompletedDays };
+  const shieldsRemaining = shieldsList.length;
+  return { currentStreak, bestStreak, shields: shieldsRemaining, cumulativeCompletedDays };
 }
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
@@ -206,8 +233,18 @@ function AuthScreen() {
     setError(""); setMessage(""); setLoading(true);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
+        // Give the new user one initial shield on sign up (persist if possible).
+        try {
+          const userId = data?.user?.id;
+          if (userId) {
+            await supabase.from("profiles").upsert({ id: userId, initial_shields: 1, initial_shields_granted_at: getTodayStr(), updated_at: new Date().toISOString() });
+          }
+        } catch (e) {
+          // non-fatal if DB schema doesn't have the columns yet
+          console.warn("Could not persist initial shield:", e?.message || e);
+        }
         setMessage("Check your email to confirm your account, then sign in.");
         setMode("signin");
       } else if (mode === "signin") {
@@ -856,7 +893,7 @@ function AnalyticsTab({ habits, todos, pausePeriods, isPremium, journalEntries }
     return d >= start && d <= today;
   };
 
-  const { currentStreak, bestStreak, shields, cumulativeCompletedDays } = calcStats(habits, pausePeriods, isPremium);
+  const { currentStreak, bestStreak, shields, cumulativeCompletedDays } = calcStats(habits, pausePeriods, isPremium, profile);
   const shieldThreshold = isPremium ? 7 : 14;
   const daysToNextShield = shields >= 5
     ? null // maxed out
@@ -1208,6 +1245,9 @@ function OnboardingScreen({ session, onComplete }) {
       id: session.user.id,
       username: username.trim(),
       avatar_url: avatarUrl || null,
+      // give one initial shield at onboarding completion if not already present
+      initial_shields: 1,
+      initial_shields_granted_at: getTodayStr(),
       updated_at: new Date().toISOString(),
     });
     if (error?.message?.includes("unique")) { setUsernameErr("Username already taken"); setSaving(false); return; }
@@ -1286,7 +1326,12 @@ function OnboardingScreen({ session, onComplete }) {
       <div style={{ textAlign: "center", maxWidth: "400px", width: "100%", ...fadeUp }}>
         <div style={{ fontSize: "72px", marginBottom: "20px", animation: "pop 0.5s ease forwards" }}>🎉</div>
         <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "30px", color: "#f9fafb", margin: "0 0 10px", letterSpacing: "-0.02em" }}>You're all set, {username}!</h2>
-        <p style={{ color: "#6b7280", fontSize: "15px", lineHeight: 1.6, margin: "0 0 40px" }}>Time to build your first habit.<br/>Start small — one habit changes everything.</p>
+        <p style={{ color: "#6b7280", fontSize: "15px", lineHeight: 1.6, margin: "0 0 24px" }}>Time to build your first habit.<br/>Start small — one habit changes everything.</p>
+        <div style={{ textAlign: "left", background: "#0d1117", border: "1px solid #1f2937", padding: "12px", borderRadius: "10px", marginBottom: "20px" }}>
+          <div style={{ fontWeight: 700, color: "#f9fafb", marginBottom: "8px" }}>Quick tips</div>
+          <div style={{ color: "#9ca3af", fontSize: "13px", marginBottom: "8px" }}><strong>Routine</strong>: Group habits into routines (morning, evening, etc.) to check several items at once and build momentum.</div>
+          <div style={{ color: "#9ca3af", fontSize: "13px" }}><strong>Shields</strong>: You start with one shield — each shield protects one missed day so your streak doesn't break, but it won't increment the streak. Pro users earn shields faster (every 7 completed days vs 14 for free). Max 5 shields.</div>
+        </div>
         <button
           onClick={() => {
             const { data } = supabase.from("profiles").select("*").eq("id", session.user.id).single().then(({ data }) => onComplete(data));
@@ -1954,7 +1999,7 @@ export default function HabiTick() {
   
   // New Streak calculation call
   const isPremium = profile?.is_premium === true || profile?.is_lifetime === true;
-  const { currentStreak, shields } = calcStats(habits, pausePeriods, isPremium);
+  const { currentStreak, shields } = calcStats(habits, pausePeriods, isPremium, profile);
 
   const priorityOrder = { high: 1, med: 2, low: 3, "": 4 };
   const visibleTodos = (showCompleted ? todos : todos.filter(t => !t.done)).slice().sort((a, b) => {
