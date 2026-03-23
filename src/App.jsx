@@ -2056,7 +2056,7 @@ export default function HabiTick() {
         .ht-header-username { display: inline; }
         .ht-founder-banner { position: relative; z-index: 45; }
         @media (max-width: 640px) {
-          .ht-header-pills { display: flex; }
+          .ht-header-pills { display: none; }
           .ht-main { padding: 100px 16px 90px; }
           .ht-tabs { display: none; }
           .ht-habit-grid { flex-direction: column; }
@@ -2267,9 +2267,13 @@ export default function HabiTick() {
       <style>{`@media (max-width: 640px) { .ht-mobile-streak { display: flex !important; } }`}</style>
       <div className="ht-mobile-streak" style={{ display: "none", position: "fixed", top: isLifetime && userNumber && userNumber <= 100 && !lifetimeBannerDismissed ? "120px" : "60px", left: 0, right: 0, background: "#0d1117", borderBottom: "1px solid #1f2937", padding: "8px 16px", gap: "8px", zIndex: 40, justifyContent: "center" }}>
         {!isPaused && <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: "1px solid #22c55e33", borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: "#22c55e", fontWeight: 600 }}>✓ {doneToday}/{totalToday} today</div>}
-        <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: `1px solid ${isPaused ? "#f59e0b66" : "#3b82f633"}`, borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: isPaused ? "#fcd34d" : "#60a5fa", fontWeight: 600 }}>
-          {isPaused ? "⏸ Frozen" : `🔥 ${currentStreak} days`}
-          {!isPaused && shields > 0 && <span style={{marginLeft: "2px"}}>🛡️ {shields}</span>}
+        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: `1px solid ${isPaused ? "#f59e0b66" : "#3b82f633"}`, borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: isPaused ? "#fcd34d" : "#60a5fa", fontWeight: 600 }}>
+            {isPaused ? "⏸ Frozen" : `🔥 ${currentStreak} days`}
+          </div>
+          <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: `1px solid ${isPaused ? "#f59e0b66" : "#3b82f633"}`, borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: isPaused ? "#fcd34d" : "#60a5fa", fontWeight: 600 }}>
+            {`🛡️ Shields: ${typeof shields === 'number' ? `${shields}/${MAX_SHIELDS}` : `0/${MAX_SHIELDS}`}`}
+          </div>
         </div>
       </div>
     </div>
