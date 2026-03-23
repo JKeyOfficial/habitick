@@ -51,26 +51,26 @@ function getCalendarDays(year, month) {
   return cells;
 }
 
-// ─── Streak logic ─────────────────────────────────────────────────────────────
+// ─── Streak & Shield logic ────────────────────────────────────────────────────
 function isDayComplete(habits, dateStr) {
   const dow = parseDateLocal(dateStr).getDay();
-  // Only consider habits that existed on this date
   const existing = habits.filter(h => (h.createdDate || h.created_date || dateStr).substring(0, 10) <= dateStr);
   const scheduled = existing.filter(h => h.frequency === "daily" || (h.days && h.days.includes(dow)));
-  if (scheduled.length === 0) return null; // rest day — counts but doesn't require completion
+  if (scheduled.length === 0) return null; // rest day
   return scheduled.every(h => (h.completedDates || []).includes(dateStr));
 }
+
 function isDatePaused(pausePeriods, dateStr) {
   const ds = dateStr.substring(0, 10);
   return pausePeriods.some(p => {
     const start = (p.start || '').substring(0, 10);
     const end = p.end ? p.end.substring(0, 10) : null;
-    // end is exclusive — if you resume today, today is NOT paused
     return ds >= start && (end === null || ds < end);
   });
 }
-function calcStreak(habits, pausePeriods) {
-  if (habits.length === 0) return 0;
+
+function calcStats(habits, pausePeriods, isPremium) {
+  if (habits.length === 0) return { currentStreak: 0, bestStreak: 0, shields: 0 };
 
   const today = getDateStr(new Date());
 
@@ -84,23 +84,49 @@ function calcStreak(habits, pausePeriods) {
     return h.createdDate < earliest ? h.createdDate : earliest;
   }, today);
 
-  let streak = 0;
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
+  let currentStreak = 0;
+  let bestStreak = 0;
+  let shields = 0;
+  const shieldThreshold = isPremium ? 14 : 28;
 
-  for (let i = 0; i < 1100; i++) {
+  const d = parseDateLocal(earliestHabitDate);
+  const end = parseDateLocal(today);
+
+  // Calculate forwards from the beginning of time
+  while (d <= end) {
     const ds = getDateStr(d);
-    if (ds < earliestHabitDate) break;                          // don't go before first habit
-    if (isDatePaused(pausePeriods, ds)) { d.setDate(d.getDate() - 1); continue; } // skip paused days
+    
+    if (isDatePaused(pausePeriods, ds)) {
+      d.setDate(d.getDate() + 1);
+      continue;
+    }
+
     const complete = isDayComplete(normalisedHabits, ds);
-    if (complete === null) { streak++; d.setDate(d.getDate() - 1); continue; } // rest day counts
-    if (!complete && ds === today) { d.setDate(d.getDate() - 1); continue; }   // today not done yet — skip, don't break
-    if (!complete) break;                                        // missed a past day — streak ends
-    streak++;
-    d.setDate(d.getDate() - 1);
+
+    // If today is incomplete, don't penalize yet (day isn't over)
+    if (ds === today && complete === false) {
+       break;
+    }
+
+    if (complete === null || complete === true) {
+      currentStreak++;
+      if (currentStreak > 0 && currentStreak % shieldThreshold === 0) shields++;
+    } else if (complete === false) {
+      if (shields > 0) {
+        shields--; // Shield consumed!
+        currentStreak++; // Streak is saved
+        if (currentStreak > 0 && currentStreak % shieldThreshold === 0) shields++; // Earn a shield even on a shielded day
+      } else {
+        currentStreak = 0; // Streak breaks
+      }
+    }
+
+    if (currentStreak > bestStreak) bestStreak = currentStreak;
+
+    d.setDate(d.getDate() + 1);
   }
 
-  return streak;
+  return { currentStreak, bestStreak, shields };
 }
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
@@ -293,7 +319,6 @@ function RoutineCard({ routine, habits, today, onToggle, onDelete, onDeleteRouti
   const handleDragOver = e => { e.preventDefault(); setDragOver(true); };
   
   const handleDragLeave = e => {
-    // Prevent highlight flickering when leaving to a child element
     if (e.currentTarget.contains(e.relatedTarget)) return;
     setDragOver(false);
   };
@@ -302,7 +327,6 @@ function RoutineCard({ routine, habits, today, onToggle, onDelete, onDeleteRouti
     e.preventDefault();
     e.stopPropagation();
     setDragOver(false);
-    // Use the dragState instead of dataTransfer for 100% reliable React drops
     if (dragState) {
       onDropOnRoutine(dragState, routine.id);
     }
@@ -447,7 +471,7 @@ function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, pausePe
     const ghost = new Image();
     ghost.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs=";
     e.dataTransfer.setDragImage(ghost, 0, 0);
-    e.dataTransfer.setData("text/plain", habit.id); // For robust cross-browser drag compatibility
+    e.dataTransfer.setData("text/plain", habit.id);
     e.dataTransfer.setData("habitId", habit.id);
     setIsDragging(true);
     if (onDragStart) onDragStart(habit.id, habit);
@@ -466,14 +490,13 @@ function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, pausePe
       onDragEnter={e => { e.preventDefault(); if (onDragEnter) onDragEnter(habit.id); }}
       onDragLeave={e => {
         e.preventDefault();
-        // Prevent highlight flickering on child elements
         if (e.currentTarget.contains(e.relatedTarget)) return;
         if (onDragEnter) onDragEnter(null);
       }}
       onDragOver={e => e.preventDefault()}
       onDrop={e => {
         e.preventDefault();
-        e.stopPropagation(); // Prevents bubbling up to RoutineCard drop area
+        e.stopPropagation();
       }}
       style={{ background: "#111827", border: `1px solid ${isDropTarget ? "#2563eb" : "#1f2937"}`, borderRadius: "14px", padding: "18px", minWidth: "240px", flex: "1 1 260px", maxWidth: "340px", boxShadow: isDropTarget ? "0 0 0 2px #2563eb40" : "0 1px 3px rgba(0,0,0,0.3)", transition: "border-color 0.15s, box-shadow 0.15s, opacity 0.2s", display: "flex", flexDirection: "column", opacity: isDragging ? 0.35 : 1, cursor: isDraggable ? "grab" : "default" }}>
 
@@ -777,29 +800,8 @@ function AnalyticsTab({ habits, todos, pausePeriods, isPremium, journalEntries }
     return d >= start && d <= today;
   };
 
-  // Current streak — always all-time
-  const currentStreak = calcStreak(habits, pausePeriods);
-
-  // Best streak — always all-time
-  const bestStreak = (() => {
-    const allDates = [...new Set(habits.flatMap(h => h.completedDates || []))].sort();
-    let best = 0, cur = 0, prev = null;
-    for (const ds of allDates) {
-      if (isDatePaused(pausePeriods, ds)) { prev = ds; continue; }
-      const complete = isDayComplete(habits, ds);
-      if (complete === null) { prev = ds; continue; }
-      if (!complete) { cur = 0; prev = ds; continue; }
-      if (prev) {
-        const d = new Date(prev); d.setDate(d.getDate() + 1);
-        let contiguous = true;
-        while (getDateStr(d) < ds) { const s = getDateStr(d); if (!isDatePaused(pausePeriods, s) && isDayComplete(habits, s) !== null) { contiguous = false; break; } d.setDate(d.getDate() + 1); }
-        cur = contiguous ? cur + 1 : 1;
-      } else cur = 1;
-      if (cur > best) best = cur;
-      prev = ds;
-    }
-    return best;
-  })();
+  const { currentStreak, bestStreak, shields } = calcStats(habits, pausePeriods, isPremium);
+  const shieldThreshold = isPremium ? 14 : 28;
 
   // Completion rate — filtered by range
   const { completionRate, totalCompletions } = (() => {
@@ -892,9 +894,9 @@ function AnalyticsTab({ habits, todos, pausePeriods, isPremium, journalEntries }
 
   const stats = [
     { icon: "🔥", label: "Current Streak", value: `${currentStreak} days`, sub: "All scheduled habits done" },
+    { icon: "🛡️", label: "Shields", value: shields, sub: `Next in ${shieldThreshold - (currentStreak % shieldThreshold)} days` },
     { icon: "🏆", label: "Best Streak", value: `${bestStreak} days`, sub: "Personal record" },
-    { icon: "📊", label: "Completion Rate", value: completionRate !== null ? `${completionRate}%` : "—", sub: `${totalCompletions} completions in range` },
-    { icon: "📅", label: "Active Habits", value: habits.length, sub: `${todos.filter(t => t.done).length}/${todos.length} tasks done` },
+    { icon: "📊", label: "Completion Rate", value: completionRate !== null ? `${completionRate}%` : "—", sub: `${totalCompletions} completions` },
   ];
 
   return (
@@ -1890,7 +1892,11 @@ export default function HabiTick() {
   const todayHabits = showTodayOnly ? habits.filter(h => h.frequency === "daily" || (h.days && h.days.includes(todayDow))) : habits;
   const doneToday = habits.filter(h => (h.frequency === "daily" || (h.days && h.days.includes(todayDow))) && (h.completedDates || []).includes(today)).length;
   const totalToday = habits.filter(h => h.frequency === "daily" || (h.days && h.days.includes(todayDow))).length;
-  const currentStreak = calcStreak(habits, pausePeriods);
+  
+  // New Streak calculation call
+  const isPremium = profile?.is_premium === true || profile?.is_lifetime === true;
+  const { currentStreak, shields } = calcStats(habits, pausePeriods, isPremium);
+
   const priorityOrder = { high: 1, med: 2, low: 3, "": 4 };
   const visibleTodos = (showCompleted ? todos : todos.filter(t => !t.done)).slice().sort((a, b) => {
     // Completed todos sink to bottom
@@ -1904,7 +1910,6 @@ export default function HabiTick() {
   });
 
   // ── Premium ────────────────────────────────────────────────────────────────
-  const isPremium = profile?.is_premium === true || profile?.is_lifetime === true;
   const isLifetime = profile?.is_lifetime === true;
   const userNumber = profile?.user_number || null;
 
@@ -1967,6 +1972,7 @@ export default function HabiTick() {
           {!isPaused && <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: "1px solid #22c55e33", borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: "#22c55e", fontWeight: 600 }}>✓ {doneToday}/{totalToday} habits today</div>}
           <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: `1px solid ${isPaused ? "#f59e0b66" : "#3b82f633"}`, borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: isPaused ? "#fcd34d" : "#60a5fa", fontWeight: 600 }}>
             {isPaused ? "⏸ Streak frozen" : `🔥 Streak: ${currentStreak} days`}
+            {!isPaused && shields > 0 && <span style={{marginLeft: "4px"}}>🛡️ {shields}</span>}
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -2074,16 +2080,8 @@ export default function HabiTick() {
                 {draggedHabitId && habits.find(h => h.id === draggedHabitId)?.routine_id && (
                   <div
                     onDragOver={e => { e.preventDefault(); setStandaloneDragOver(true); }}
-                    onDragLeave={e => {
-                      if (e.currentTarget.contains(e.relatedTarget)) return;
-                      setStandaloneDragOver(false);
-                    }}
-                    onDrop={e => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setStandaloneDragOver(false);
-                      if (draggedHabitId) moveHabitToRoutine(draggedHabitId, null);
-                    }}
+                    onDragLeave={() => setStandaloneDragOver(false)}
+                    onDrop={e => { e.preventDefault(); setStandaloneDragOver(false); const id = e.dataTransfer.getData("habitId"); if (id) moveHabitToRoutine(id, null); }}
                     style={{ gridColumn: "1 / -1", border: `2px dashed ${standaloneDragOver ? "#2563eb" : "#374151"}`, borderRadius: "14px", padding: "20px", textAlign: "center", color: standaloneDragOver ? "#60a5fa" : "#374151", fontSize: "14px", fontWeight: 600, transition: "all 0.2s", background: standaloneDragOver ? "#2563eb08" : "transparent", marginBottom: "8px" }}>
                     ↓ Drop here to remove from routine
                   </div>
@@ -2162,6 +2160,7 @@ export default function HabiTick() {
         {!isPaused && <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: "1px solid #22c55e33", borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: "#22c55e", fontWeight: 600 }}>✓ {doneToday}/{totalToday} today</div>}
         <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: `1px solid ${isPaused ? "#f59e0b66" : "#3b82f633"}`, borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: isPaused ? "#fcd34d" : "#60a5fa", fontWeight: 600 }}>
           {isPaused ? "⏸ Frozen" : `🔥 ${currentStreak} days`}
+          {!isPaused && shields > 0 && <span style={{marginLeft: "2px"}}>🛡️ {shields}</span>}
         </div>
       </div>
     </div>
