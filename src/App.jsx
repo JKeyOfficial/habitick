@@ -595,7 +595,7 @@ function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, pausePe
       style={{ background: "#111827", border: `1px solid ${isDropTarget ? "#2563eb" : "#1f2937"}`, borderRadius: "14px", padding: "18px", minWidth: "240px", flex: "1 1 260px", maxWidth: "340px", boxShadow: isDropTarget ? "0 0 0 2px #2563eb40" : "0 1px 3px rgba(0,0,0,0.3)", transition: "border-color 0.15s, box-shadow 0.15s, opacity 0.2s", display: "flex", flexDirection: "column", opacity: isDragging ? 0.35 : 1, cursor: isDraggable ? "grab" : "default" }}>
 
       {/* Header row */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: calOpen ? "10px" : "0", minHeight: "56px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: calOpen ? "10px" : "0", minHeight: "72px" }}>
         <div onClick={() => setCalOpen(o => !o)} style={{ display: "flex", alignItems: "center", gap: "10px", flex: 1, cursor: "pointer", userSelect: "none" }}>
           {isDraggable && <span style={{ color: "#374151", fontSize: "14px", cursor: "grab", userSelect: "none" }} onClick={e => e.stopPropagation()}>⠿</span>}
           <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: doneToday ? "#10b981" : "#2563eb", flexShrink: 0, marginTop: "1px" }} />
