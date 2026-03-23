@@ -2079,9 +2079,9 @@ export default function HabiTick() {
             <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: `1px solid ${isPaused ? "#f59e0b66" : "#3b82f633"}`, borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: isPaused ? "#fcd34d" : "#60a5fa", fontWeight: 600 }}>
               {isPaused ? "⏸ Streak frozen" : `🔥 Streak: ${currentStreak} days`}
             </div>
-            <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: "1px solid #6b728033", borderRadius: "999px", padding: "5px 12px", fontSize: "12px", color: "#9ca3af", fontWeight: 700 }}>
+            <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: `1px solid #3b82f633`, borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: "#9ca3af", fontWeight: 600 }}>
               <span style={{ marginRight: "6px" }}>🛡️</span>
-              <span>{typeof shields === 'number' ? `${shields}/${MAX_SHIELDS}` : `0/${MAX_SHIELDS}`}</span>
+              <span>Shields: {typeof shields === 'number' ? `${shields}/${MAX_SHIELDS}` : `0/${MAX_SHIELDS}`}</span>
             </div>
           </div>
         </div>
