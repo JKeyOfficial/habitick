@@ -2056,7 +2056,7 @@ export default function HabiTick() {
         .ht-header-username { display: inline; }
         .ht-founder-banner { position: relative; z-index: 45; }
         @media (max-width: 640px) {
-          .ht-header-pills { display: none; }
+          .ht-header-pills { display: flex; }
           .ht-main { padding: 100px 16px 90px; }
           .ht-tabs { display: none; }
           .ht-habit-grid { flex-direction: column; }
