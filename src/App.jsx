@@ -870,7 +870,7 @@ function MoodInsights({ journalEntries, today }) {
   );
 }
 
-function AnalyticsTab({ habits, todos, pausePeriods, isPremium, journalEntries }) {
+function AnalyticsTab({ habits, todos, pausePeriods, isPremium, journalEntries, profile }) {
   const [range, setRange] = useState("7days");
   const today = new Date();
   const todayStr = getDateStr(today);
@@ -2222,7 +2222,7 @@ export default function HabiTick() {
             </section>
           </>
         ) : tab === "analytics" ? (
-          <AnalyticsTab habits={habits} todos={todos} pausePeriods={pausePeriods} isPremium={isPremium} journalEntries={journalEntries} />
+          <AnalyticsTab habits={habits} todos={todos} pausePeriods={pausePeriods} isPremium={isPremium} journalEntries={journalEntries} profile={profile} />
         ) : tab === "journal" ? (
           <JournalTab journalEntries={journalEntries} setJournalEntries={setJournalEntries} session={session} today={today} isPremium={isPremium} />
         ) : null}
