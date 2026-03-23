@@ -69,14 +69,28 @@ function isDatePaused(pausePeriods, dateStr) {
   });
 }
 
+// ── Shield & Streak calculation ───────────────────────────────────────────────
+// How it works:
+//   • Shields are earned by cumulative completed days across ALL streaks combined
+//     (not consecutive — 1+2+3+1+7 all count toward the total).
+//   • Pro users earn 1 shield every 7 cumulative completed days.
+//   • Free users earn 1 shield every 14 cumulative completed days.
+//   • Maximum 5 shields at any time.
+//   • A shield absorbs one missed day, keeping the streak alive but NOT
+//     incrementing the streak count for that day.
+//   • No DB column needed — derived fresh from completion history each time.
 function calcStats(habits, pausePeriods, isPremium) {
-  if (habits.length === 0) return { currentStreak: 0, bestStreak: 0, shields: 0 };
+  if (habits.length === 0) return { currentStreak: 0, bestStreak: 0, shields: 0, cumulativeCompletedDays: 0 };
 
   const today = getDateStr(new Date());
+  const MAX_SHIELDS = 5;
+  // Pro: 1 shield per 7 cumulative completed days
+  // Free: 1 shield per 14 cumulative completed days
+  const shieldThreshold = isPremium ? 7 : 14;
 
   const normalisedHabits = habits.map(h => ({
     ...h,
-    createdDate: ((h.createdDate || h.created_date || today)).substring(0, 10),
+    createdDate: (h.createdDate || h.created_date || today).substring(0, 10),
     completedDates: (h.completedDates || []).map(d => d.substring(0, 10)),
   }));
 
@@ -84,49 +98,91 @@ function calcStats(habits, pausePeriods, isPremium) {
     return h.createdDate < earliest ? h.createdDate : earliest;
   }, today);
 
-  let currentStreak = 0;
+  // ── Forward pass: count cumulative completed days → earn shields; track best streak ──
+  let cumulativeCompletedDays = 0;
+  let shieldsEarnedThresholds = 0; // how many shield thresholds crossed so far
+  let shieldsPool = 0;             // shields available (capped at MAX_SHIELDS)
   let bestStreak = 0;
-  let shields = 0;
-  const shieldThreshold = isPremium ? 14 : 28;
+  let tempStreak = 0;              // for best-streak tracking (no shield protection)
 
-  const d = parseDateLocal(earliestHabitDate);
-  const end = parseDateLocal(today);
+  const fwd = new Date(parseDateLocal(earliestHabitDate));
+  const fwdEnd = new Date(parseDateLocal(today));
 
-  // Calculate forwards from the beginning of time
-  while (d <= end) {
-    const ds = getDateStr(d);
-    
-    if (isDatePaused(pausePeriods, ds)) {
-      d.setDate(d.getDate() + 1);
-      continue;
+  while (fwd <= fwdEnd) {
+    const ds = getDateStr(fwd);
+
+    if (!isDatePaused(pausePeriods, ds)) {
+      const complete = isDayComplete(normalisedHabits, ds);
+
+      if (complete === true) {
+        cumulativeCompletedDays++;
+
+        // Check if a new shield threshold was crossed
+        const newThresholds = Math.floor(cumulativeCompletedDays / shieldThreshold);
+        if (newThresholds > shieldsEarnedThresholds) {
+          shieldsPool = Math.min(shieldsPool + (newThresholds - shieldsEarnedThresholds), MAX_SHIELDS);
+          shieldsEarnedThresholds = newThresholds;
+        }
+
+        // Best-streak tracking (consecutive, no shield protection)
+        tempStreak++;
+        if (tempStreak > bestStreak) bestStreak = tempStreak;
+      } else if (complete === false && ds !== today) {
+        // Missed day — reset temp streak (no shields applied to best-streak calc)
+        tempStreak = 0;
+      } else if (complete === null) {
+        // Rest day — streak continues but doesn't add to cumulative completed days
+        tempStreak++;
+        if (tempStreak > bestStreak) bestStreak = tempStreak;
+      }
+      // If ds === today && complete === false: skip — day not yet over
     }
+
+    fwd.setDate(fwd.getDate() + 1);
+  }
+
+  // ── Backward pass: compute CURRENT streak, using shields on missed days ──
+  // Shields protect a missed day (streak doesn't break) but do NOT add to the count.
+  let currentStreak = 0;
+  let shields = shieldsPool; // start with all earned shields; consume as we hit missed days
+
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+
+  for (let i = 0; i < 1100; i++) {
+    const ds = getDateStr(d);
+    if (ds < earliestHabitDate) break;
+    if (isDatePaused(pausePeriods, ds)) { d.setDate(d.getDate() - 1); continue; }
 
     const complete = isDayComplete(normalisedHabits, ds);
 
-    // If today is incomplete, don't penalize yet (day isn't over)
-    if (ds === today && complete === false) {
-       break;
-    }
-
-    if (complete === null || complete === true) {
+    if (complete === null) {
+      // Rest day — counts toward streak length, no action needed
       currentStreak++;
-      if (currentStreak > 0 && currentStreak % shieldThreshold === 0) shields++;
-    } else if (complete === false) {
+      d.setDate(d.getDate() - 1);
+      continue;
+    }
+    if (!complete && ds === today) {
+      // Today's habits not done yet — don't penalise, just skip
+      d.setDate(d.getDate() - 1);
+      continue;
+    }
+    if (!complete) {
+      // Missed day — use a shield if available
       if (shields > 0) {
-        shields--; // Shield consumed!
-        currentStreak++; // Streak is saved
-        if (currentStreak > 0 && currentStreak % shieldThreshold === 0) shields++; // Earn a shield even on a shielded day
-      } else {
-        currentStreak = 0; // Streak breaks
+        shields--; // shield consumed: streak is saved but NOT incremented
+        d.setDate(d.getDate() - 1);
+        continue;
       }
+      break; // No shield → streak ends here
     }
 
-    if (currentStreak > bestStreak) bestStreak = currentStreak;
-
-    d.setDate(d.getDate() + 1);
+    // Completed day
+    currentStreak++;
+    d.setDate(d.getDate() - 1);
   }
 
-  return { currentStreak, bestStreak, shields };
+  return { currentStreak, bestStreak, shields, cumulativeCompletedDays };
 }
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
@@ -800,8 +856,11 @@ function AnalyticsTab({ habits, todos, pausePeriods, isPremium, journalEntries }
     return d >= start && d <= today;
   };
 
-  const { currentStreak, bestStreak, shields } = calcStats(habits, pausePeriods, isPremium);
-  const shieldThreshold = isPremium ? 14 : 28;
+  const { currentStreak, bestStreak, shields, cumulativeCompletedDays } = calcStats(habits, pausePeriods, isPremium);
+  const shieldThreshold = isPremium ? 7 : 14;
+  const daysToNextShield = shields >= 5
+    ? null // maxed out
+    : shieldThreshold - (cumulativeCompletedDays % shieldThreshold);
 
   // Completion rate — filtered by range
   const { completionRate, totalCompletions } = (() => {
@@ -894,7 +953,7 @@ function AnalyticsTab({ habits, todos, pausePeriods, isPremium, journalEntries }
 
   const stats = [
     { icon: "🔥", label: "Current Streak", value: `${currentStreak} days`, sub: "All scheduled habits done" },
-    { icon: "🛡️", label: "Shields", value: shields, sub: `Next in ${shieldThreshold - (currentStreak % shieldThreshold)} days` },
+    { icon: "🛡️", label: "Shields", value: `${shields}/5`, sub: shields >= 5 ? "Max shields held!" : `Next in ${daysToNextShield} completed day${daysToNextShield !== 1 ? "s" : ""}` },
     { icon: "🏆", label: "Best Streak", value: `${bestStreak} days`, sub: "Personal record" },
     { icon: "📊", label: "Completion Rate", value: completionRate !== null ? `${completionRate}%` : "—", sub: `${totalCompletions} completions` },
   ];
