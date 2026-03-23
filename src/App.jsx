@@ -22,6 +22,7 @@ const FREE_HABIT_LIMIT = 5;
 const FREE_TODO_LIMIT = 5;        // max active (non-done) todos for free users
 const FREE_JOURNAL_DAYS = 7;      // how many days back free users can access
 const LIFETIME_USER_LIMIT = 100;  // first N users get lifetime premium
+const MAX_SHIELDS = 5;            // maximum shields a user can hold
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -87,7 +88,7 @@ function calcStats(habits, pausePeriods, isPremium, profile = null) {
     const availableInitial = (initialShields > 0 && initialShieldsDate && initialShieldsDate <= today) ? Math.min(initialShields, 5) : 0;
     return { currentStreak: 0, bestStreak: 0, shields: availableInitial, cumulativeCompletedDays: 0 };
   }
-  const MAX_SHIELDS = 5;
+  
   // Pro: 1 shield per 7 cumulative completed days
   // Free: 1 shield per 14 cumulative completed days
   const shieldThreshold = isPremium ? 7 : 14;
