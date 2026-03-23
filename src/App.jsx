@@ -520,7 +520,7 @@ function RoutineModal({ routine, habitsList, onSave, onClose, onEject }) {
       <div style={{ background: "#111827", border: "1px solid #374151", borderRadius: "16px", padding: "28px", width: "100%", maxWidth: "380px", maxHeight: "90vh", overflowY: "auto" }}>
         <h2 style={{ margin: "0 0 20px", color: "#f9fafb", fontSize: "18px", fontFamily: "'Syne', sans-serif", fontWeight: 800 }}>{routine ? "Edit Routine" : "New Routine"}</h2>
         <label style={S.label}>Routine name</label>
-        <input value={name} onChange={e => setName(e.target.value)} style={{ ...S.input, marginBottom: "18px" }} placeholder="e.g. Morning Routine" autoFocus onKeyDown={e => e.key === "Enter" && name.trim() && onSave({ name: name.trim(), emoji })} />
+        <input value={name} onChange={e => setName(e.target.value)} style={{ ...S.input, marginBottom: "18px" }} placeholder="e.g. Morning Routine" autoFocus={!routine} onKeyDown={e => e.key === "Enter" && name.trim() && onSave({ name: name.trim(), emoji })} />
         <label style={S.label}>Icon</label>
         <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "24px", marginTop: "8px" }}>
           {ROUTINE_EMOJIS.map(e => (
@@ -651,7 +651,7 @@ function HabitModal({ habit, onSave, onClose }) {
       <div style={{ background: "#111827", border: "1px solid #374151", borderRadius: "16px", padding: "28px", width: "360px", maxWidth: "90vw" }}>
         <h2 style={{ margin: "0 0 20px", color: "#f9fafb", fontSize: "18px" }}>{habit ? "Edit Habit" : "New Habit"}</h2>
         <label style={S.label}>Habit name</label>
-        <input value={name} onChange={e => setName(e.target.value)} style={{ ...S.input, marginBottom: "14px" }} placeholder="e.g. Morning Run" autoFocus />
+        <input value={name} onChange={e => setName(e.target.value)} style={{ ...S.input, marginBottom: "14px" }} placeholder="e.g. Morning Run" autoFocus={!habit} />
         <label style={S.label}>Frequency</label>
         <div style={{ display: "flex", gap: "8px", marginBottom: "14px" }}>
           {["daily", "weekly"].map(f => <button key={f} onClick={() => setFrequency(f)} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "1px solid", borderColor: frequency === f ? "#2563eb" : "#374151", background: frequency === f ? "#1d4ed8" : "#1f2937", color: frequency === f ? "#fff" : "#9ca3af", cursor: "pointer", fontWeight: 600, fontSize: "13px", textTransform: "capitalize" }}>{f}</button>)}
