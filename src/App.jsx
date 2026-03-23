@@ -2074,9 +2074,14 @@ export default function HabiTick() {
         </div>
         <div className="ht-header-pills" style={{ position: "absolute", left: "50%", transform: "translateX(-50%)" }}>
           {!isPaused && <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: "1px solid #22c55e33", borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: "#22c55e", fontWeight: 600 }}>✓ {doneToday}/{totalToday} habits today</div>}
-          <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: `1px solid ${isPaused ? "#f59e0b66" : "#3b82f633"}`, borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: isPaused ? "#fcd34d" : "#60a5fa", fontWeight: 600 }}>
-            {isPaused ? "⏸ Streak frozen" : `🔥 Streak: ${currentStreak} days`}
-            {!isPaused && shields > 0 && <span style={{marginLeft: "4px"}}>🛡️ {shields}</span>}
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: `1px solid ${isPaused ? "#f59e0b66" : "#3b82f633"}`, borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: isPaused ? "#fcd34d" : "#60a5fa", fontWeight: 600 }}>
+              {isPaused ? "⏸ Streak frozen" : `🔥 Streak: ${currentStreak} days`}
+            </div>
+            <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: "1px solid #6b728033", borderRadius: "999px", padding: "5px 12px", fontSize: "12px", color: "#9ca3af", fontWeight: 700 }}>
+              <span style={{ marginRight: "6px" }}>🛡️</span>
+              <span>{typeof shields === 'number' ? `${shields}/${MAX_SHIELDS}` : `0/${MAX_SHIELDS}`}</span>
+            </div>
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
