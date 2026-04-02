@@ -48,7 +48,8 @@ function getCalendarDays(year, month) {
   const cells = [];
   for (let i = firstDay - 1; i >= 0; i--) cells.push({ day: prevDays - i, curr: false });
   for (let i = 1; i <= daysInMonth; i++) cells.push({ day: i, curr: true });
-  while (cells.length < 35) cells.push({ day: cells.length - daysInMonth - firstDay + 1, curr: false });
+  // Fill remaining cells to complete full weeks (5 or 6 rows as needed)
+  while (cells.length % 7 !== 0) cells.push({ day: cells.length - daysInMonth - firstDay + 1, curr: false });
   return cells;
 }
 
@@ -357,40 +358,57 @@ function MiniCalendar({ habit, today, onToggle, pausePeriods, isPremium }) {
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: "2px", textAlign: "center" }}>
         {DAYS_SHORT.map(d => <div key={d} style={{ fontSize: "10px", color: "#6b7280", padding: "2px 0", fontWeight: 600 }}>{d[0]}</div>)}
-        {cells.map((cell, i) => {
-          if (!cell.curr) return <div key={i} style={{ padding: "4px 0", fontSize: "11px", color: "#2d3748" }}>{cell.day}</div>;
-          const cellDate = new Date(viewYear, viewMonth, cell.day);
-          const dateStr = getDateStr(cellDate);
-          const isToday = isSameDay(cellDate, todayDate);
-          const isDone = habit.completedDates?.includes(dateStr);
-          const backdateCutoff = new Date(todayDate);
-          backdateCutoff.setHours(0, 0, 0, 0);
-          if (isPremium) {
-            backdateCutoff.setDate(backdateCutoff.getDate() - 7); // premium: 7 days back
-          } else {
-            backdateCutoff.setDate(backdateCutoff.getDate() - 1); // free: yesterday always editable
-          }
-          const createdStr = (habit.createdDate || habit.created_date || getDateStr(todayDate)).substring(0, 10);
-          const habitCreatedDate = parseDateLocal(createdStr);
-          const isFuture = cellDate > todayDate && !isToday;
-          const isTooOld = cellDate < backdateCutoff || cellDate < habitCreatedDate;
-          const isPausedDay = isDatePaused(pausePeriods || [], dateStr);
-          const dow = cellDate.getDay();
-          const isScheduled = habit.frequency === "daily" || (habit.days && habit.days.includes(dow));
-          const isBlocked = isFuture || isTooOld || isPausedDay || !isScheduled;
-          let bg = "transparent", color = "#4b5563", border = "none";
-          if (isPausedDay) { color = "#374151"; }
-          else if (isToday && isDone) { bg = "#22c55e"; color = "#fff"; }
-          else if (isToday) { bg = "transparent"; color = "#60a5fa"; border = "1.5px solid #3b82f6"; }
-          else if (isDone) { bg = "#16a34a33"; color = "#22c55e"; }
-          else if (!isScheduled || isFuture || isTooOld) { color = "#374151"; }
-          return (
-            <div key={i} onClick={() => !isBlocked && onToggle(dateStr)}
-              style={{ fontSize: "11px", borderRadius: "50%", width: "24px", height: "24px", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto", cursor: isBlocked ? "default" : "pointer", background: bg, color, border, fontWeight: isToday ? 700 : 400, transition: "background 0.15s", opacity: isPausedDay ? 0.25 : !isScheduled ? 0.3 : 1 }}>
-              {cell.day}
-            </div>
-          );
-        })}
+        {(() => {
+          const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+          return cells.map((cell, i) => {
+            // determine which month the cell belongs to (prev, current, next)
+            let cellMonth = viewMonth;
+            let cellYear = viewYear;
+            if (!cell.curr) {
+              if (i < firstDay) {
+                // previous month
+                cellMonth = viewMonth - 1;
+                if (cellMonth < 0) { cellMonth = 11; cellYear = viewYear - 1; }
+              } else {
+                // next month
+                cellMonth = viewMonth + 1;
+                if (cellMonth > 11) { cellMonth = 0; cellYear = viewYear + 1; }
+              }
+            }
+            const cellDate = new Date(cellYear, cellMonth, cell.day);
+            const dateStr = getDateStr(cellDate);
+            const isToday = isSameDay(cellDate, todayDate);
+            const isDone = habit.completedDates?.includes(dateStr);
+            const backdateCutoff = new Date(todayDate);
+            backdateCutoff.setHours(0, 0, 0, 0);
+            if (isPremium) backdateCutoff.setDate(backdateCutoff.getDate() - 7);
+            else backdateCutoff.setDate(backdateCutoff.getDate() - 1);
+            const createdStr = (habit.createdDate || habit.created_date || getDateStr(todayDate)).substring(0, 10);
+            const habitCreatedDate = parseDateLocal(createdStr);
+            const isFuture = cellDate > todayDate && !isToday;
+            const isTooOld = cellDate < backdateCutoff || cellDate < habitCreatedDate;
+            const isPausedDay = isDatePaused(pausePeriods || [], dateStr);
+            const dow = cellDate.getDay();
+            const isScheduled = habit.frequency === "daily" || (habit.days && habit.days.includes(dow));
+            const isBlocked = isFuture || isTooOld || isPausedDay || !isScheduled;
+            let bg = "transparent", color = "#4b5563", border = "none";
+            if (isPausedDay) { color = "#374151"; }
+            else if (isToday && isDone) { bg = "#22c55e"; color = "#fff"; }
+            else if (isToday) { bg = "transparent"; color = "#60a5fa"; border = "1.5px solid #3b82f6"; }
+            else if (isDone) { bg = "#16a34a33"; color = "#22c55e"; }
+            else if (!isScheduled || isFuture || isTooOld) { color = "#374151"; }
+
+            // dim non-current-month days visually
+            const extraOpacity = !cell.curr ? 0.45 : 1;
+
+            return (
+              <div key={i} onClick={() => !isBlocked && onToggle(dateStr)}
+                style={{ fontSize: "11px", borderRadius: "50%", width: "24px", height: "24px", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto", cursor: isBlocked ? "default" : "pointer", background: bg, color, border, fontWeight: isToday ? 700 : 400, transition: "background 0.15s", opacity: (isPausedDay ? 0.25 : !isScheduled ? 0.3 : 1) * extraOpacity }}>
+                {cell.day}
+              </div>
+            );
+          });
+        })()}
       </div>
     </div>
   );
