@@ -2024,6 +2024,16 @@ export default function HabiTick() {
   const visibleTodos = (showCompleted ? todos : todos.filter(t => !t.done)).slice().sort((a, b) => {
     // Completed todos sink to bottom
     if (a.done !== b.done) return a.done ? 1 : -1;
+    // If both are completed, show most-recently completed first
+    if (a.done && b.done) {
+      const aDone = a.doneDate || "";
+      const bDone = b.doneDate || "";
+      if (aDone !== bDone) return aDone < bDone ? 1 : -1; // newer first
+      // fallback to priority then id for stable ordering
+      const pr = (priorityOrder[a.priority || ""] || 4) - (priorityOrder[b.priority || ""] || 4);
+      if (pr !== 0) return pr;
+      return a.id < b.id ? -1 : 1;
+    }
     // Sort by due date/time first — no due date goes last
     const aDate = a.due_date ? `${a.due_date}${a.due_time ? `T${a.due_time}` : "T23:59"}` : "9999";
     const bDate = b.due_date ? `${b.due_date}${b.due_time ? `T${b.due_time}` : "T23:59"}` : "9999";
