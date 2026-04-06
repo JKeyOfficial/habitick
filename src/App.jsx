@@ -8,10 +8,26 @@ import { createClient } from "@supabase/supabase-js";
 
 // ── Replace these with your project values ───────────────────────────────────
 // Supabase Dashboard → Project Settings → API
-const SUPABASE_URL = "https://ftsqfgnarbqeloyjrpzc.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ0c3FmZ25hcmJxZWxveWpycHpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3NTA4MDQsImV4cCI6MjA4ODMyNjgwNH0._vCV9TJSMJgvEWssmEm843g82qQi0ud07Q28WRyPx5s";
-
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  rectSortingStrategy,
+  useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // ── Stripe ────────────────────────────────────────────────────────────────────
 // This is called via your Vercel serverless function — no key needed in frontend
@@ -89,7 +105,7 @@ function calcStats(habits, pausePeriods, isPremium, profile = null) {
     const availableInitial = (initialShields > 0 && initialShieldsDate && initialShieldsDate <= today) ? Math.min(initialShields, 5) : 0;
     return { currentStreak: 0, bestStreak: 0, shields: availableInitial, cumulativeCompletedDays: 0 };
   }
-  
+
   // Pro: 1 shield per 7 cumulative completed days
   // Free: 1 shield per 14 cumulative completed days
   const shieldThreshold = isPremium ? 7 : 14;
@@ -283,10 +299,10 @@ function AuthScreen() {
             <>
               <button onClick={handleGoogle} style={{ ...S.btnSecondary, display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", marginBottom: "20px" }}>
                 <svg width="18" height="18" viewBox="0 0 48 48">
-                  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-                  <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-                  <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-                  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+                  <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+                  <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+                  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
                 </svg>
                 Continue with Google
               </button>
@@ -329,7 +345,7 @@ function AuthScreen() {
 }
 
 // ─── Mini Calendar ────────────────────────────────────────────────────────────
-const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 function MiniCalendar({ habit, today, onToggle, pausePeriods, isPremium }) {
   const now = new Date();
   const [viewYear, setViewYear] = useState(now.getFullYear());
@@ -415,7 +431,8 @@ function MiniCalendar({ habit, today, onToggle, pausePeriods, isPremium }) {
 }
 
 // ─── Routine Card ────────────────────────────────────────────────────────────
-function RoutineCard({ routine, habits, today, onToggle, onDelete, onDeleteRoutine, onEdit, onEjectFromRoutine, isPaused, pausePeriods, isPremium, dragState, dropTargetId, onDragStartHabit, onDragEndHabit, onDragEnterHabit, onDropOnRoutine, onDropOnStandalone }) {
+// ─── Routine Card ────────────────────────────────────────────────────────────
+function RoutineCard({ routine, habits, today, onToggle, onDelete, onDeleteRoutine, onEdit, onEjectFromRoutine, isPaused, pausePeriods, isPremium, dragState, dropTargetId, onDragStartHabit, onDragEndHabit, onDragEnterHabit, onDropOnRoutine, onDropOnStandalone, dragHandleProps }) {
   const [dragOver, setDragOver] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -429,12 +446,12 @@ function RoutineCard({ routine, habits, today, onToggle, onDelete, onDeleteRouti
   const allDone = totalCount > 0 && doneCount === totalCount;
 
   const handleDragOver = e => { e.preventDefault(); setDragOver(true); };
-  
+
   const handleDragLeave = e => {
     if (e.currentTarget.contains(e.relatedTarget)) return;
     setDragOver(false);
   };
-  
+
   const handleDrop = e => {
     e.preventDefault();
     e.stopPropagation();
@@ -446,6 +463,7 @@ function RoutineCard({ routine, habits, today, onToggle, onDelete, onDeleteRouti
 
   return (
     <div
+      {...dragHandleProps}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -453,10 +471,12 @@ function RoutineCard({ routine, habits, today, onToggle, onDelete, onDeleteRouti
         border: `2px solid ${allDone ? "#10b981" : dragOver ? "#2563eb" : "#1f2937"}`,
         borderRadius: "18px",
         padding: "18px",
-        marginBottom: "20px",
         background: allDone ? "#10b98108" : dragOver ? "#2563eb08" : "#0d1117",
         transition: "border-color 0.3s, background 0.3s",
         position: "relative",
+        height: "100%",
+        boxSizing: "border-box",
+        cursor: dragHandleProps ? "grab" : "default",
       }}>
 
       {/* Routine header */}
@@ -476,7 +496,7 @@ function RoutineCard({ routine, habits, today, onToggle, onDelete, onDeleteRouti
             </div>
           )}
         </div>
-        <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
+        <div onPointerDown={e => e.stopPropagation()} style={{ display: "flex", gap: "4px", alignItems: "center" }}>
           <button onClick={() => onEdit(routine)} style={{ background: "none", border: "none", cursor: "pointer", color: "#4b5563", fontSize: "13px", padding: "4px 6px", borderRadius: "6px" }}>✏️</button>
           {confirmDelete ? (
             <>
@@ -498,7 +518,7 @@ function RoutineCard({ routine, habits, today, onToggle, onDelete, onDeleteRouti
               Drag habits here to add them to this routine
             </div>
           ) : (
-            <div className="ht-habit-grid">
+            <div className="ht-habit-grid" onPointerDown={e => e.stopPropagation()}>
               {habits.map(h => (
                 <HabitCard
                   key={h.id}
@@ -528,7 +548,7 @@ function RoutineCard({ routine, habits, today, onToggle, onDelete, onDeleteRouti
 }
 
 // ─── Routine Modal ────────────────────────────────────────────────────────────
-const ROUTINE_EMOJIS = ["📋","🌅","🌙","💪","🧘","🏃","📚","🎯","✨","🔥","⚡","🎸","🥗","💻","🧠"];
+const ROUTINE_EMOJIS = ["📋", "🌅", "🌙", "💪", "🧘", "🏃", "📚", "🎯", "✨", "🔥", "⚡", "🎸", "🥗", "💻", "🧠"];
 function RoutineModal({ routine, habitsList, onSave, onClose, onEject }) {
   const [name, setName] = useState(routine?.name || "");
   const [emoji, setEmoji] = useState(routine?.emoji || "📋");
@@ -588,7 +608,7 @@ function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, pausePe
     setIsDragging(true);
     if (onDragStart) onDragStart(habit.id, habit);
   };
-  
+
   const handleDragEnd = () => {
     setIsDragging(false);
     if (onDragEnd) onDragEnd();
@@ -840,8 +860,8 @@ function MoodInsights({ journalEntries, today }) {
     ? Math.round(((totalPositiveThisMonth - totalPositiveLastMonth) / Math.max(totalPositiveLastMonth, 1)) * 100)
     : null;
 
-  const topWeekMood = Object.entries(weekCounts).sort((a,b) => b[1]-a[1]).find(([,v]) => v > 0);
-  const totalEntries = Object.values(weekCounts).reduce((a,b) => a+b, 0);
+  const topWeekMood = Object.entries(weekCounts).sort((a, b) => b[1] - a[1]).find(([, v]) => v > 0);
+  const totalEntries = Object.values(weekCounts).reduce((a, b) => a + b, 0);
 
   const insights = [];
 
@@ -971,11 +991,11 @@ function AnalyticsTab({ habits, todos, pausePeriods, isPremium, journalEntries, 
     const label = chartPoints <= 7
       ? DAYS_SHORT[d.getDay()]
       : chartPoints <= 31
-      ? String(d.getDate())
-      : DAYS_SHORT[d.getDay()][0];
+        ? String(d.getDate())
+        : DAYS_SHORT[d.getDay()][0];
     return {
       label,
-      habits: habits.filter(h => (h.completedDates || []).map(x => x.substring(0,10)).includes(ds)).length,
+      habits: habits.filter(h => (h.completedDates || []).map(x => x.substring(0, 10)).includes(ds)).length,
       tasks: todos.filter(t => t.doneDate === ds).length,
     };
   });
@@ -992,20 +1012,20 @@ function AnalyticsTab({ habits, todos, pausePeriods, isPremium, journalEntries, 
         const d = new Date(weekEnd);
         d.setDate(d.getDate() - day);
         const ds = getDateStr(d);
-        h += habits.filter(hb => (hb.completedDates || []).map(x => x.substring(0,10)).includes(ds)).length;
+        h += habits.filter(hb => (hb.completedDates || []).map(x => x.substring(0, 10)).includes(ds)).length;
         t += todos.filter(td => td.doneDate === ds).length;
       }
       const d = new Date(weekEnd);
       d.setDate(d.getDate() - 6);
-      return { label: `${d.getDate()}/${d.getMonth()+1}`, habits: h, tasks: t };
+      return { label: `${d.getDate()}/${d.getMonth() + 1}`, habits: h, tasks: t };
     }).reverse();
   })() : chartData;
 
   const maxVal = Math.max(...finalChartData.flatMap(d => [d.habits, d.tasks]), 1);
   const chartTitle = range === "7days" ? "Daily Activity — Last 7 Days"
     : range === "30days" ? "Daily Activity — Last 30 Days"
-    : range === "year" ? "Weekly Activity — Last Year"
-    : "Weekly Activity — All Time";
+      : range === "year" ? "Weekly Activity — Last Year"
+        : "Weekly Activity — All Time";
 
   const stats = [
     { icon: "🔥", label: "Current Streak", value: `${currentStreak} days`, sub: "All scheduled habits done" },
@@ -1061,9 +1081,9 @@ function AnalyticsTab({ habits, todos, pausePeriods, isPremium, journalEntries, 
 // ─── Journal Tab ──────────────────────────────────────────────────────────────
 const MOOD_OPTIONS = [
   { value: "great", label: "Great", emoji: "🌟" },
-  { value: "good",  label: "Good",  emoji: "😊" },
-  { value: "okay",  label: "Okay",  emoji: "😐" },
-  { value: "bad",   label: "Bad",   emoji: "😔" },
+  { value: "good", label: "Good", emoji: "😊" },
+  { value: "okay", label: "Okay", emoji: "😐" },
+  { value: "bad", label: "Bad", emoji: "😔" },
 ];
 const CHAR_LIMIT = 2000;
 
@@ -1285,7 +1305,7 @@ function OnboardingScreen({ session, onComplete }) {
       <div style={{ textAlign: "center", maxWidth: "400px", width: "100%", ...fadeUp }}>
         <div style={{ fontSize: "64px", marginBottom: "20px" }}>⚡</div>
         <h1 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "36px", color: "#f9fafb", margin: "0 0 14px", letterSpacing: "-0.03em" }}>Welcome to HabiTick</h1>
-        <p style={{ color: "#6b7280", fontSize: "16px", lineHeight: 1.6, margin: "0 0 40px" }}>The habit tracker that grows with you.<br/>Let's get you set up in 30 seconds.</p>
+        <p style={{ color: "#6b7280", fontSize: "16px", lineHeight: 1.6, margin: "0 0 40px" }}>The habit tracker that grows with you.<br />Let's get you set up in 30 seconds.</p>
         <button onClick={() => setStep(1)} style={{ width: "100%", padding: "15px", borderRadius: "12px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "16px", cursor: "pointer", fontFamily: "inherit" }}>Let's go →</button>
       </div>
     </div>
@@ -1307,9 +1327,9 @@ function OnboardingScreen({ session, onComplete }) {
             {avatarUrl
               ? <img src={avatarUrl} alt="avatar" style={{ width: "88px", height: "88px", borderRadius: "50%", objectFit: "cover", border: "3px solid #2563eb" }} />
               : <div style={{ width: "88px", height: "88px", borderRadius: "50%", background: "#1f2937", border: "2px dashed #374151", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "4px" }}>
-                  <span style={{ fontSize: "24px" }}>{uploadingAvatar ? "⏳" : "📷"}</span>
-                  <span style={{ fontSize: "10px", color: "#6b7280", fontWeight: 600 }}>Add photo</span>
-                </div>
+                <span style={{ fontSize: "24px" }}>{uploadingAvatar ? "⏳" : "📷"}</span>
+                <span style={{ fontSize: "10px", color: "#6b7280", fontWeight: 600 }}>Add photo</span>
+              </div>
             }
             {avatarUrl && (
               <div style={{ position: "absolute", bottom: 0, right: 0, width: "26px", height: "26px", borderRadius: "50%", background: "#2563eb", border: "2px solid #0d1117", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px" }}>📷</div>
@@ -1345,7 +1365,7 @@ function OnboardingScreen({ session, onComplete }) {
       <div style={{ textAlign: "center", maxWidth: "400px", width: "100%", ...fadeUp }}>
         <div style={{ fontSize: "72px", marginBottom: "20px", animation: "pop 0.5s ease forwards" }}>🎉</div>
         <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "30px", color: "#f9fafb", margin: "0 0 10px", letterSpacing: "-0.02em" }}>You're all set, {username}!</h2>
-        <p style={{ color: "#6b7280", fontSize: "15px", lineHeight: 1.6, margin: "0 0 24px" }}>Time to build your first habit.<br/>Start small — one habit changes everything.</p>
+        <p style={{ color: "#6b7280", fontSize: "15px", lineHeight: 1.6, margin: "0 0 24px" }}>Time to build your first habit.<br />Start small — one habit changes everything.</p>
         <div style={{ textAlign: "left", background: "#0d1117", border: "1px solid #1f2937", padding: "12px", borderRadius: "10px", marginBottom: "20px" }}>
           <div style={{ fontWeight: 700, color: "#f9fafb", marginBottom: "8px" }}>Quick tips</div>
           <div style={{ color: "#9ca3af", fontSize: "13px", marginBottom: "8px" }}><strong>Routine</strong>: Group habits into routines (morning, evening, etc.) to check several items at once and build momentum.</div>
@@ -1439,7 +1459,8 @@ function BillingTab({ profile, session, showToast }) {
           <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "16px", color: "#f9fafb" }}>
             {isLifetime ? "Founder Plan" : isPremium ? "Pro Plan" : "Free Plan"}
           </span>
-          <span style={{ fontSize: "11px", padding: "3px 10px", borderRadius: "999px", fontWeight: 700,
+          <span style={{
+            fontSize: "11px", padding: "3px 10px", borderRadius: "999px", fontWeight: 700,
             background: isLifetime ? "#065f46" : isPremium ? "#2563eb20" : "#1f2937",
             border: `1px solid ${isLifetime ? "#10b981" : isPremium ? "#2563eb" : "#374151"}`,
             color: isLifetime ? "#10b981" : isPremium ? "#60a5fa" : "#6b7280"
@@ -1626,137 +1647,137 @@ function ProfileModal({ session, profile, onUpdate, onClose }) {
         </div>
       )}
 
-        {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
-          <h2 style={{ margin: 0, fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "20px", color: "#f9fafb", letterSpacing: "-0.02em" }}>Your Profile</h2>
-          <button onClick={onClose} style={{ background: "#1f2937", border: "none", color: "#9ca3af", cursor: "pointer", fontSize: "16px", width: "32px", height: "32px", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+        <h2 style={{ margin: 0, fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "20px", color: "#f9fafb", letterSpacing: "-0.02em" }}>Your Profile</h2>
+        <button onClick={onClose} style={{ background: "#1f2937", border: "none", color: "#9ca3af", cursor: "pointer", fontSize: "16px", width: "32px", height: "32px", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+      </div>
+
+      {/* Avatar upload */}
+      <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "24px" }}>
+        <div style={{ position: "relative", flexShrink: 0 }}>
+          {avatarUrl
+            ? <img src={avatarUrl} alt="avatar" style={{ width: "64px", height: "64px", borderRadius: "50%", objectFit: "cover", border: "2px solid #2563eb" }} />
+            : <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "26px", color: "#fff" }}>{avatarLetter}</div>
+          }
+          <label style={{ position: "absolute", bottom: "-2px", right: "-2px", width: "22px", height: "22px", background: "#374151", border: "2px solid #111827", borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px" }}>
+            {uploadingAvatar ? "⏳" : "📷"}
+            <input type="file" accept="image/*" onChange={uploadAvatar} style={{ display: "none" }} />
+          </label>
         </div>
-
-        {/* Avatar upload */}
-        <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "24px" }}>
-          <div style={{ position: "relative", flexShrink: 0 }}>
-            {avatarUrl
-              ? <img src={avatarUrl} alt="avatar" style={{ width: "64px", height: "64px", borderRadius: "50%", objectFit: "cover", border: "2px solid #2563eb" }} />
-              : <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "26px", color: "#fff" }}>{avatarLetter}</div>
-            }
-            <label style={{ position: "absolute", bottom: "-2px", right: "-2px", width: "22px", height: "22px", background: "#374151", border: "2px solid #111827", borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px" }}>
-              {uploadingAvatar ? "⏳" : "📷"}
-              <input type="file" accept="image/*" onChange={uploadAvatar} style={{ display: "none" }} />
-            </label>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "16px", color: "#f9fafb", display: "flex", alignItems: "center", gap: "8px" }}>
+            {profile?.username || "No username yet"}
+            {profile?.is_premium && (
+              <span style={{ fontSize: "10px", padding: "2px 8px", borderRadius: "999px", background: "#2563eb", color: "#fff", fontWeight: 700, letterSpacing: "0.04em" }}>
+                {profile?.is_lifetime ? "FOUNDER ✦" : "PRO"}
+              </span>
+            )}
           </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "16px", color: "#f9fafb", display: "flex", alignItems: "center", gap: "8px" }}>
-              {profile?.username || "No username yet"}
-              {profile?.is_premium && (
-                <span style={{ fontSize: "10px", padding: "2px 8px", borderRadius: "999px", background: "#2563eb", color: "#fff", fontWeight: 700, letterSpacing: "0.04em" }}>
-                  {profile?.is_lifetime ? "FOUNDER ✦" : "PRO"}
-                </span>
-              )}
-            </div>
-            <div style={{ fontSize: "12px", color: "#4b5563", marginTop: "2px", marginBottom: "8px" }}>{session.user.email}</div>
-            {avatarUrl && <button onClick={removeAvatar} style={{ background: "none", border: "none", color: "#6b7280", fontSize: "11px", cursor: "pointer", padding: 0, textDecoration: "underline" }}>Remove photo</button>}
-          </div>
+          <div style={{ fontSize: "12px", color: "#4b5563", marginTop: "2px", marginBottom: "8px" }}>{session.user.email}</div>
+          {avatarUrl && <button onClick={removeAvatar} style={{ background: "none", border: "none", color: "#6b7280", fontSize: "11px", cursor: "pointer", padding: 0, textDecoration: "underline" }}>Remove photo</button>}
         </div>
+      </div>
 
-        {/* Tabs */}
-        <div style={{ display: "flex", gap: "6px", marginBottom: "20px" }}>
-          <button style={tabStyle("profile")} onClick={() => setTab("profile")}>Username</button>
-          <button style={tabStyle("email")} onClick={() => setTab("email")}>Email</button>
-          <button style={tabStyle("password")} onClick={() => setTab("password")}>Password</button>
-          <button style={tabStyle("billing")} onClick={() => setTab("billing")}>Billing</button>
+      {/* Tabs */}
+      <div style={{ display: "flex", gap: "6px", marginBottom: "20px" }}>
+        <button style={tabStyle("profile")} onClick={() => setTab("profile")}>Username</button>
+        <button style={tabStyle("email")} onClick={() => setTab("email")}>Email</button>
+        <button style={tabStyle("password")} onClick={() => setTab("password")}>Password</button>
+        <button style={tabStyle("billing")} onClick={() => setTab("billing")}>Billing</button>
+      </div>
+
+      {/* Username tab */}
+      {tab === "profile" && (
+        <div>
+          <label style={lbl}>Username</label>
+          <input value={username} onChange={e => setUsername(e.target.value)} style={inp} placeholder="e.g. john_doe" onKeyDown={e => e.key === "Enter" && saveUsername()} />
+          <div style={{ fontSize: "11px", color: "#374151", marginBottom: "14px" }}>Letters, numbers and underscores · min 3 chars</div>
+          {usernameErr && <div style={{ color: "#f87171", fontSize: "13px", marginBottom: "10px" }}>{usernameErr}</div>}
+          <button onClick={saveUsername} disabled={savingUsername} style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "14px", cursor: "pointer", fontFamily: "inherit", opacity: savingUsername ? 0.7 : 1 }}>{savingUsername ? "Saving..." : "Save Username"}</button>
         </div>
+      )}
 
-        {/* Username tab */}
-        {tab === "profile" && (
-          <div>
-            <label style={lbl}>Username</label>
-            <input value={username} onChange={e => setUsername(e.target.value)} style={inp} placeholder="e.g. john_doe" onKeyDown={e => e.key === "Enter" && saveUsername()} />
-            <div style={{ fontSize: "11px", color: "#374151", marginBottom: "14px" }}>Letters, numbers and underscores · min 3 chars</div>
-            {usernameErr && <div style={{ color: "#f87171", fontSize: "13px", marginBottom: "10px" }}>{usernameErr}</div>}
-            <button onClick={saveUsername} disabled={savingUsername} style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "14px", cursor: "pointer", fontFamily: "inherit", opacity: savingUsername ? 0.7 : 1 }}>{savingUsername ? "Saving..." : "Save Username"}</button>
+      {/* Email tab */}
+      {tab === "email" && (
+        <div>
+          <div style={{ background: "#0d1117", border: "1px solid #1f2937", borderRadius: "8px", padding: "12px", marginBottom: "16px", fontSize: "13px", color: "#4b5563" }}>
+            Current: <span style={{ color: "#9ca3af", fontWeight: 600 }}>{session.user.email}</span>
           </div>
-        )}
-
-        {/* Email tab */}
-        {tab === "email" && (
-          <div>
-            <div style={{ background: "#0d1117", border: "1px solid #1f2937", borderRadius: "8px", padding: "12px", marginBottom: "16px", fontSize: "13px", color: "#4b5563" }}>
-              Current: <span style={{ color: "#9ca3af", fontWeight: 600 }}>{session.user.email}</span>
-            </div>
-            <label style={lbl}>New Email Address</label>
-            <input value={newEmail} onChange={e => setNewEmail(e.target.value)} type="email" style={inp} placeholder="new@email.com" />
-            {emailErr && <div style={{ color: "#f87171", fontSize: "13px", marginBottom: "10px" }}>{emailErr}</div>}
-            {emailMsg && <div style={{ color: "#10b981", fontSize: "13px", marginBottom: "10px" }}>{emailMsg}</div>}
-            <button onClick={saveEmail} disabled={savingEmail} style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "14px", cursor: "pointer", fontFamily: "inherit", opacity: savingEmail ? 0.7 : 1 }}>{savingEmail ? "Sending..." : "Update Email"}</button>
-          </div>
-        )}
-
-        {/* Password tab */}
-        {tab === "password" && (
-          <div>
-            <label style={lbl}>New Password</label>
-            <input value={newPw} onChange={e => setNewPw(e.target.value)} type="password" style={inp} placeholder="Min. 8 characters" />
-            <label style={lbl}>Confirm Password</label>
-            <input value={confirmPw} onChange={e => setConfirmPw(e.target.value)} type="password" style={inp} placeholder="Repeat new password" />
-            {pwErr && <div style={{ color: "#f87171", fontSize: "13px", marginBottom: "10px" }}>{pwErr}</div>}
-            <button onClick={savePassword} disabled={savingPw} style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "14px", cursor: "pointer", fontFamily: "inherit", opacity: savingPw ? 0.7 : 1, marginBottom: "10px" }}>{savingPw ? "Updating..." : "Update Password"}</button>
-            <button onClick={sendResetLink} disabled={resetSent} style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #1f2937", background: resetSent ? "#064e3b" : "transparent", color: resetSent ? "#6ee7b7" : "#6b7280", fontWeight: 600, fontSize: "13px", cursor: resetSent ? "default" : "pointer", fontFamily: "inherit", transition: "all 0.3s" }}>
-              {resetSent ? "✓ Link sent to your email!" : "Send reset link instead"}
-            </button>
-          </div>
-        )}
-
-        {/* Billing tab */}
-        {tab === "billing" && (
-          <BillingTab profile={profile} session={session} showToast={showToast} />
-        )}
-
-        {/* Sign out */}
-        <div style={{ borderTop: "1px solid #1f2937", marginTop: "24px", paddingTop: "16px", display: "flex", flexDirection: "column", gap: "10px" }}>
-          <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "1px solid #374151", background: "transparent", color: "#6b7280", fontWeight: 600, fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>Sign out</button>
-          <button onClick={() => setShowDeleteConfirm1(true)} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "1px solid #7f1d1d", background: "transparent", color: "#f87171", fontWeight: 600, fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>Delete account</button>
+          <label style={lbl}>New Email Address</label>
+          <input value={newEmail} onChange={e => setNewEmail(e.target.value)} type="email" style={inp} placeholder="new@email.com" />
+          {emailErr && <div style={{ color: "#f87171", fontSize: "13px", marginBottom: "10px" }}>{emailErr}</div>}
+          {emailMsg && <div style={{ color: "#10b981", fontSize: "13px", marginBottom: "10px" }}>{emailMsg}</div>}
+          <button onClick={saveEmail} disabled={savingEmail} style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "14px", cursor: "pointer", fontFamily: "inherit", opacity: savingEmail ? 0.7 : 1 }}>{savingEmail ? "Sending..." : "Update Email"}</button>
         </div>
+      )}
 
-        {/* Delete confirm — step 1 */}
-        {showDeleteConfirm1 && (
-          <div style={{ position: "fixed", inset: 0, background: "#000d", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
-            <div style={{ background: "#111827", border: "1px solid #374151", borderRadius: "20px", padding: "28px", width: "100%", maxWidth: "360px", textAlign: "center" }}>
-              <div style={{ fontSize: "36px", marginBottom: "12px" }}>⚠️</div>
-              <h2 style={{ margin: "0 0 10px", fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "19px", color: "#f9fafb", letterSpacing: "-0.02em" }}>Delete your account?</h2>
-              <p style={{ color: "#9ca3af", fontSize: "14px", lineHeight: 1.6, marginBottom: "24px" }}>This will permanently delete all your habits, todos, journal entries and account data. <strong style={{ color: "#f87171" }}>This cannot be undone.</strong></p>
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                <button onClick={() => { setShowDeleteConfirm1(false); setShowDeleteConfirm2(true); }} style={{ width: "100%", padding: "13px", borderRadius: "10px", border: "1px solid #7f1d1d", background: "#7f1d1d30", color: "#f87171", fontWeight: 700, fontSize: "14px", cursor: "pointer", fontFamily: "inherit" }}>Yes, I want to delete my account</button>
-                <button onClick={() => setShowDeleteConfirm1(false)} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "1px solid #374151", background: "transparent", color: "#6b7280", fontWeight: 600, fontSize: "14px", cursor: "pointer", fontFamily: "inherit" }}>Cancel, keep my account</button>
-              </div>
-            </div>
-          </div>
-        )}
+      {/* Password tab */}
+      {tab === "password" && (
+        <div>
+          <label style={lbl}>New Password</label>
+          <input value={newPw} onChange={e => setNewPw(e.target.value)} type="password" style={inp} placeholder="Min. 8 characters" />
+          <label style={lbl}>Confirm Password</label>
+          <input value={confirmPw} onChange={e => setConfirmPw(e.target.value)} type="password" style={inp} placeholder="Repeat new password" />
+          {pwErr && <div style={{ color: "#f87171", fontSize: "13px", marginBottom: "10px" }}>{pwErr}</div>}
+          <button onClick={savePassword} disabled={savingPw} style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "14px", cursor: "pointer", fontFamily: "inherit", opacity: savingPw ? 0.7 : 1, marginBottom: "10px" }}>{savingPw ? "Updating..." : "Update Password"}</button>
+          <button onClick={sendResetLink} disabled={resetSent} style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #1f2937", background: resetSent ? "#064e3b" : "transparent", color: resetSent ? "#6ee7b7" : "#6b7280", fontWeight: 600, fontSize: "13px", cursor: resetSent ? "default" : "pointer", fontFamily: "inherit", transition: "all 0.3s" }}>
+            {resetSent ? "✓ Link sent to your email!" : "Send reset link instead"}
+          </button>
+        </div>
+      )}
 
-        {/* Delete confirm — step 2 (type DELETE) */}
-        {showDeleteConfirm2 && (
-          <div style={{ position: "fixed", inset: 0, background: "#000d", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
-            <div style={{ background: "#111827", border: "1px solid #374151", borderRadius: "20px", padding: "28px", width: "100%", maxWidth: "360px", textAlign: "center" }}>
-              <div style={{ fontSize: "36px", marginBottom: "12px" }}>🗑️</div>
-              <h2 style={{ margin: "0 0 10px", fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "19px", color: "#f9fafb", letterSpacing: "-0.02em" }}>Are you absolutely sure?</h2>
-              <p style={{ color: "#9ca3af", fontSize: "14px", lineHeight: 1.6, marginBottom: "20px" }}>Type <strong style={{ color: "#f87171", letterSpacing: "0.05em" }}>DELETE</strong> below to confirm.</p>
-              <input
-                value={deleteConfirmText}
-                onChange={e => setDeleteConfirmText(e.target.value)}
-                placeholder="Type DELETE here"
-                style={{ width: "100%", padding: "12px", borderRadius: "8px", border: `1px solid ${deleteConfirmText === "DELETE" ? "#f87171" : "#374151"}`, background: "#0d1117", color: "#f9fafb", fontSize: "15px", fontFamily: "inherit", textAlign: "center", boxSizing: "border-box", outline: "none", letterSpacing: "0.05em", marginBottom: "16px" }}
-              />
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                <button
-                  onClick={handleDeleteAccount}
-                  disabled={deleteConfirmText !== "DELETE" || deletingAccount}
-                  style={{ width: "100%", padding: "13px", borderRadius: "10px", border: "none", background: deleteConfirmText === "DELETE" ? "#dc2626" : "#374151", color: deleteConfirmText === "DELETE" ? "#fff" : "#6b7280", fontWeight: 700, fontSize: "14px", cursor: deleteConfirmText === "DELETE" ? "pointer" : "default", fontFamily: "inherit", transition: "all 0.2s", opacity: deletingAccount ? 0.7 : 1 }}>
-                  {deletingAccount ? "Deleting..." : "Permanently delete everything"}
-                </button>
-                <button onClick={() => { setShowDeleteConfirm2(false); setDeleteConfirmText(""); }} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "1px solid #374151", background: "transparent", color: "#6b7280", fontWeight: 600, fontSize: "14px", cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
-              </div>
+      {/* Billing tab */}
+      {tab === "billing" && (
+        <BillingTab profile={profile} session={session} showToast={showToast} />
+      )}
+
+      {/* Sign out */}
+      <div style={{ borderTop: "1px solid #1f2937", marginTop: "24px", paddingTop: "16px", display: "flex", flexDirection: "column", gap: "10px" }}>
+        <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "1px solid #374151", background: "transparent", color: "#6b7280", fontWeight: 600, fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>Sign out</button>
+        <button onClick={() => setShowDeleteConfirm1(true)} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "1px solid #7f1d1d", background: "transparent", color: "#f87171", fontWeight: 600, fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>Delete account</button>
+      </div>
+
+      {/* Delete confirm — step 1 */}
+      {showDeleteConfirm1 && (
+        <div style={{ position: "fixed", inset: 0, background: "#000d", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+          <div style={{ background: "#111827", border: "1px solid #374151", borderRadius: "20px", padding: "28px", width: "100%", maxWidth: "360px", textAlign: "center" }}>
+            <div style={{ fontSize: "36px", marginBottom: "12px" }}>⚠️</div>
+            <h2 style={{ margin: "0 0 10px", fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "19px", color: "#f9fafb", letterSpacing: "-0.02em" }}>Delete your account?</h2>
+            <p style={{ color: "#9ca3af", fontSize: "14px", lineHeight: 1.6, marginBottom: "24px" }}>This will permanently delete all your habits, todos, journal entries and account data. <strong style={{ color: "#f87171" }}>This cannot be undone.</strong></p>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              <button onClick={() => { setShowDeleteConfirm1(false); setShowDeleteConfirm2(true); }} style={{ width: "100%", padding: "13px", borderRadius: "10px", border: "1px solid #7f1d1d", background: "#7f1d1d30", color: "#f87171", fontWeight: 700, fontSize: "14px", cursor: "pointer", fontFamily: "inherit" }}>Yes, I want to delete my account</button>
+              <button onClick={() => setShowDeleteConfirm1(false)} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "1px solid #374151", background: "transparent", color: "#6b7280", fontWeight: 600, fontSize: "14px", cursor: "pointer", fontFamily: "inherit" }}>Cancel, keep my account</button>
             </div>
           </div>
-        )}
+        </div>
+      )}
+
+      {/* Delete confirm — step 2 (type DELETE) */}
+      {showDeleteConfirm2 && (
+        <div style={{ position: "fixed", inset: 0, background: "#000d", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+          <div style={{ background: "#111827", border: "1px solid #374151", borderRadius: "20px", padding: "28px", width: "100%", maxWidth: "360px", textAlign: "center" }}>
+            <div style={{ fontSize: "36px", marginBottom: "12px" }}>🗑️</div>
+            <h2 style={{ margin: "0 0 10px", fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "19px", color: "#f9fafb", letterSpacing: "-0.02em" }}>Are you absolutely sure?</h2>
+            <p style={{ color: "#9ca3af", fontSize: "14px", lineHeight: 1.6, marginBottom: "20px" }}>Type <strong style={{ color: "#f87171", letterSpacing: "0.05em" }}>DELETE</strong> below to confirm.</p>
+            <input
+              value={deleteConfirmText}
+              onChange={e => setDeleteConfirmText(e.target.value)}
+              placeholder="Type DELETE here"
+              style={{ width: "100%", padding: "12px", borderRadius: "8px", border: `1px solid ${deleteConfirmText === "DELETE" ? "#f87171" : "#374151"}`, background: "#0d1117", color: "#f9fafb", fontSize: "15px", fontFamily: "inherit", textAlign: "center", boxSizing: "border-box", outline: "none", letterSpacing: "0.05em", marginBottom: "16px" }}
+            />
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleteConfirmText !== "DELETE" || deletingAccount}
+                style={{ width: "100%", padding: "13px", borderRadius: "10px", border: "none", background: deleteConfirmText === "DELETE" ? "#dc2626" : "#374151", color: deleteConfirmText === "DELETE" ? "#fff" : "#6b7280", fontWeight: 700, fontSize: "14px", cursor: deleteConfirmText === "DELETE" ? "pointer" : "default", fontFamily: "inherit", transition: "all 0.2s", opacity: deletingAccount ? 0.7 : 1 }}>
+                {deletingAccount ? "Deleting..." : "Permanently delete everything"}
+              </button>
+              <button onClick={() => { setShowDeleteConfirm2(false); setDeleteConfirmText(""); }} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "1px solid #374151", background: "transparent", color: "#6b7280", fontWeight: 600, fontSize: "14px", cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
     </DragSheet>
   );
 }
@@ -1844,6 +1865,17 @@ export default function HabiTick() {
   }, [draggedHabitId]);
   const [lifetimeBannerDismissed, setLifetimeBannerDismissed] = useState(false);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   const today = getTodayStr();
   const todayDow = new Date().getDay();
 
@@ -1885,11 +1917,42 @@ export default function HabiTick() {
     (journalRes.data || []).forEach(e => { entriesMap[e.entry_date.substring(0, 10)] = e; });
     setJournalEntries(entriesMap);
     setProfile(profileRes.data || null);
-    setRoutines(routinesRes.data || []);
+
+    // Sort routines by saved order
+    const routineData = routinesRes.data || [];
+    const savedOrder = localStorage.getItem(`ht_routineOrder_${uid}`);
+    if (savedOrder) {
+      try {
+        const orderIds = JSON.parse(savedOrder);
+        const sorted = [];
+        const map = new Map(routineData.map(r => [r.id, r]));
+        orderIds.forEach(id => {
+          if (map.has(id)) { sorted.push(map.get(id)); map.delete(id); }
+        });
+        map.forEach(r => sorted.push(r));
+        setRoutines(sorted);
+      } catch { setRoutines(routineData); }
+    } else {
+      setRoutines(routineData);
+    }
+
     setLoading(false);
   };
 
   // ── Routine actions ────────────────────────────────────────────────────────
+  const handleDragEndRoutines = (event) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setRoutines((items) => {
+        const oldIndex = items.findIndex(r => r.id === active.id);
+        const newIndex = items.findIndex(r => r.id === over.id);
+        const newRoutines = arrayMove(items, oldIndex, newIndex);
+        localStorage.setItem(`ht_routineOrder_${session?.user?.id}`, JSON.stringify(newRoutines.map(r => r.id)));
+        return newRoutines;
+      });
+    }
+  };
+
   const saveRoutine = async ({ name, emoji }) => {
     if (editingRoutine) {
       const { data } = await supabase.from("routines").update({ name, emoji }).eq("id", editingRoutine.id).select().single();
@@ -2015,7 +2078,7 @@ export default function HabiTick() {
   const todayHabits = showTodayOnly ? habits.filter(h => h.frequency === "daily" || (h.days && h.days.includes(todayDow))) : habits;
   const doneToday = habits.filter(h => (h.frequency === "daily" || (h.days && h.days.includes(todayDow))) && (h.completedDates || []).includes(today)).length;
   const totalToday = habits.filter(h => h.frequency === "daily" || (h.days && h.days.includes(todayDow))).length;
-  
+
   // New Streak calculation call
   const isPremium = profile?.is_premium === true || profile?.is_lifetime === true;
   const { currentStreak, shields } = calcStats(habits, pausePeriods, isPremium, profile);
@@ -2117,8 +2180,8 @@ export default function HabiTick() {
             {profile?.avatar_url
               ? <img src={profile.avatar_url} alt="avatar" style={{ width: "30px", height: "30px", borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
               : <div style={{ width: "30px", height: "30px", borderRadius: "50%", background: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "13px", color: "#fff", flexShrink: 0 }}>
-                  {(profile?.username || session.user.email || "?")[0].toUpperCase()}
-                </div>
+                {(profile?.username || session.user.email || "?")[0].toUpperCase()}
+              </div>
             }
             <span className="ht-header-username" style={{ color: "#9ca3af", fontSize: "13px", fontWeight: 600, maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {profile?.username || "Profile"}
@@ -2146,7 +2209,21 @@ export default function HabiTick() {
         ))}
       </div>
 
-      <main className={`ht-main${isLifetime && userNumber <= 100 && !lifetimeBannerDismissed ? " ht-main-with-banner" : ""}`}>
+      <main
+        className={`ht-main${isLifetime && userNumber <= 100 && !lifetimeBannerDismissed ? " ht-main-with-banner" : ""}`}
+        onDragOver={e => e.preventDefault()}
+        onDrop={e => {
+          e.preventDefault();
+          const habitId = e.dataTransfer.getData("habitId") || draggedHabitId;
+          if (habitId) {
+            const hab = habits.find(h => h.id === habitId);
+            // Drop onto nothing (background page) inside a routine ejects it
+            if (hab && hab.routine_id) {
+              moveHabitToRoutine(habitId, null);
+            }
+          }
+        }}
+      >
         {loading ? (
           <div style={{ textAlign: "center", padding: "60px", color: "#6b7280" }}>Loading your data...</div>
         ) : tab === "tasks" ? (
@@ -2181,48 +2258,58 @@ export default function HabiTick() {
                   </div>
                 </div>
               )}
-              <div className="ht-habit-grid">
-                {/* Routine cards */}
-                {routines.map(routine => {
-                  const routineHabits = todayHabits.filter(h => h.routine_id === routine.id);
-                  return (
-                    <RoutineCard
-                      key={routine.id}
-                      routine={routine}
-                      habits={routineHabits}
-                      today={today}
-                      onToggle={toggleHabit}
-                      onDelete={deleteHabit}
-                      onDeleteRoutine={deleteRoutine}
-                      onEjectFromRoutine={habitId => moveHabitToRoutine(habitId, null)}
-                      onEdit={thing => {
-                        // distinguish habit vs routine by checking for habit.frequency
-                        if (thing.frequency !== undefined) { setEditingHabit(thing); setShowHabitModal(true); }
-                        else { setEditingRoutine(thing); setShowRoutineModal(true); }
-                      }}
-                      isPaused={isPaused}
-                      pausePeriods={pausePeriods}
-                      isPremium={isPremium}
-                      dragState={draggedHabitId}
-                      dropTargetId={dropTargetId}
-                      onDragStartHabit={(id, habit) => { setDraggedHabitId(id); setDraggedHabit(habit); }}
-                      onDragEndHabit={() => { if (draggedHabitId && dropTargetId) swapHabits(draggedHabitId, dropTargetId); setDraggedHabitId(null); setDraggedHabit(null); setDropTargetId(null); }}
-                      onDragEnterHabit={targetId => setDropTargetId(targetId)}
-                      onDropOnRoutine={moveHabitToRoutine}
-                    />
-                  );
-                })}
+              {/* Routine cards Grid */}
+              {routines.length > 0 && (
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEndRoutines}
+                >
+                  <SortableContext
+                    items={routines.map(r => r.id)}
+                    strategy={rectSortingStrategy}
+                  >
+                    <div className="ht-habit-grid" style={{ marginBottom: "14px", width: "100%" }}>
+                      {routines.map(routine => {
+                        const routineHabits = todayHabits.filter(h => h.routine_id === routine.id);
+                        const widthFactor = Math.min(Math.max(routineHabits.length, 1), 3);
+                        const flexBasis = widthFactor === 3 ? "100%" : widthFactor === 2 ? "calc((100% - 14px) * 0.666)" : "calc((100% - 28px) * 0.333)";
 
-                {/* Standalone habits — with drop zone to remove from routine */}
-                {draggedHabitId && habits.find(h => h.id === draggedHabitId)?.routine_id && (
-                  <div
-                    onDragOver={e => { e.preventDefault(); setStandaloneDragOver(true); }}
-                    onDragLeave={() => setStandaloneDragOver(false)}
-                    onDrop={e => { e.preventDefault(); setStandaloneDragOver(false); const id = e.dataTransfer.getData("habitId"); if (id) moveHabitToRoutine(id, null); }}
-                    style={{ gridColumn: "1 / -1", border: `2px dashed ${standaloneDragOver ? "#2563eb" : "#374151"}`, borderRadius: "14px", padding: "20px", textAlign: "center", color: standaloneDragOver ? "#60a5fa" : "#374151", fontSize: "14px", fontWeight: 600, transition: "all 0.2s", background: standaloneDragOver ? "#2563eb08" : "transparent", marginBottom: "8px" }}>
-                    ↓ Drop here to remove from routine
-                  </div>
-                )}
+                        return (
+                          <RoutineSortableItem
+                            key={routine.id}
+                            routine={routine}
+                            routineHabits={routineHabits}
+                            widthFactor={widthFactor}
+                            flexBasis={flexBasis}
+                            today={today}
+                            onToggle={toggleHabit}
+                            onDelete={deleteHabit}
+                            onDeleteRoutine={deleteRoutine}
+                            onEjectFromRoutine={habitId => moveHabitToRoutine(habitId, null)}
+                            onEdit={thing => {
+                              if (thing.frequency !== undefined) { setEditingHabit(thing); setShowHabitModal(true); }
+                              else { setEditingRoutine(thing); setShowRoutineModal(true); }
+                            }}
+                            isPaused={isPaused}
+                            pausePeriods={pausePeriods}
+                            isPremium={isPremium}
+                            dragState={draggedHabitId}
+                            dropTargetId={dropTargetId}
+                            onDragStartHabit={(id, habit) => { setDraggedHabitId(id); setDraggedHabit(habit); }}
+                            onDragEndHabit={() => { if (draggedHabitId && dropTargetId) swapHabits(draggedHabitId, dropTargetId); setDraggedHabitId(null); setDraggedHabit(null); setDropTargetId(null); }}
+                            onDragEnterHabit={targetId => setDropTargetId(targetId)}
+                            onDropOnRoutine={moveHabitToRoutine}
+                          />
+                        );
+                      })}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              )}
+
+              {/* Standalone Habits Grid */}
+              <div className="ht-habit-grid">
                 {todayHabits.filter(h => !h.routine_id).length === 0 && routines.length === 0 && (
                   <div style={{ color: "#4b5563", fontSize: "14px", padding: "20px 0" }}>No habits yet. Add your first one!</div>
                 )}
@@ -2282,7 +2369,7 @@ export default function HabiTick() {
 
       {/* Mobile bottom nav */}
       <nav className="ht-bottom-nav">
-        {[["tasks","🏠","Habits"],["analytics","📊","Stats"],["journal","📓","Journal"],["profile","👤","Profile"]].map(([key, icon, label]) => (
+        {[["tasks", "🏠", "Habits"], ["analytics", "📊", "Stats"], ["journal", "📓", "Journal"], ["profile", "👤", "Profile"]].map(([key, icon, label]) => (
           <button key={key} onClick={() => key === "profile" ? setShowProfile(true) : setTab(key)}
             style={{ background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", padding: "6px 12px", borderRadius: "10px", color: tab === key ? "#3b82f6" : "#4b5563", transition: "color 0.15s" }}>
             <span style={{ fontSize: "20px" }}>{icon}</span>
@@ -2304,6 +2391,48 @@ export default function HabiTick() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function RoutineSortableItem({ routine, routineHabits, widthFactor, flexBasis, today, ...props }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: routine.id });
+
+  let transformString = CSS.Transform.toString(transform);
+  if (isDragging && transformString) {
+    transformString += " scale(1.02)";
+  } else if (isDragging) {
+    transformString = "scale(1.02)";
+  }
+
+  const style = {
+    transform: transformString,
+    transition: transition || "transform 250ms cubic-bezier(0.2, 0, 0, 1)",
+    flex: widthFactor === 3 ? "1 1 100%" : `1 1 ${flexBasis}`,
+    maxWidth: widthFactor === 3 ? "100%" : flexBasis,
+    minWidth: widthFactor === 3 ? "100%" : "300px",
+    position: "relative",
+    zIndex: isDragging ? 50 : "auto",
+    opacity: isDragging ? 0.9 : 1,
+    boxShadow: isDragging ? "0 10px 30px rgba(0,0,0,0.5)" : "none",
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="ht-routine-reorder-item">
+      <RoutineCard
+        routine={routine}
+        habits={routineHabits}
+        today={today}
+        dragHandleProps={{ ...attributes, ...listeners }}
+        {...props}
+      />
     </div>
   );
 }
