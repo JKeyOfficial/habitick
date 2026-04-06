@@ -288,7 +288,17 @@ function AuthScreen() {
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700;800&display=swap'); html, body, #root { margin: 0; padding: 0; width: 100%; min-height: 100vh; } * { box-sizing: border-box; } button,input { font-family: inherit; }`}</style>
       <div style={{ width: "380px", maxWidth: "90vw" }}>
         <div style={{ textAlign: "center", marginBottom: "32px" }}>
-          <div style={{ fontSize: "36px", marginBottom: "8px" }}>⚡</div>
+          <img
+            src="/vite.svg"
+            alt="HabiTick Logo"
+            style={{
+              width: "36px",
+              height: "36px",
+              marginBottom: "8px",
+              display: "block",
+              objectFit: "contain"
+            }}
+          />
           <div style={{ fontWeight: 800, fontSize: "24px", color: "#f9fafb" }}>HabiTick</div>
           <div style={{ color: "#6b7280", fontSize: "14px", marginTop: "4px" }}>
             {mode === "signup" ? "Create your account" : mode === "forgot" ? "Reset your password" : "Welcome back"}
