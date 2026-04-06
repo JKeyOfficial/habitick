@@ -296,6 +296,8 @@ function AuthScreen() {
               height: "36px",
               marginBottom: "8px",
               display: "block",
+              marginLeft: "auto",
+              marginRight: "auto",
               objectFit: "contain"
             }}
           />
