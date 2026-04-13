@@ -72,7 +72,7 @@ export function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, 
       {/* Collapsible calendar */}
       {calOpen && (
         <div style={{ flex: 1 }}>
-          <MiniCalendar habit={habit} today={today} pausePeriods={pausePeriods || []} isPremium={isPremium} onToggle={date => onToggle(habit.id, date)} />
+          <MiniCalendar habit={habit} today={today} pausePeriods={pausePeriods || []} isPremium={isPremium} onToggle={date => onToggle(habit.id, date)} shieldedDates={shieldedDates} />
         </div>
       )}
 

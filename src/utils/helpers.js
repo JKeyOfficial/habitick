@@ -158,6 +158,7 @@ export function calcStats(habits, pausePeriods, isPremium, profile = null) {
       if (foundIdx >= 0) {
         shieldsList.splice(foundIdx, 1);
         shieldedDates.push(ds);
+        currentStreak++;
         d.setDate(d.getDate() - 1);
         continue;
       }

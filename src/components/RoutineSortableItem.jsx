@@ -38,6 +38,7 @@ export function RoutineSortableItem({ routine, routineHabits, widthFactor, flexB
         habits={routineHabits}
         today={today}
         dragHandleProps={{ ...attributes, ...listeners }}
+        shieldedDates={shieldedDates}
         {...props}
       />
     </div>
