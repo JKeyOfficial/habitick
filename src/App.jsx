@@ -18,8 +18,10 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 // Config and Utils
-import { STRIPE_CHECKOUT_URL, FREE_HABIT_LIMIT, FREE_TODO_LIMIT, FREE_JOURNAL_DAYS, LIFETIME_USER_LIMIT, MAX_SHIELDS, DAYS_SHORT, MONTHS_SHORT, S } from "./utils/constants.js";
+import { STRIPE_CHECKOUT_URL, FREE_HABIT_LIMIT, FREE_TODO_LIMIT, FREE_JOURNAL_DAYS, LIFETIME_USER_LIMIT, MAX_SHIELDS, DAYS_SHORT, MONTHS_SHORT, S, VAPID_PUBLIC_KEY } from "./utils/constants.js";
 import { getTodayStr, getDateStr, parseDateLocal, isSameDay, getCalendarDays, isDayComplete, isDatePaused, calcStats } from "./utils/helpers.js";
+import { NotificationManager } from "./utils/notifications.js";
+
 
 // Layout & Reusable Core Components
 import { DragSheet } from "./components/DragSheet.jsx";
@@ -97,8 +99,13 @@ export default function HabiTick() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session ?? null));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => setSession(s ?? null));
+    
+    // Register Service Worker for notifications
+    NotificationManager.registerServiceWorker();
+
     return () => subscription.unsubscribe();
   }, []);
+
 
   // Load banner dismissal state from localStorage
   useEffect(() => {

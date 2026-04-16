@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { DragSheet } from '../components/DragSheet.jsx';
 import { BillingTab } from '../screens/BillingTab.jsx';
+import { NotificationManager } from '../utils/notifications.js';
+import { VAPID_PUBLIC_KEY } from '../utils/constants.js';
+
 
 export function ProfileModal({ session, profile, onUpdate, onClose }) {
   const [tab, setTab] = useState("profile");
@@ -25,7 +28,10 @@ export function ProfileModal({ session, profile, onUpdate, onClose }) {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || null);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(profile?.notifications_enabled || false);
+  const [savingNotifications, setSavingNotifications] = useState(false);
   const [toast, setToast] = useState(null);
+
 
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
@@ -101,7 +107,48 @@ export function ProfileModal({ session, profile, onUpdate, onClose }) {
     setTimeout(() => setResetSent(false), 4000);
   };
 
+  const handleToggleNotifications = async () => {
+    setSavingNotifications(true);
+    const newVal = !notificationsEnabled;
+    
+    if (newVal) {
+      // Enabling: Request permission and subscribe
+      const granted = await NotificationManager.requestPermission();
+      if (!granted) {
+        showToast("Notification permission denied", "error");
+        setSavingNotifications(false);
+        return;
+      }
+      
+      const subbed = await NotificationManager.subscribeUser(session.user.id, VAPID_PUBLIC_KEY);
+      if (!subbed) {
+        showToast("Failed to subscribe to push notifications", "error");
+        setSavingNotifications(false);
+        return;
+      }
+    } else {
+      // Disabling: Unsubscribe
+      await NotificationManager.unsubscribeUser(session.user.id);
+    }
+
+    // Update profile in Supabase
+    const { error } = await supabase
+      .from("profiles")
+      .update({ notifications_enabled: newVal, updated_at: new Date().toISOString() })
+      .eq("id", session.user.id);
+
+    if (error) {
+      showToast(error.message, "error");
+    } else {
+      setNotificationsEnabled(newVal);
+      onUpdate(prev => ({ ...prev, notifications_enabled: newVal }));
+      showToast(newVal ? "Notifications enabled!" : "Notifications disabled");
+    }
+    setSavingNotifications(false);
+  };
+
   const handleDeleteAccount = async () => {
+
     if (deleteConfirmText !== "DELETE") return;
     setDeletingAccount(true);
     try {
@@ -183,9 +230,10 @@ export function ProfileModal({ session, profile, onUpdate, onClose }) {
       <div style={{ display: "flex", gap: "6px", marginBottom: "20px" }}>
         <button style={tabStyle("profile")} onClick={() => setTab("profile")}>Username</button>
         <button style={tabStyle("email")} onClick={() => setTab("email")}>Email</button>
-        <button style={tabStyle("password")} onClick={() => setTab("password")}>Password</button>
+        <button style={tabStyle("notifications")} onClick={() => setTab("notifications")}>Notifications</button>
         <button style={tabStyle("billing")} onClick={() => setTab("billing")}>Billing</button>
       </div>
+
 
       {tab === "profile" && (
         <div>
@@ -210,8 +258,69 @@ export function ProfileModal({ session, profile, onUpdate, onClose }) {
         </div>
       )}
 
+      {tab === "notifications" && (
+        <div style={{ animation: "fadeUp 0.3s ease-out" }}>
+          <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: "16px", padding: "20px", marginBottom: "20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "16px", color: "#f9fafb" }}>Push Notifications</h3>
+                <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#6b7280", lineHeight: 1.4 }}>Get reminders for habits and tasks directly on your device.</p>
+              </div>
+              <button 
+                onClick={handleToggleNotifications}
+                disabled={savingNotifications}
+                style={{ 
+                  width: "48px", 
+                  height: "26px", 
+                  borderRadius: "999px", 
+                  background: notificationsEnabled ? "#2563eb" : "#374151", 
+                  position: "relative", 
+                  cursor: "pointer", 
+                  border: "none",
+                  transition: "background 0.2s",
+                  opacity: savingNotifications ? 0.7 : 1
+                }}
+              >
+                <div style={{ 
+                  width: "20px", 
+                  height: "20px", 
+                  borderRadius: "50%", 
+                  background: "#fff", 
+                  position: "absolute", 
+                  top: "3px", 
+                  left: notificationsEnabled ? "25px" : "3px",
+                  transition: "left 0.2s"
+                }} />
+              </button>
+            </div>
+            
+            {!('serviceWorker' in navigator) && (
+              <div style={{ marginTop: "16px", padding: "10px", borderRadius: "8px", background: "#7f1d1d20", border: "1px solid #f8717130", color: "#f87171", fontSize: "12px" }}>
+                ⚠️ Your browser doesn't support service workers. Notifications may not work.
+              </div>
+            )}
+            
+            {notificationsEnabled && Notification.permission === 'denied' && (
+              <div style={{ marginTop: "16px", padding: "10px", borderRadius: "8px", background: "#7f1d1d20", border: "1px solid #f8717130", color: "#f87171", fontSize: "12px" }}>
+                ⚠️ Notifications are blocked by your browser. Please enable them in your browser settings.
+              </div>
+            )}
+          </div>
+
+          <div style={{ padding: "0 10px", color: "#4b5563", fontSize: "12px", lineHeight: 1.5 }}>
+            <p>• Notifications work even when the app is closed (TWA/PWA mode).</p>
+            <p>• You can set specific reminder times for each habit in the habit editor.</p>
+            <p style={{ marginTop: "8px" }}>Note: If you're on iOS, you must add HabiTick to your home screen first to enable push notifications.</p>
+          </div>
+          
+          <div style={{ borderTop: "1px solid #1f2937", marginTop: "24px", paddingTop: "16px" }}>
+            <button onClick={() => setTab("password")} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "1px solid #374151", background: "transparent", color: "#6b7280", fontWeight: 600, fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>Change Password & Security</button>
+          </div>
+        </div>
+      )}
+
       {tab === "password" && (
-        <div>
+        <div style={{ animation: "fadeUp 0.3s ease-out" }}>
           <label style={lbl}>New Password</label>
           <input value={newPw} onChange={e => setNewPw(e.target.value)} type="password" style={inp} placeholder="Min. 8 characters" />
           <label style={lbl}>Confirm Password</label>
@@ -221,10 +330,14 @@ export function ProfileModal({ session, profile, onUpdate, onClose }) {
           <button onClick={sendResetLink} disabled={resetSent} style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #1f2937", background: resetSent ? "#064e3b" : "transparent", color: resetSent ? "#6ee7b7" : "#6b7280", fontWeight: 600, fontSize: "13px", cursor: resetSent ? "default" : "pointer", fontFamily: "inherit" }}>
             {resetSent ? "✓ Link sent to your email!" : "Send reset link instead"}
           </button>
+          <div style={{ borderTop: "1px solid #1f2937", marginTop: "24px", paddingTop: "16px" }}>
+            <button onClick={() => setTab("notifications")} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "1px solid #374151", background: "transparent", color: "#6b7280", fontWeight: 600, fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>← Back to Notifications</button>
+          </div>
         </div>
       )}
 
       {tab === "billing" && <BillingTab profile={profile} session={session} showToast={showToast} />}
+
 
       <div style={{ borderTop: "1px solid #1f2937", marginTop: "24px", paddingTop: "16px", display: "flex", flexDirection: "column", gap: "10px" }}>
         <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "1px solid #374151", background: "transparent", color: "#6b7280", fontWeight: 600, fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>Sign out</button>

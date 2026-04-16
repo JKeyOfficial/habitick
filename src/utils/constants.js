@@ -17,3 +17,7 @@ export const S = {
   btnSecondary: { width: "100%", padding: "11px", borderRadius: "8px", border: "1px solid #374151", background: "#1f2937", color: "#9ca3af", fontWeight: 600, fontSize: "14px", cursor: "pointer", fontFamily: "inherit" },
   label: { color: "#9ca3af", fontSize: "13px", display: "block", marginBottom: "6px" },
 };
+
+export const VAPID_PUBLIC_KEY = "BCwmRm_2kloQtuoCP0m3X-iKDYdeACZZgMr8sH3wh-i9lAVoTL86DfX9_Sly2mTa_355M8vVVxFdAAxrg4YKttQ";
+
+
