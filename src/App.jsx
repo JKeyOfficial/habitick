@@ -145,7 +145,19 @@ export default function HabiTick() {
     const entriesMap = {};
     (journalRes.data || []).forEach(e => { entriesMap[e.entry_date.substring(0, 10)] = e; });
     setJournalEntries(entriesMap);
-    setProfile(profileRes.data || null);
+    const profileData = profileRes.data || null;
+    setProfile(profileData);
+
+    // Auto-detect and save timezone if missing or changed
+    if (profileData) {
+      const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (profileData.timezone !== browserTz) {
+        supabase.from("profiles").update({ timezone: browserTz }).eq("id", uid).then(() => {
+          setProfile(prev => ({ ...prev, timezone: browserTz }));
+        });
+      }
+    }
+
 
     // Sort routines by saved order
     const routineData = routinesRes.data || [];

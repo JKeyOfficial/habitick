@@ -25,66 +25,89 @@ serve(async (req: Request) => {
 
   webpush.setVapidDetails(subject, publicKey, privateKey)
 
-  // 1. Get current time in HH:mm format
-  const now = new Date()
-  const currentTime = now.toTimeString().substring(0, 5) // "HH:mm"
-  const currentDay = now.getDay() // 0-6 (Sun-Sat)
+  // 1. Get all users who have notifications enabled
+  const { data: profiles, error: pErr } = await supabase
+    .from('profiles')
+    .select('id, timezone')
+    .eq('notifications_enabled', true)
 
-  console.log(`Checking notifications for ${currentTime}, day ${currentDay}`)
+  if (pErr) {
+    console.error('Error fetching profiles:', pErr)
+    return new Response(JSON.stringify({ error: pErr.message }), { status: 500 })
+  }
 
-  // 2. Find habits with reminders for this time & day
-  const { data: habits } = await supabase
-    .from('habits')
-    .select('id, user_id, name, frequency, days')
-    .eq('reminder_time', currentTime)
+  let totalNotified = 0
 
-  const habitsToNotify = (habits || []).filter((h: any) =>
-    h.frequency === 'daily' || (h.days && h.days.includes(currentDay))
-  )
+  for (const user of profiles) {
+    const tz = user.timezone || 'UTC'
+    
+    // Get current time in user's timezone
+    const formatter = new Intl.DateTimeFormat('en-GB', {
+      timeZone: tz,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    })
+    const dateInTz = new Date()
+    const parts = formatter.formatToParts(dateInTz)
+    const hour = parts.find(p => p.type === 'hour')?.value
+    const minute = parts.find(p => p.type === 'minute')?.value
+    const userLocalTime = `${hour}:${minute}`
+    const userLocalTimeWithSeconds = `${userLocalTime}:00`
+    const userDay = new Date(dateInTz.toLocaleString('en-US', { timeZone: tz })).getDay()
+    const userDateStr = new Date(dateInTz.toLocaleString('en-US', { timeZone: tz })).toISOString().split('T')[0]
 
-  // 3. Find tasks due at this time
-  const todayStr = now.toISOString().split('T')[0]
-  const { data: todos } = await supabase
-    .from('todos')
-    .select('id, user_id, text')
-    .eq('due_date', todayStr)
-    .eq('due_time', currentTime)
-    .eq('done', false)
+    // 2. Find habits for THIS user at THEIR local time
+    const { data: habits } = await supabase
+      .from('habits')
+      .select('id, name, frequency, days')
+      .eq('user_id', user.id)
+      .or(`reminder_time.eq.${userLocalTime},reminder_time.eq.${userLocalTimeWithSeconds}`)
 
-  // 4. Combine and send notifications
-  const notifications = [
-    ...habitsToNotify.map((h: any) => ({ userId: h.user_id, title: 'Habit Reminder', body: `Time for: ${h.name}` })),
-    ...(todos || []).map((t: any) => ({ userId: t.user_id, title: 'Task Due', body: t.text }))
-  ]
+    const habitsToNotify = (habits || []).filter((h: any) => 
+      h.frequency === 'daily' || (h.days && h.days.includes(userDay))
+    )
 
-  for (const n of notifications) {
-    const { data: subs } = await supabase
-      .from('push_subscriptions')
-      .select('subscription')
-      .eq('user_id', n.userId)
+    // 3. Find tasks for THIS user at THEIR local time
+    const { data: todos } = await supabase
+      .from('todos')
+      .select('id, text')
+      .eq('user_id', user.id)
+      .eq('due_date', userDateStr)
+      .or(`due_time.eq.${userLocalTime},due_time.eq.${userLocalTimeWithSeconds}`)
+      .eq('done', false)
 
-    for (const s of (subs || [])) {
-      try {
-        await webpush.sendNotification(
-          s.subscription,
-          JSON.stringify({
-            title: n.title,
-            body: n.body,
-            url: '/'
-          })
-        )
-      } catch (err: any) {
-        console.error(`Failed to send push to ${n.userId}:`, err)
-        // If subscription is expired, delete it
-        if (err.statusCode === 410 || err.statusCode === 404) {
-          await supabase.from('push_subscriptions').delete().match({ user_id: n.userId })
+    const notifications = [
+      ...habitsToNotify.map((h: any) => ({ title: 'Habit Reminder', body: `Time for: ${h.name}` })),
+      ...(todos || []).map((t: any) => ({ title: 'Task Due', body: t.text }))
+    ]
+
+    if (notifications.length > 0) {
+      const { data: subs } = await supabase
+        .from('push_subscriptions')
+        .select('subscription')
+        .eq('user_id', user.id)
+
+      for (const s of (subs || [])) {
+        try {
+          for (const n of notifications) {
+            await webpush.sendNotification(
+              s.subscription,
+              JSON.stringify({ title: n.title, body: n.body, url: '/' })
+            )
+            totalNotified++
+          }
+        } catch (err: any) {
+          if (err.statusCode === 410 || err.statusCode === 404) {
+            await supabase.from('push_subscriptions').delete().match({ user_id: user.id })
+          }
         }
       }
     }
   }
 
-
-  return new Response(JSON.stringify({ success: true, notified: notifications.length }), {
+  return new Response(JSON.stringify({ success: true, notified: totalNotified }), {
     headers: { "Content-Type": "application/json" },
   })
 })
+
