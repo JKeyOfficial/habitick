@@ -52,6 +52,16 @@ export default function HabiTick() {
   const [showHabitModal, setShowHabitModal] = useState(false);
   const [editingHabit, setEditingHabit] = useState(null);
   const [showTodoModal, setShowTodoModal] = useState(false);
+  
+  // Handle deep linking from PWA shortcuts
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlTab = params.get("tab");
+    if (urlTab && ["tasks", "analytics", "journal"].includes(urlTab)) {
+      setTab(urlTab);
+    }
+  }, []);
+
   const [editingTodo, setEditingTodo] = useState(null);
   const [showCompleted, setShowCompleted] = useState(false);
   const [showTodayOnly, setShowTodayOnly] = useState(() => {

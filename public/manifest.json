@@ -12,6 +12,37 @@
   "display": "standalone",
   "background_color": "#0d1117",
   "theme_color": "#0d1117",
+  "id": "/",
+  "lang": "en-US",
+  "dir": "ltr",
+  "scope": "/",
+  "display_override": [
+    "window-controls-overlay",
+    "minimal-ui"
+  ],
+  "shortcuts": [
+    {
+      "name": "Habits",
+      "short_name": "Habits",
+      "description": "View your daily habits",
+      "url": "/?tab=tasks",
+      "icons": [{ "src": "/habitick-blue-logo.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Analytics",
+      "short_name": "Stats",
+      "description": "View your progress stats",
+      "url": "/?tab=analytics",
+      "icons": [{ "src": "/habitick-blue-logo.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Journal",
+      "short_name": "Journal",
+      "description": "Write in your daily journal",
+      "url": "/?tab=journal",
+      "icons": [{ "src": "/habitick-blue-logo.png", "sizes": "192x192" }]
+    }
+  ],
   "icons": [
     {
       "src": "/habitick-blue-logo.png",
