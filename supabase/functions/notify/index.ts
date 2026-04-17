@@ -91,9 +91,14 @@ serve(async (req: Request) => {
       for (const s of (subs || [])) {
         try {
           for (const n of notifications) {
+            const payload = {
+              title: 'HabiTick',
+              body: n.body,
+              url: 'https://app.habitick.pro'
+            }
             await webpush.sendNotification(
               s.subscription,
-              JSON.stringify({ title: n.title, body: n.body, url: '/' })
+              JSON.stringify(payload)
             )
             totalNotified++
           }
