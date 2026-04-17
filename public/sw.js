@@ -61,6 +61,22 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
+// Background Sync event
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'sync-data') {
+    event.waitUntil(
+      // This is where you'd call a sync function
+      // For now, we'll notify the clients that a sync triggered
+      self.clients.matchAll().then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({ type: 'SYNC_TRIGGERED', tag: event.tag });
+        });
+      })
+    );
+  }
+});
+
+
 self.addEventListener('push', function(event) {
   if (event.data) {
     try {
