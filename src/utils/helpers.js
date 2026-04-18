@@ -70,26 +70,26 @@ export function calcStats(habits, pausePeriods, isPremium, profile = null) {
     return h.createdDate < earliest ? h.createdDate : earliest;
   }, today);
 
-  // ── Forward pass: count cumulative completed days → earn shields; track best streak ──
+  // ── Unified single pass: compute streaks, earn and consume shields chronologically ──
   let cumulativeCompletedDays = 0;
-  let shieldsEarnedThresholds = 0; // how many shield thresholds crossed so far
-  let shieldsPool = 0;             // shields available (capped at MAX_SHIELDS)
-  let shieldGrants = [];           // list of grant dates (YYYY-MM-DD) for each shield
+  let shieldsEarnedThresholds = 0;
+  let activeShields = 0;
+  let currentStreak = 0;
   let bestStreak = 0;
-  let tempStreak = 0;              // for best-streak tracking (no shield protection)
+  let shieldedDates = [];
+  let initialShieldsApplied = false;
 
   const fwd = new Date(parseDateLocal(earliestHabitDate));
   const fwdEnd = new Date(parseDateLocal(today));
-  let initialShieldsApplied = false;
 
   while (fwd <= fwdEnd) {
     const ds = getDateStr(fwd);
 
     if (!isDatePaused(pausePeriods, ds)) {
       if (initialShields > 0 && initialShieldsDate && ds === initialShieldsDate && !initialShieldsApplied) {
-        for (let k = 0; k < initialShields; k++) shieldGrants.push(ds);
+        activeShields += initialShields;
+        if (activeShields > MAX_SHIELDS) activeShields = MAX_SHIELDS;
         initialShieldsApplied = true;
-        shieldsPool = Math.min(shieldGrants.length, MAX_SHIELDS);
       }
 
       const complete = isDayComplete(normalisedHabits, ds);
@@ -99,76 +99,34 @@ export function calcStats(habits, pausePeriods, isPremium, profile = null) {
         const newThresholds = Math.floor(cumulativeCompletedDays / shieldThreshold);
         if (newThresholds > shieldsEarnedThresholds) {
           const delta = newThresholds - shieldsEarnedThresholds;
-          for (let k = 0; k < delta; k++) shieldGrants.push(ds);
+          activeShields += delta;
+          if (activeShields > MAX_SHIELDS) activeShields = MAX_SHIELDS;
           shieldsEarnedThresholds = newThresholds;
-          shieldsPool = Math.min(shieldGrants.length, MAX_SHIELDS);
         }
 
-        tempStreak++;
-        if (tempStreak > bestStreak) bestStreak = tempStreak;
-      } else if (complete === false && ds !== today) {
-        tempStreak = 0;
+        currentStreak++;
+        if (currentStreak > bestStreak) bestStreak = currentStreak;
       } else if (complete === null) {
-        // rest day — no habits scheduled, but not a miss; counts toward best streak
-        tempStreak++;
-        if (tempStreak > bestStreak) bestStreak = tempStreak;
+        // Rest day
+        currentStreak++;
+        if (currentStreak > bestStreak) bestStreak = currentStreak;
+      } else if (complete === false && ds !== today) {
+        // Missed day in the past
+        if (currentStreak > 0 && activeShields > 0) {
+          activeShields--;
+          shieldedDates.push(ds);
+          currentStreak++;
+          if (currentStreak > bestStreak) bestStreak = currentStreak;
+        } else {
+          currentStreak = 0;
+        }
+      } else if (complete === false && ds === today) {
+        // Today is incomplete, it does not break the streak or consume shields yet
       }
     }
 
     fwd.setDate(fwd.getDate() + 1);
   }
 
-  // ── Backward pass: compute CURRENT streak, using shields on missed days ──
-  let currentStreak = 0;
-  let shieldedDates = [];
-  if (shieldGrants.length > MAX_SHIELDS) shieldGrants = shieldGrants.slice(-MAX_SHIELDS);
-  let shieldsList = shieldGrants.slice();
-
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  const todayDateObj = new Date(d);
-
-  for (let i = 0; i < 1100; i++) {
-    const ds = getDateStr(d);
-    if (ds < earliestHabitDate) break;
-    if (isDatePaused(pausePeriods, ds)) { d.setDate(d.getDate() - 1); continue; }
-
-    const complete = isDayComplete(normalisedHabits, ds);
-
-    if (complete === null) {
-      currentStreak++;
-      d.setDate(d.getDate() - 1);
-      continue;
-    }
-    if (!complete && ds === today) {
-      d.setDate(d.getDate() - 1);
-      continue;
-    }
-    if (!complete) {
-      const dayDiff = Math.round((todayDateObj - d) / (1000 * 60 * 60 * 24));
-      let foundIdx = -1;
-      
-      // Only allow shield usage within the last 48 hours (2 days)
-      if (dayDiff <= 2) {
-        for (let j = shieldsList.length - 1; j >= 0; j--) {
-          if (shieldsList[j] <= ds) { foundIdx = j; break; }
-        }
-      }
-
-      if (foundIdx >= 0) {
-        shieldsList.splice(foundIdx, 1);
-        shieldedDates.push(ds);
-        currentStreak++;
-        d.setDate(d.getDate() - 1);
-        continue;
-      }
-      break;
-    }
-
-    currentStreak++;
-    d.setDate(d.getDate() - 1);
-  }
-
-  const shieldsRemaining = shieldsList.length;
-  return { currentStreak, bestStreak, shields: shieldsRemaining, cumulativeCompletedDays, shieldedDates };
+  return { currentStreak, bestStreak, shields: activeShields, cumulativeCompletedDays, shieldedDates };
 }
