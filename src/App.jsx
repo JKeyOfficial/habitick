@@ -92,15 +92,13 @@ export default function HabiTick() {
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8,
-        // Add a delay for touch to allow scrolling, but keep desktop instant
-        delay: 250, 
-        tolerance: 5,
       },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
 
 
 

@@ -10,8 +10,6 @@ export function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, 
   const doneToday = habit.completedDates?.includes(today);
 
   return (
-    <div
-      {...dragHandleProps}
       style={{ 
         background: "#111827", 
         border: `1px solid ${isDropTarget ? "#2563eb" : "#1f2937"}`, 
@@ -25,21 +23,34 @@ export function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, 
         display: "flex", 
         flexDirection: "column",
         position: "relative",
-        cursor: "grab",
         userSelect: "none",
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none",
-        WebkitTapHighlightColor: "transparent",
-        touchAction: "none"
+        WebkitTapHighlightColor: "transparent"
       }}>
 
 
+
       {/* Header row */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: calOpen ? "12px" : "0", minHeight: "60px" }}>
         <div onClick={(e) => { e.stopPropagation(); setCalOpen(o => !o); }} style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1, cursor: "pointer" }}>
-          <div style={{ color: "#374151", fontSize: "16px", padding: "4px", marginLeft: "-4px" }}>
+          <div 
+            {...dragHandleProps}
+            style={{ 
+              color: "#374151", 
+              fontSize: "18px", 
+              padding: "8px", 
+              marginLeft: "-8px", 
+              cursor: "grab", 
+              touchAction: "none",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center"
+            }}
+            onClick={e => e.stopPropagation()}
+          >
             ⠿
           </div>
+
           <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: doneToday ? "#10b981" : "#2563eb", flexShrink: 0, boxShadow: `0 0 10px ${doneToday ? "#10b98166" : "#2563eb66"}` }} />
           <div style={{ flex: 1 }}>
             <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "15px", color: "#f9fafb", letterSpacing: "-0.01em", lineHeight: 1.2 }}>{habit.name}</div>

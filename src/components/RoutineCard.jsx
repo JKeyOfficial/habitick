@@ -105,7 +105,6 @@ export function RoutineCard({ routine, habits, today, onToggle, onDelete, onDele
 
   return (
     <div
-      {...dragHandleProps}
       style={{
         border: `1px solid ${allDone ? "#10b98166" : "#1f2937"}`,
         borderRadius: "24px",
@@ -115,17 +114,17 @@ export function RoutineCard({ routine, habits, today, onToggle, onDelete, onDele
         position: "relative",
         height: "100%",
         boxSizing: "border-box",
-        cursor: dragHandleProps ? "grab" : "default",
         boxShadow: allDone ? "0 8px 24px rgba(16,185,129,0.1)" : "0 4px 12px rgba(0,0,0,0.2)",
         opacity: isDraggingOverlay ? 0.9 : 1,
         userSelect: "none",
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none",
-        WebkitTapHighlightColor: "transparent",
-        touchAction: "none"
+        WebkitTapHighlightColor: "transparent"
       }}>
-
-      {content}
+      <div {...dragHandleProps} style={{ touchAction: "none", cursor: "grab" }}>
+        {content.props.children[0]} 
+      </div>
+      {content.props.children.slice(1)}
     </div>
   );
 }
