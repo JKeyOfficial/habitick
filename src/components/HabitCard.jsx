@@ -10,6 +10,7 @@ export function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, 
   const doneToday = habit.completedDates?.includes(today);
 
   return (
+    <div
       style={{ 
         background: "#111827", 
         border: `1px solid ${isDropTarget ? "#2563eb" : "#1f2937"}`, 
