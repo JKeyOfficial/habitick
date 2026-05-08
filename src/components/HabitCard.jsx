@@ -33,6 +33,7 @@ export function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, 
 
 
       {/* Header row */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: calOpen ? "12px" : "0", minHeight: "60px" }}>
         <div onClick={(e) => { e.stopPropagation(); setCalOpen(o => !o); }} style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1, cursor: "pointer" }}>
           <div 
             {...dragHandleProps}
