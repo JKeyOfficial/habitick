@@ -11,14 +11,7 @@ export function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, 
 
   return (
     <div
-      onDragEnter={e => { e.preventDefault(); if (onDragEnter) onDragEnter(habit.id); }}
-      onDragLeave={e => {
-        e.preventDefault();
-        if (e.currentTarget.contains(e.relatedTarget)) return;
-        if (onDragEnter) onDragEnter(null);
-      }}
-      onDragOver={e => e.preventDefault()}
-      onDrop={e => { e.preventDefault(); e.stopPropagation(); }}
+      {...dragHandleProps}
       style={{ 
         background: "#111827", 
         border: `1px solid ${isDropTarget ? "#2563eb" : "#1f2937"}`, 
@@ -31,17 +24,15 @@ export function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, 
         transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)", 
         display: "flex", 
         flexDirection: "column",
-        position: "relative"
+        position: "relative",
+        cursor: "grab",
+        userSelect: "none"
       }}>
 
       {/* Header row */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: calOpen ? "12px" : "0", minHeight: "60px" }}>
-        <div onClick={() => setCalOpen(o => !o)} style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1, cursor: "pointer", userSelect: "none" }}>
-          <div 
-            {...dragHandleProps} 
-            style={{ color: "#374151", fontSize: "16px", cursor: "grab", padding: "4px", marginLeft: "-4px" }}
-            onClick={e => e.stopPropagation()}
-          >
+        <div onClick={(e) => { e.stopPropagation(); setCalOpen(o => !o); }} style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1, cursor: "pointer" }}>
+          <div style={{ color: "#374151", fontSize: "16px", padding: "4px", marginLeft: "-4px" }}>
             ⠿
           </div>
           <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: doneToday ? "#10b981" : "#2563eb", flexShrink: 0, boxShadow: `0 0 10px ${doneToday ? "#10b98166" : "#2563eb66"}` }} />
@@ -55,7 +46,7 @@ export function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, 
             </div>
           </div>
         </div>
-        <div style={{ display: "flex", gap: "4px", marginLeft: "8px" }}>
+        <div onPointerDown={e => e.stopPropagation()} style={{ display: "flex", gap: "4px", marginLeft: "8px" }}>
           <button onClick={e => { e.stopPropagation(); onEdit(habit); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#4b5563", fontSize: "14px", padding: "4px", borderRadius: "6px", transition: "color 0.2s" }}>✏️</button>
           {confirmDelete ? (
             <div style={{ display: "flex", gap: "4px" }}>
@@ -70,16 +61,18 @@ export function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, 
 
       {/* Collapsible calendar */}
       {calOpen && (
-        <div style={{ marginTop: "8px", borderTop: "1px solid #1f2937", paddingTop: "12px" }}>
+        <div onPointerDown={e => e.stopPropagation()} style={{ marginTop: "8px", borderTop: "1px solid #1f2937", paddingTop: "12px" }}>
           <MiniCalendar habit={habit} today={today} pausePeriods={pausePeriods || []} isPremium={isPremium} onToggle={date => onToggle(habit.id, date)} shieldedDates={shieldedDates} />
         </div>
       )}
 
       {isScheduledToday && !isPaused && (
-        <button onClick={() => onToggle(habit.id, today)}
-          style={{ width: "100%", marginTop: "16px", padding: "12px", borderRadius: "10px", border: "none", cursor: "pointer", fontWeight: 800, fontSize: "13px", background: doneToday ? "#10b98120" : "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)", color: doneToday ? "#10b981" : "#fff", transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", boxShadow: doneToday ? "none" : "0 4px 12px rgba(37,99,235,0.3)" }}>
-          {doneToday ? "✓ COMPLETED" : "MARK AS DONE"}
-        </button>
+        <div onPointerDown={e => e.stopPropagation()}>
+          <button onClick={(e) => { e.stopPropagation(); onToggle(habit.id, today); }}
+            style={{ width: "100%", marginTop: "16px", padding: "12px", borderRadius: "10px", border: "none", cursor: "pointer", fontWeight: 800, fontSize: "13px", background: doneToday ? "#10b98120" : "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)", color: doneToday ? "#10b981" : "#fff", transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", boxShadow: doneToday ? "none" : "0 4px 12px rgba(37,99,235,0.3)" }}>
+            {doneToday ? "✓ COMPLETED" : "MARK AS DONE"}
+          </button>
+        </div>
       )}
     </div>
   );

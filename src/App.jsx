@@ -3,6 +3,7 @@ import { supabase } from "./lib/supabase.js";
 import {
   DndContext,
   closestCenter,
+  closestCorners,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -10,6 +11,7 @@ import {
   DragOverlay,
   defaultDropAnimationSideEffects,
 } from '@dnd-kit/core';
+
 import {
   arrayMove,
   SortableContext,
@@ -89,13 +91,14 @@ export default function HabiTick() {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 5, // Slightly more sensitive
       },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
 
   const today = getTodayStr();
   const todayDow = new Date().getDay();
@@ -544,12 +547,14 @@ export default function HabiTick() {
 
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={closestCorners}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
         autoScroll={{ threshold: { x: 0.1, y: 0.1 }, acceleration: 10 }}
       >
+
+
         <main className={`ht-main${isLifetime && userNumber <= 100 && !lifetimeBannerDismissed ? " ht-main-with-banner" : ""}`}>
           {loading ? (
             <div style={{ textAlign: "center", padding: "60px", color: "#6b7280" }}>Loading your data...</div>
@@ -648,11 +653,52 @@ export default function HabiTick() {
           ) : null}
         </main>
 
-        <DragOverlay>
+        <DragOverlay dropAnimation={{
+          sideEffects: defaultDropAnimationSideEffects({
+            styles: {
+              active: {
+                opacity: '0.4',
+              },
+            },
+          }),
+        }}>
           {activeId ? (
-            <div style={{ width: "260px", padding: "12px 20px", background: "#111827", border: "2px solid #2563eb", borderRadius: "14px", color: "#fff", fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "14px", boxShadow: "0 12px 30px rgba(0,0,0,0.5)", opacity: 0.95, pointerEvents: "none", zIndex: 9999, display: "flex", alignItems: "center", gap: "10px" }}>
-              <span style={{ color: "#2563eb" }}>⠿</span>
-              {draggedHabit ? draggedHabit.name : "Routine"}
+            <div style={{ 
+              width: "320px", 
+              transform: "rotate(2deg)", 
+              filter: "drop-shadow(0 20px 40px rgba(0,0,0,0.4))", 
+              pointerEvents: "none", 
+              zIndex: 9999,
+            }}>
+              {draggedHabit ? (
+                <HabitCard 
+                  habit={draggedHabit} 
+                  today={today} 
+                  onToggle={() => {}} 
+                  onDelete={() => {}} 
+                  onEdit={() => {}} 
+                  isPaused={isPaused} 
+                  pausePeriods={pausePeriods} 
+                  isPremium={isPremium} 
+                  shieldedDates={shieldedDates || []}
+                />
+              ) : routines.find(r => String(r.id) === activeId) ? (
+                <RoutineCard
+                  routine={routines.find(r => String(r.id) === activeId)}
+                  habits={habits.filter(h => String(h.routine_id) === activeId)}
+                  today={today}
+                  onToggle={() => {}}
+                  onDelete={() => {}}
+                  onDeleteRoutine={() => {}}
+                  onEdit={() => {}}
+                  onEjectFromRoutine={() => {}}
+                  isPaused={isPaused}
+                  pausePeriods={pausePeriods}
+                  isPremium={isPremium}
+                  shieldedDates={shieldedDates || []}
+                  isDraggingOverlay={true}
+                />
+              ) : null}
             </div>
           ) : null}
         </DragOverlay>
