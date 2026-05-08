@@ -10,7 +10,12 @@ export function RoutineSortableItem({ routine, routineHabits, widthFactor, flexB
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: routine.id });
+  } = useSortable({ 
+    id: routine.id,
+    data: {
+      type: 'routine'
+    }
+  });
 
   let transformString = CSS.Transform.toString(transform);
   if (isDragging && transformString) {
