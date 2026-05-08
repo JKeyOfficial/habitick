@@ -26,8 +26,13 @@ export function HabitCard({ habit, today, onToggle, onDelete, onEdit, isPaused, 
         flexDirection: "column",
         position: "relative",
         cursor: "grab",
-        userSelect: "none"
+        userSelect: "none",
+        WebkitUserSelect: "none",
+        WebkitTouchCallout: "none",
+        WebkitTapHighlightColor: "transparent",
+        touchAction: "none"
       }}>
+
 
       {/* Header row */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: calOpen ? "12px" : "0", minHeight: "60px" }}>

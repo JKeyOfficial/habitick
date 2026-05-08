@@ -118,7 +118,13 @@ export function RoutineCard({ routine, habits, today, onToggle, onDelete, onDele
         cursor: dragHandleProps ? "grab" : "default",
         boxShadow: allDone ? "0 8px 24px rgba(16,185,129,0.1)" : "0 4px 12px rgba(0,0,0,0.2)",
         opacity: isDraggingOverlay ? 0.9 : 1,
+        userSelect: "none",
+        WebkitUserSelect: "none",
+        WebkitTouchCallout: "none",
+        WebkitTapHighlightColor: "transparent",
+        touchAction: "none"
       }}>
+
       {content}
     </div>
   );
