@@ -62,6 +62,16 @@ export function OnboardingScreen({ session, onComplete }) {
     <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600;700;800&display=swap');
       
+      html, body, #root {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      
       @keyframes fadeUp {
         from { opacity: 0; transform: translateY(20px); }
         to { opacity: 1; transform: translateY(0); }
@@ -218,13 +228,13 @@ export function OnboardingScreen({ session, onComplete }) {
         />
         <div style={{ fontSize: "11px", color: "#6b7280", marginBottom: usernameErr ? "6px" : "24px" }}>Letters, numbers and underscores · min 3 chars</div>
         {usernameErr && <div style={{ color: "#f87171", fontSize: "13px", marginBottom: "16px" }}>{usernameErr}</div>}
-        
-        <button 
-          onClick={handleSave} 
-          disabled={saving || username.trim().length < 3} 
+
+        <button
+          onClick={handleSave}
+          disabled={saving || username.trim().length < 3}
           className="btn-primary"
-          style={{ 
-            background: username.trim().length >= 3 ? "#2563eb" : "rgba(31, 41, 55, 0.4)", 
+          style={{
+            background: username.trim().length >= 3 ? "#2563eb" : "rgba(31, 41, 55, 0.4)",
             color: username.trim().length >= 3 ? "#fff" : "#4b5563",
             cursor: username.trim().length >= 3 ? "pointer" : "not-allowed",
             opacity: saving ? 0.7 : 1
@@ -245,13 +255,13 @@ export function OnboardingScreen({ session, onComplete }) {
           <div style={{ fontSize: "72px", marginBottom: "20px", animation: "pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards" }}>🎉</div>
           <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "30px", color: "#f9fafb", margin: "0 0 10px", letterSpacing: "-0.02em" }}>You're all set, {username}!</h2>
           <p style={{ color: "#9ca3af", fontSize: "15px", lineHeight: 1.6, margin: "0 0 24px" }}>Time to build your first habit.<br />Start small — one habit changes everything.</p>
-          
+
           <div className="tip-box">
             <div style={{ fontWeight: 700, color: "#f9fafb", marginBottom: "8px", fontSize: "14px" }}>Quick tips</div>
             <div style={{ color: "#9ca3af", fontSize: "13px", marginBottom: "10px", lineHeight: 1.5 }}><strong>Routine</strong>: Group habits into routines (morning, evening, etc.) to check several items at once and build momentum.</div>
             <div style={{ color: "#9ca3af", fontSize: "13px", lineHeight: 1.5 }}><strong>Shields</strong>: You start with one shield — each shield protects one missed day so your streak doesn't break. Pro users earn shields faster (every 7 completed days vs 14 for free).</div>
           </div>
-          
+
           <button
             onClick={() => {
               supabase.from("profiles").select("*").eq("id", session.user.id).single().then(({ data }) => onComplete(data));
