@@ -47,6 +47,7 @@ export function OnboardingScreen({ session, onComplete }) {
 
   const containerStyle = {
     minHeight: "100vh",
+    width: "100%",
     background: "radial-gradient(circle at 10% 20%, rgba(37, 99, 235, 0.08) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(124, 58, 237, 0.06) 0%, transparent 50%), #0d1117",
     display: "flex",
     alignItems: "center",
