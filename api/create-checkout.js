@@ -4,7 +4,7 @@
 // Required env vars in Vercel dashboard:
 //   STRIPE_SECRET_KEY     — Stripe Dashboard → Developers → API keys (secret key)
 //   STRIPE_PRICE_ID       — Stripe Dashboard → Products → your 99p product → Price ID (starts price_)
-//   NEXT_PUBLIC_APP_URL   — e.g. https://app.habitick.pro
+//   NEXT_PUBLIC_APP_URL   — e.g. https://app.habitick.app
 
 import Stripe from "stripe";
 

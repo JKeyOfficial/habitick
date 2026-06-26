@@ -647,7 +647,40 @@ export default function HabiTick() {
               </section>
             </>
           ) : tab === "calendar" ? (
-            <CalendarTab habits={habits} todos={todos} pausePeriods={pausePeriods} shieldedDates={shieldedDates || []} profile={profile} onToggleHabit={toggleHabit} onToggleTodo={toggleTodo} onAddTodoForDate={(dateStr) => { setEditingTodo({ text: "", due_date: dateStr, isNewFromCalendar: true }); setShowTodoModal(true); }} />
+            <CalendarTab 
+              habits={habits} 
+              todos={todos} 
+              pausePeriods={pausePeriods} 
+              shieldedDates={shieldedDates || []} 
+              profile={profile} 
+              onToggleHabit={toggleHabit} 
+              onToggleTodo={toggleTodo} 
+              onDeleteTodo={deleteTodo}
+              onAddTodoForDate={(dateStr) => { setEditingTodo({ text: "", due_date: dateStr, isNewFromCalendar: true }); setShowTodoModal(true); }}
+              onAddTodoDirect={async (text, dateStr) => {
+                const activeTodos = todos.filter(t => !t.done);
+                if (!isPremium && activeTodos.length >= FREE_TODO_LIMIT) {
+                  setShowUpgradeModal("todos");
+                  return false;
+                }
+                const { data } = await supabase.from("todos").insert({ 
+                  user_id: session.user.id, 
+                  text, 
+                  priority: null, 
+                  done: false, 
+                  due_date: dateStr, 
+                  due_time: null 
+                }).select().single();
+                setTodos(prev => [...prev, { ...data, doneDate: null }]);
+                return true;
+              }}
+              journalEntries={journalEntries}
+              setJournalEntries={setJournalEntries}
+              session={session}
+              isPremium={isPremium}
+              today={today}
+              setShowUpgradeModal={setShowUpgradeModal}
+            />
           ) : tab === "analytics" ? (
             <AnalyticsTab habits={habits} todos={todos} pausePeriods={pausePeriods} isPremium={isPremium} journalEntries={journalEntries} profile={profile} />
           ) : tab === "journal" ? (

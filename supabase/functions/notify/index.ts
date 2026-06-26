@@ -94,7 +94,7 @@ serve(async (req: Request) => {
             const payload = {
               title: 'HabiTick',
               body: n.body,
-              url: 'https://app.habitick.pro'
+              url: 'https://app.habitick.app'
             }
             await webpush.sendNotification(
               s.subscription,

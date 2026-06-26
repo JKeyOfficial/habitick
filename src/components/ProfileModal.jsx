@@ -159,7 +159,7 @@ export function ProfileModal({ session, profile, onUpdate, onClose }) {
       await supabase.from("pause_periods").delete().eq("user_id", uid);
       await supabase.from("journal_entries").delete().eq("user_id", uid);
       await supabase.from("profiles").delete().eq("id", uid);
-      await fetch("https://app.habitick.pro/api/delete-account", {
+      await fetch("https://app.habitick.app/api/delete-account", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: uid }),
