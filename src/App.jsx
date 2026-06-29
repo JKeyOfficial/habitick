@@ -526,12 +526,12 @@ export default function HabiTick() {
         </div>
       </header>
 
-      {isLifetime && userNumber && userNumber <= 100 && !lifetimeBannerDismissed && (
+      {isLifetime && userNumber && userNumber <= LIFETIME_USER_LIMIT && !lifetimeBannerDismissed && (
         <div className="ht-founder-banner" style={{ background: "linear-gradient(90deg, #1d4ed820 0%, #10b98115 100%)", borderBottom: "1px solid #2563eb30", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
             <span style={{ fontSize: "18px", flexShrink: 0 }}>🎉</span>
             <span style={{ fontSize: "13px", color: "#93c5fd", fontWeight: 600, lineHeight: 1.5 }}>
-              You're <span style={{ color: "#60a5fa", fontWeight: 800 }}>#{userNumber}</span> of 100 founding members — Premium is yours <span style={{ color: "#10b981" }}>free, forever</span>.
+              You're <span style={{ color: "#60a5fa", fontWeight: 800 }}>#{userNumber}</span> of {LIFETIME_USER_LIMIT.toLocaleString()} founding members — Premium is yours <span style={{ color: "#10b981" }}>free, forever</span>.
             </span>
           </div>
           <button onClick={() => {
@@ -557,7 +557,7 @@ export default function HabiTick() {
       >
 
 
-        <main className={`ht-main${isLifetime && userNumber <= 100 && !lifetimeBannerDismissed ? " ht-main-with-banner" : ""}`}>
+        <main className={`ht-main${isLifetime && userNumber <= LIFETIME_USER_LIMIT && !lifetimeBannerDismissed ? " ht-main-with-banner" : ""}`}>
           {loading ? (
             <div style={{ textAlign: "center", padding: "60px", color: "#6b7280" }}>Loading your data...</div>
           ) : tab === "tasks" ? (

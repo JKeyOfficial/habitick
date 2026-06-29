@@ -3,7 +3,7 @@ export const STRIPE_CHECKOUT_URL = "/api/create-checkout";
 export const FREE_HABIT_LIMIT = 5;
 export const FREE_TODO_LIMIT = 5;
 export const FREE_JOURNAL_DAYS = 7;
-export const LIFETIME_USER_LIMIT = 100;
+export const LIFETIME_USER_LIMIT = 1000;
 export const MAX_SHIELDS = 5;
 
 export const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

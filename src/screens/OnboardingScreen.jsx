@@ -29,14 +29,13 @@ export function OnboardingScreen({ session, onComplete }) {
     if (username.length < 3) { setUsernameErr("Must be at least 3 characters"); return; }
     if (!/^[a-zA-Z0-9_]+$/.test(username)) { setUsernameErr("Letters, numbers and underscores only"); return; }
     setSaving(true);
-    const { error } = await supabase.from("profiles").upsert({
-      id: session.user.id,
+    const { error } = await supabase.from("profiles").update({
       username: username.trim(),
       avatar_url: avatarUrl || null,
       initial_shields: 1,
       initial_shields_granted_at: getTodayStr(),
       updated_at: new Date().toISOString(),
-    });
+    }).eq("id", session.user.id);
     if (error?.message?.includes("unique")) { setUsernameErr("Username already taken"); setSaving(false); return; }
     if (error) { setUsernameErr(error.message); setSaving(false); return; }
     setSaving(false);

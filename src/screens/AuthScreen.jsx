@@ -19,9 +19,7 @@ export function AuthScreen() {
         if (error) throw error;
         try {
           const userId = data?.user?.id;
-          if (userId) {
-            await supabase.from("profiles").upsert({ id: userId, initial_shields: 1, initial_shields_granted_at: getTodayStr(), updated_at: new Date().toISOString() });
-          }
+            await supabase.from("profiles").update({ initial_shields: 1, initial_shields_granted_at: getTodayStr(), updated_at: new Date().toISOString() }).eq("id", userId);
         } catch (e) {
           console.warn("Could not persist initial shield:", e?.message || e);
         }
