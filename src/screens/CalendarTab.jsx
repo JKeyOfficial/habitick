@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { DAYS_SHORT, MONTHS_SHORT, FREE_JOURNAL_DAYS } from '../utils/constants.js';
 import { getDateStr, getCalendarDays, isSameDay, isDatePaused, parseDateLocal } from '../utils/helpers.js';
+import { encryptText } from '../utils/crypto.js';
 
 export function CalendarTab({
   habits,
@@ -54,10 +55,11 @@ export function CalendarTab({
     if (!session?.user?.id) return;
     if (!draftVal.trim() && !moodVal) return;
     setSaving(true);
+    const encryptedContent = await encryptText(draftVal.trim(), session.user.id);
     const payload = {
       user_id: session.user.id,
       entry_date: dateVal,
-      content: draftVal.trim(),
+      content: encryptedContent,
       mood: moodVal || null
     };
     const { data, error } = await supabase
@@ -67,7 +69,7 @@ export function CalendarTab({
       .single();
     if (!error && data) {
       if (setJournalEntries) {
-        setJournalEntries(prev => ({ ...prev, [dateVal]: data }));
+        setJournalEntries(prev => ({ ...prev, [dateVal]: { ...data, content: draftVal.trim() } }));
       }
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -146,7 +148,7 @@ export function CalendarTab({
     return (
       <div
         key={`${type}-${id}`}
-        onClick={(e) => { e.stopPropagation(); onClick && onClick(); }}
+        onClick={(e) => { if (onClick) { e.stopPropagation(); onClick(); } }}
         style={{
           fontSize: "10px",
           padding: "2px 6px",
@@ -158,7 +160,7 @@ export function CalendarTab({
           overflow: "hidden",
           textOverflow: "ellipsis",
           marginBottom: "2px",
-          cursor: onClick ? "pointer" : "default",
+          cursor: "pointer",
           fontWeight: 600,
           display: "flex",
           alignItems: "center",
@@ -655,7 +657,7 @@ export function CalendarTab({
                       if (isDone) status = "done";
                       else if (isMissed) status = "missed";
 
-                      return renderItemPill(t.id, t.text, "todo", status, () => onToggleTodo(t.id));
+                      return renderItemPill(t.id, t.text, "todo", status, undefined);
                     })}
                   </div>
                 </div>

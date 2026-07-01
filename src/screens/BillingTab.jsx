@@ -47,11 +47,11 @@ export function BillingTab({ profile, session, showToast }) {
             border: `1px solid ${isLifetime ? "#10b981" : isPremium ? "#2563eb" : "#374151"}`,
             color: isLifetime ? "#10b981" : isPremium ? "#60a5fa" : "#6b7280"
           }}>
-            {isLifetime ? "LIFETIME FREE ✦" : isPremium ? "ACTIVE" : "FREE"}
+            {isLifetime ? "LIFETIME PREMIUM ✦" : isPremium ? "ACTIVE" : "FREE"}
           </span>
         </div>
 
-        {isLifetime && row("Price", "Free, forever", true)}
+        {isLifetime && row("Price", "Premium, free, forever", true)}
         {!isLifetime && isPremium && row("Price", "£0.99 / month", false)}
         {!isPremium && row("Price", "£0", false)}
 

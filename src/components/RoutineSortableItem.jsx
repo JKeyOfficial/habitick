@@ -29,7 +29,9 @@ export function RoutineSortableItem({ routine, routineHabits, widthFactor, flexB
     transition: transition || "transform 250ms cubic-bezier(0.2, 0, 0, 1)",
     flex: widthFactor === 3 ? "1 1 100%" : `1 1 ${flexBasis}`,
     maxWidth: widthFactor === 3 ? "100%" : flexBasis,
-    minWidth: widthFactor === 3 ? "100%" : "300px",
+    minWidth: 0, /* was '300px' — caused horizontal overflow on mobile */
+    width: "100%",
+    boxSizing: "border-box",
     position: "relative",
     zIndex: isDragging ? 50 : "auto",
     opacity: isDragging ? 0.9 : 1,

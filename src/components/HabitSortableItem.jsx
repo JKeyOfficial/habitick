@@ -24,6 +24,9 @@ export function HabitSortableItem({ habit, ...props }) {
     opacity: isDragging ? 0.1 : 1,
     zIndex: isDragging ? 100 : 'auto',
     position: 'relative',
+    width: "100%",
+    maxWidth: "100%",
+    boxSizing: "border-box"
   };
 
 

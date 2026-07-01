@@ -7,7 +7,7 @@ import { VAPID_PUBLIC_KEY } from '../utils/constants.js';
 
 
 export function ProfileModal({ session, profile, onUpdate, onClose }) {
-  const [tab, setTab] = useState("profile");
+  const [tab, setTab] = useState("account");
   const [username, setUsername] = useState(profile?.username || "");
   const [usernameMsg, setUsernameMsg] = useState("");
   const [usernameErr, setUsernameErr] = useState("");
@@ -112,14 +112,12 @@ export function ProfileModal({ session, profile, onUpdate, onClose }) {
     const newVal = !notificationsEnabled;
     
     if (newVal) {
-      // Enabling: Request permission and subscribe
       const granted = await NotificationManager.requestPermission();
       if (!granted) {
         showToast("Notification permission denied", "error");
         setSavingNotifications(false);
         return;
       }
-      
       const subbed = await NotificationManager.subscribeUser(session.user.id, VAPID_PUBLIC_KEY);
       if (!subbed) {
         showToast("Failed to subscribe to push notifications", "error");
@@ -127,11 +125,9 @@ export function ProfileModal({ session, profile, onUpdate, onClose }) {
         return;
       }
     } else {
-      // Disabling: Unsubscribe
       await NotificationManager.unsubscribeUser(session.user.id);
     }
 
-    // Update profile in Supabase
     const { error } = await supabase
       .from("profiles")
       .update({ notifications_enabled: newVal, updated_at: new Date().toISOString() })
@@ -148,7 +144,6 @@ export function ProfileModal({ session, profile, onUpdate, onClose }) {
   };
 
   const handleDeleteAccount = async () => {
-
     if (deleteConfirmText !== "DELETE") return;
     setDeletingAccount(true);
     try {
@@ -172,13 +167,15 @@ export function ProfileModal({ session, profile, onUpdate, onClose }) {
   };
 
   const inp = { width: "100%", padding: "12px 14px", borderRadius: "10px", border: "1px solid #1f2937", background: "#0d1117", color: "#f9fafb", fontSize: "16px", boxSizing: "border-box", fontFamily: "inherit", outline: "none", marginBottom: "16px" };
-  const lbl = { color: "#6b7280", fontSize: "12px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: "8px" };
+  const lbl = { color: "#6b7280", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: "8px" };
+  const sectionLbl = { color: "#9ca3af", fontSize: "12px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: "12px" };
   const tabStyle = (key) => ({ flex: 1, padding: "10px 8px", borderRadius: "10px", border: "1px solid", borderColor: tab === key ? "#2563eb" : "#1f2937", background: tab === key ? "#2563eb" : "transparent", color: tab === key ? "#fff" : "#6b7280", cursor: "pointer", fontWeight: 600, fontSize: "14px", fontFamily: "inherit", transition: "all 0.15s" });
+  const divider = { borderTop: "1px solid #1f2937", margin: "20px 0" };
 
   return (
     <DragSheet onClose={onClose}>
       {toast && (
-        <div style={{ position: "fixed", top: "20px", left: "50%", transform: "translateX(-50%)", background: toast.type === "error" ? "#7f1d1d" : "#064e3b", border: `1px solid ${toast.type === "error" ? "#f87171" : "#10b981"}`, borderRadius: "10px", padding: "10px 20px", color: toast.type === "error" ? "#fca5a5" : "#6ee7b7", fontWeight: 600, fontSize: "14px", zIndex: 300, whiteSpace: "nowrap", boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}>
+        <div style={{ position: "fixed", top: "20px", left: "50%", transform: "translateX(-50%)", background: toast.type === "error" ? "#7f1d1d" : "#064e3b", border: `1px solid ${toast.type === "error" ? "#f87171" : "#10b981"}`, borderRadius: "10px", padding: "10px 20px", color: toast.type === "error" ? "#fca5a5" : "#6ee7b7", fontWeight: 600, fontSize: "14px", zIndex: 30000, whiteSpace: "nowrap", boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}>
           {toast.type !== "error" && "✓ "}{toast.msg}
         </div>
       )}
@@ -188,7 +185,7 @@ export function ProfileModal({ session, profile, onUpdate, onClose }) {
         <button onClick={onClose} style={{ background: "#1f2937", border: "none", color: "#9ca3af", cursor: "pointer", fontSize: "18px", width: "36px", height: "36px", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: "20px", marginBottom: "32px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "20px", marginBottom: "28px" }}>
         <div style={{ position: "relative", flexShrink: 0 }}>
           {avatarUrl
             ? <img src={avatarUrl} alt="avatar" style={{ width: "80px", height: "80px", borderRadius: "50%", objectFit: "cover", border: "2px solid #2563eb" }} />
@@ -227,39 +224,58 @@ export function ProfileModal({ session, profile, onUpdate, onClose }) {
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: "6px", marginBottom: "20px" }}>
-        <button style={tabStyle("profile")} onClick={() => setTab("profile")}>Username</button>
-        <button style={tabStyle("email")} onClick={() => setTab("email")}>Email</button>
+      {/* Tab bar — 3 clean tabs */}
+      <div style={{ display: "flex", gap: "6px", marginBottom: "24px" }}>
+        <button style={tabStyle("account")} onClick={() => setTab("account")}>Account</button>
         <button style={tabStyle("notifications")} onClick={() => setTab("notifications")}>Notifications</button>
         <button style={tabStyle("billing")} onClick={() => setTab("billing")}>Billing</button>
       </div>
 
-
-      {tab === "profile" && (
-        <div>
-          <label style={lbl}>Username</label>
+      {/* ── ACCOUNT TAB: Username + Email + Password in one place ── */}
+      {tab === "account" && (
+        <div style={{ animation: "fadeUp 0.2s ease-out" }}>
+          {/* Username */}
+          <span style={sectionLbl}>Username</span>
           <input value={username} onChange={e => setUsername(e.target.value)} style={inp} placeholder="e.g. john_doe" onKeyDown={e => e.key === "Enter" && saveUsername()} />
-          <div style={{ fontSize: "11px", color: "#374151", marginBottom: "14px" }}>Letters, numbers and underscores · min 3 chars</div>
+          <div style={{ fontSize: "11px", color: "#374151", marginTop: "-10px", marginBottom: "12px" }}>Letters, numbers and underscores · min 3 chars</div>
           {usernameErr && <div style={{ color: "#f87171", fontSize: "13px", marginBottom: "10px" }}>{usernameErr}</div>}
-          <button onClick={saveUsername} disabled={savingUsername} style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "14px", cursor: "pointer", fontFamily: "inherit", opacity: savingUsername ? 0.7 : 1 }}>{savingUsername ? "Saving..." : "Save Username"}</button>
-        </div>
-      )}
+          <button onClick={saveUsername} disabled={savingUsername} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "14px", cursor: "pointer", fontFamily: "inherit", opacity: savingUsername ? 0.7 : 1 }}>
+            {savingUsername ? "Saving..." : "Save Username"}
+          </button>
 
-      {tab === "email" && (
-        <div>
-          <div style={{ background: "#0d1117", border: "1px solid #1f2937", borderRadius: "8px", padding: "12px", marginBottom: "16px", fontSize: "13px", color: "#4b5563" }}>
+          <div style={divider} />
+
+          {/* Email */}
+          <span style={sectionLbl}>Email Address</span>
+          <div style={{ background: "#0d1117", border: "1px solid #1f2937", borderRadius: "8px", padding: "10px 14px", marginBottom: "12px", fontSize: "13px", color: "#4b5563" }}>
             Current: <span style={{ color: "#9ca3af", fontWeight: 600 }}>{session.user.email}</span>
           </div>
-          <label style={lbl}>New Email Address</label>
-          <input value={newEmail} onChange={e => setNewEmail(e.target.value)} type="email" style={inp} placeholder="new@email.com" />
+          <input value={newEmail} onChange={e => setNewEmail(e.target.value)} type="email" style={inp} placeholder="New email address" />
           {emailErr && <div style={{ color: "#f87171", fontSize: "13px", marginBottom: "10px" }}>{emailErr}</div>}
           {emailMsg && <div style={{ color: "#10b981", fontSize: "13px", marginBottom: "10px" }}>{emailMsg}</div>}
-          <button onClick={saveEmail} disabled={savingEmail} style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "14px", cursor: "pointer", fontFamily: "inherit", opacity: savingEmail ? 0.7 : 1 }}>{savingEmail ? "Sending..." : "Update Email"}</button>
+          <button onClick={saveEmail} disabled={savingEmail} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "14px", cursor: "pointer", fontFamily: "inherit", opacity: savingEmail ? 0.7 : 1 }}>
+            {savingEmail ? "Sending..." : "Update Email"}
+          </button>
+
+          <div style={divider} />
+
+          {/* Password */}
+          <span style={sectionLbl}>Password</span>
+          <input value={newPw} onChange={e => setNewPw(e.target.value)} type="password" style={inp} placeholder="New password (min. 8 chars)" />
+          <input value={confirmPw} onChange={e => setConfirmPw(e.target.value)} type="password" style={inp} placeholder="Confirm new password" />
+          {pwErr && <div style={{ color: "#f87171", fontSize: "13px", marginBottom: "10px" }}>{pwErr}</div>}
+          <button onClick={savePassword} disabled={savingPw} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "14px", cursor: "pointer", fontFamily: "inherit", opacity: savingPw ? 0.7 : 1, marginBottom: "8px" }}>
+            {savingPw ? "Updating..." : "Update Password"}
+          </button>
+          <button onClick={sendResetLink} disabled={resetSent} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "1px solid #1f2937", background: resetSent ? "#064e3b" : "transparent", color: resetSent ? "#6ee7b7" : "#6b7280", fontWeight: 600, fontSize: "13px", cursor: resetSent ? "default" : "pointer", fontFamily: "inherit" }}>
+            {resetSent ? "✓ Reset link sent to your email!" : "Send password reset link instead"}
+          </button>
         </div>
       )}
 
+      {/* ── NOTIFICATIONS TAB ── */}
       {tab === "notifications" && (
-        <div style={{ animation: "fadeUp 0.3s ease-out" }}>
+        <div style={{ animation: "fadeUp 0.2s ease-out" }}>
           <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: "16px", padding: "20px", marginBottom: "20px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
               <div>
@@ -278,7 +294,8 @@ export function ProfileModal({ session, profile, onUpdate, onClose }) {
                   cursor: "pointer", 
                   border: "none",
                   transition: "background 0.2s",
-                  opacity: savingNotifications ? 0.7 : 1
+                  opacity: savingNotifications ? 0.7 : 1,
+                  flexShrink: 0
                 }}
               >
                 <div style={{ 
@@ -295,14 +312,16 @@ export function ProfileModal({ session, profile, onUpdate, onClose }) {
             </div>
             
             {!('serviceWorker' in navigator) && (
-              <div style={{ marginTop: "16px", padding: "10px", borderRadius: "8px", background: "#7f1d1d20", border: "1px solid #f8717130", color: "#f87171", fontSize: "12px" }}>
-                ⚠️ Your browser doesn't support service workers. Notifications may not work.
+              <div style={{ marginTop: "16px", padding: "10px", borderRadius: "8px", background: "#7f1d1d20", border: "1px solid #f8717130", color: "#f87171", fontSize: "12px", display: "flex", alignItems: "center", gap: "6px" }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12" y1="17" y2="17"/></svg>
+                <span>Your browser doesn't support service workers. Notifications may not work.</span>
               </div>
             )}
             
             {notificationsEnabled && Notification.permission === 'denied' && (
-              <div style={{ marginTop: "16px", padding: "10px", borderRadius: "8px", background: "#7f1d1d20", border: "1px solid #f8717130", color: "#f87171", fontSize: "12px" }}>
-                ⚠️ Notifications are blocked by your browser. Please enable them in your browser settings.
+              <div style={{ marginTop: "16px", padding: "10px", borderRadius: "8px", background: "#7f1d1d20", border: "1px solid #f8717130", color: "#f87171", fontSize: "12px", display: "flex", alignItems: "center", gap: "6px" }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12" y1="17" y2="17"/></svg>
+                <span>Notifications are blocked by your browser. Please enable them in settings.</span>
               </div>
             )}
           </div>
@@ -312,42 +331,24 @@ export function ProfileModal({ session, profile, onUpdate, onClose }) {
             <p>• You can set specific reminder times for each habit in the habit editor.</p>
             <p style={{ marginTop: "8px" }}>Note: If you're on iOS, you must add HabiTick to your home screen first to enable push notifications.</p>
           </div>
-          
-          <div style={{ borderTop: "1px solid #1f2937", marginTop: "24px", paddingTop: "16px" }}>
-            <button onClick={() => setTab("password")} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "1px solid #374151", background: "transparent", color: "#6b7280", fontWeight: 600, fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>Change Password & Security</button>
-          </div>
         </div>
       )}
 
-      {tab === "password" && (
-        <div style={{ animation: "fadeUp 0.3s ease-out" }}>
-          <label style={lbl}>New Password</label>
-          <input value={newPw} onChange={e => setNewPw(e.target.value)} type="password" style={inp} placeholder="Min. 8 characters" />
-          <label style={lbl}>Confirm Password</label>
-          <input value={confirmPw} onChange={e => setConfirmPw(e.target.value)} type="password" style={inp} placeholder="Repeat new password" />
-          {pwErr && <div style={{ color: "#f87171", fontSize: "13px", marginBottom: "10px" }}>{pwErr}</div>}
-          <button onClick={savePassword} disabled={savingPw} style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "14px", cursor: "pointer", fontFamily: "inherit", opacity: savingPw ? 0.7 : 1, marginBottom: "10px" }}>{savingPw ? "Updating..." : "Update Password"}</button>
-          <button onClick={sendResetLink} disabled={resetSent} style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #1f2937", background: resetSent ? "#064e3b" : "transparent", color: resetSent ? "#6ee7b7" : "#6b7280", fontWeight: 600, fontSize: "13px", cursor: resetSent ? "default" : "pointer", fontFamily: "inherit" }}>
-            {resetSent ? "✓ Link sent to your email!" : "Send reset link instead"}
-          </button>
-          <div style={{ borderTop: "1px solid #1f2937", marginTop: "24px", paddingTop: "16px" }}>
-            <button onClick={() => setTab("notifications")} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "1px solid #374151", background: "transparent", color: "#6b7280", fontWeight: 600, fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>← Back to Notifications</button>
-          </div>
-        </div>
-      )}
-
+      {/* ── BILLING TAB ── */}
       {tab === "billing" && <BillingTab profile={profile} session={session} showToast={showToast} />}
 
-
-      <div style={{ borderTop: "1px solid #1f2937", marginTop: "24px", paddingTop: "16px", display: "flex", flexDirection: "column", gap: "10px" }}>
+      {/* Sign out + Delete — always visible at bottom */}
+      <div style={{ borderTop: "1px solid #1f2937", marginTop: "24px", paddingTop: "16px", paddingBottom: "24px", display: "flex", flexDirection: "column", gap: "10px" }}>
         <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "1px solid #374151", background: "transparent", color: "#6b7280", fontWeight: 600, fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>Sign out</button>
         <button onClick={() => setShowDeleteConfirm1(true)} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "1px solid #7f1d1d", background: "transparent", color: "#f87171", fontWeight: 600, fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>Delete account</button>
       </div>
 
       {showDeleteConfirm1 && (
-        <div style={{ position: "fixed", inset: 0, background: "#000d", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+        <div style={{ position: "fixed", inset: 0, background: "#000d", zIndex: 30000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
           <div style={{ background: "#111827", border: "1px solid #374151", borderRadius: "20px", padding: "28px", width: "100%", maxWidth: "360px", textAlign: "center" }}>
-            <div style={{ fontSize: "36px", marginBottom: "12px" }}>⚠️</div>
+            <div style={{ display: "flex", justifyContent: "center", color: "#ef4444", marginBottom: "16px" }}>
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12" y1="17" y2="17"/></svg>
+            </div>
             <h2 style={{ margin: "0 0 10px", fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "19px", color: "#f9fafb" }}>Delete your account?</h2>
             <p style={{ color: "#9ca3af", fontSize: "14px", lineHeight: 1.6, marginBottom: "24px" }}>This will permanently delete all your habits, todos, journal entries and account data. <strong style={{ color: "#f87171" }}>This cannot be undone.</strong></p>
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -359,9 +360,11 @@ export function ProfileModal({ session, profile, onUpdate, onClose }) {
       )}
 
       {showDeleteConfirm2 && (
-        <div style={{ position: "fixed", inset: 0, background: "#000d", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+        <div style={{ position: "fixed", inset: 0, background: "#000d", zIndex: 30000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
           <div style={{ background: "#111827", border: "1px solid #374151", borderRadius: "20px", padding: "28px", width: "100%", maxWidth: "360px", textAlign: "center" }}>
-            <div style={{ fontSize: "36px", marginBottom: "12px" }}>🗑️</div>
+            <div style={{ display: "flex", justifyContent: "center", color: "#ef4444", marginBottom: "16px" }}>
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6"/></svg>
+            </div>
             <h2 style={{ margin: "0 0 10px", fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "19px", color: "#f9fafb" }}>Are you absolutely sure?</h2>
             <p style={{ color: "#9ca3af", fontSize: "14px", lineHeight: 1.6, marginBottom: "20px" }}>Type <strong style={{ color: "#f87171" }}>DELETE</strong> below to confirm.</p>
             <input value={deleteConfirmText} onChange={e => setDeleteConfirmText(e.target.value)} placeholder="Type DELETE here"

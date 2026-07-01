@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { FREE_JOURNAL_DAYS } from '../utils/constants.js';
 import { getTodayStr, getDateStr, parseDateLocal } from '../utils/helpers.js';
+import { encryptText } from '../utils/crypto.js';
 
 const MOOD_OPTIONS = [
   { value: "great", label: "Great", emoji: "🌟" },
@@ -38,10 +39,11 @@ export function JournalTab({ journalEntries, setJournalEntries, session, today, 
   const save = async (draftVal, moodVal, dateVal) => {
     if (!draftVal.trim() && !moodVal) return;
     setSaving(true);
-    const payload = { user_id: session.user.id, entry_date: dateVal, content: draftVal.trim(), mood: moodVal || null };
+    const encryptedContent = await encryptText(draftVal.trim(), session.user.id);
+    const payload = { user_id: session.user.id, entry_date: dateVal, content: encryptedContent, mood: moodVal || null };
     const { data, error } = await supabase.from("journal_entries").upsert(payload, { onConflict: "user_id,entry_date" }).select().single();
     if (!error && data) {
-      setJournalEntries(prev => ({ ...prev, [dateVal]: data }));
+      setJournalEntries(prev => ({ ...prev, [dateVal]: { ...data, content: draftVal.trim() } }));
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     }

@@ -27,6 +27,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { STRIPE_CHECKOUT_URL, FREE_HABIT_LIMIT, FREE_TODO_LIMIT, FREE_JOURNAL_DAYS, LIFETIME_USER_LIMIT, MAX_SHIELDS, DAYS_SHORT, MONTHS_SHORT, S, VAPID_PUBLIC_KEY } from "./utils/constants.js";
 import { getTodayStr, getDateStr, parseDateLocal, isSameDay, getCalendarDays, isDayComplete, isDatePaused, calcStats } from "./utils/helpers.js";
 import { NotificationManager } from "./utils/notifications.js";
+import { decryptText, encryptText } from "./utils/crypto.js";
 
 
 // Layout & Reusable Core Components
@@ -49,10 +50,67 @@ import { CalendarTab } from "./screens/CalendarTab.jsx";
 import { AnalyticsTab } from "./screens/AnalyticsTab.jsx";
 import { JournalTab } from "./screens/JournalTab.jsx";
 import { BillingTab } from "./screens/BillingTab.jsx";
+const renderTabIcon = (tabKey, isActive, size = 18) => {
+  const props = {
+    width: size,
+    height: size,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    style: { display: "block", flexShrink: 0 }
+  };
+
+  switch (tabKey) {
+    case "today":
+      return (
+        <svg {...props}>
+          <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill={isActive ? "rgba(37, 99, 235, 0.2)" : "none"} />
+          <polyline points="9 22 9 12 15 12 15 22" />
+        </svg>
+      );
+    case "calendar":
+      return (
+        <svg {...props}>
+          <rect width="18" height="18" x="3" y="4" rx="2" ry="2" fill={isActive ? "rgba(37, 99, 235, 0.2)" : "none"} />
+          <line x1="16" x2="16" y1="2" y2="6" />
+          <line x1="8" x2="8" y1="2" y2="6" />
+          <line x1="3" x2="21" y1="10" y2="10" />
+        </svg>
+      );
+    case "tasks":
+      return (
+        <svg {...props}>
+          <rect width="18" height="18" x="3" y="3" rx="2" fill={isActive ? "rgba(37, 99, 235, 0.2)" : "none"} />
+          <path d="m9 12 2 2 4-4" />
+        </svg>
+      );
+    case "journal":
+      return (
+        <svg {...props}>
+          <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" fill={isActive ? "rgba(37, 99, 235, 0.2)" : "none"} />
+          <path d="M6 6h10M6 10h10M6 14h10" />
+        </svg>
+      );
+    case "analytics":
+      return (
+        <svg {...props}>
+          <line x1="18" x2="18" y1="20" y2="10" />
+          <line x1="12" x2="12" y1="20" y2="4" />
+          <line x1="6" x2="6" y1="20" y2="14" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+};
 
 export default function HabiTick() {
   const [session, setSession] = useState(undefined); // undefined=loading, null=signed out
-  const [tab, setTab] = useState("tasks");
+  const [tab, setTab] = useState("today");
+  const [selectedDate, setSelectedDate] = useState(() => getTodayStr());
   const [habits, setHabits] = useState([]);
   const [todos, setTodos] = useState([]);
   const [pausePeriods, setPausePeriods] = useState([]);
@@ -60,12 +118,12 @@ export default function HabiTick() {
   const [showHabitModal, setShowHabitModal] = useState(false);
   const [editingHabit, setEditingHabit] = useState(null);
   const [showTodoModal, setShowTodoModal] = useState(false);
-  
+
   // Handle deep linking from PWA shortcuts
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const urlTab = params.get("tab");
-    if (urlTab && ["tasks", "calendar", "analytics", "journal"].includes(urlTab)) {
+    if (urlTab && ["today", "calendar", "tasks", "journal", "analytics"].includes(urlTab)) {
       setTab(urlTab);
     }
   }, []);
@@ -99,17 +157,36 @@ export default function HabiTick() {
     })
   );
 
-
-
-
   const today = getTodayStr();
   const todayDow = new Date().getDay();
+
+  // Helper to generate the week strip containing the today's date
+  const getWeekDays = (baseDateStr) => {
+    const baseDate = parseDateLocal(baseDateStr);
+    const day = baseDate.getDay();
+    // Monday is first
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+    const monday = new Date(baseDate);
+    monday.setDate(baseDate.getDate() + diffToMonday);
+
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      days.push({
+        dateStr: getDateStr(d),
+        dayNum: d.getDate(),
+        dayName: DAYS_SHORT[d.getDay()],
+      });
+    }
+    return days;
+  };
 
   // ── Auth listener ──────────────────────────────────────────────────────────
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session ?? null));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => setSession(s ?? null));
-    
+
     // Register Service Worker for notifications
     NotificationManager.registerServiceWorker();
 
@@ -137,7 +214,7 @@ export default function HabiTick() {
     const uid = session.user.id;
     const [habitsRes, completionsRes, todosRes, pauseRes, journalRes, profileRes, routinesRes] = await Promise.all([
       supabase.from("habits").select("*").eq("user_id", uid).order("created_at"),
-      supabase.from("habit_completions").select("habit_id, completed_date").eq("user_id", uid),
+      supabase.from("habit_completions").select("habit_id, completed_date, completed_at, timezone").eq("user_id", uid),
       supabase.from("todos").select("*").eq("user_id", uid).order("created_at"),
       supabase.from("pause_periods").select("*").eq("user_id", uid).order("created_at"),
       supabase.from("journal_entries").select("*").eq("user_id", uid).order("entry_date"),
@@ -145,13 +222,25 @@ export default function HabiTick() {
       supabase.from("routines").select("*").eq("user_id", uid).order("created_at"),
     ]);
     const completionsByHabit = {};
+    const completionTimesByHabit = {};
     (completionsRes.data || []).forEach(c => {
+      const dateStr = c.completed_date.substring(0, 10);
       if (!completionsByHabit[c.habit_id]) completionsByHabit[c.habit_id] = [];
-      completionsByHabit[c.habit_id].push(c.completed_date.substring(0, 10));
+      completionsByHabit[c.habit_id].push(dateStr);
+
+      if (!completionTimesByHabit[c.habit_id]) completionTimesByHabit[c.habit_id] = {};
+      if (c.completed_at) {
+        completionTimesByHabit[c.habit_id][dateStr] = c.completed_at;
+      }
     });
-    
+
     // Sort habits based on local storage if available
-    let loadedHabits = (habitsRes.data || []).map(h => ({ ...h, createdDate: (h.created_date || getDateStr(new Date())).substring(0, 10), completedDates: completionsByHabit[h.id] || [] }));
+    let loadedHabits = (habitsRes.data || []).map(h => ({ 
+      ...h, 
+      createdDate: (h.created_date || getDateStr(new Date())).substring(0, 10), 
+      completedDates: completionsByHabit[h.id] || [],
+      completionTimes: completionTimesByHabit[h.id] || {}
+    }));
     const savedHabitOrder = localStorage.getItem(`ht_habitOrder_${uid}`);
     if (savedHabitOrder) {
       try {
@@ -168,9 +257,39 @@ export default function HabiTick() {
     setTodos((todosRes.data || []).map(t => ({ ...t, doneDate: t.done_date ? t.done_date.substring(0, 10) : null })));
     setPausePeriods((pauseRes.data || []).map(p => ({ id: p.id, start: (p.start_date || '').substring(0, 10), end: p.end_date ? p.end_date.substring(0, 10) : null })));
     const entriesMap = {};
-    (journalRes.data || []).forEach(e => { entriesMap[e.entry_date.substring(0, 10)] = e; });
+    if (journalRes.data) {
+      for (const e of journalRes.data) {
+        const decryptedContent = await decryptText(e.content, uid);
+        entriesMap[e.entry_date.substring(0, 10)] = { ...e, content: decryptedContent };
+      }
+    }
     setJournalEntries(entriesMap);
     const profileData = profileRes.data || null;
+    if (profileData) {
+      if (profileData.ai_persona_encrypted) {
+        try {
+          const decryptedPersona = await decryptText(profileData.ai_persona_encrypted, uid);
+          profileData.ai_persona = JSON.parse(decryptedPersona);
+        } catch (e) {
+          console.warn("Failed to decrypt or parse ai_persona_encrypted:", e);
+          profileData.ai_persona = {};
+        }
+      } else {
+        profileData.ai_persona = {};
+      }
+
+      if (profileData.ai_suggestions_encrypted) {
+        try {
+          const decryptedSuggestions = await decryptText(profileData.ai_suggestions_encrypted, uid);
+          profileData.ai_suggestions = JSON.parse(decryptedSuggestions);
+        } catch (e) {
+          console.warn("Failed to decrypt or parse ai_suggestions_encrypted:", e);
+          profileData.ai_suggestions = {};
+        }
+      } else {
+        profileData.ai_suggestions = {};
+      }
+    }
     setProfile(profileData);
 
     // Auto-detect and save timezone if missing or changed
@@ -265,7 +384,7 @@ export default function HabiTick() {
 
   const handleDragEnd = (event) => {
     const { active, over } = event;
-    
+
     // Routine reordering persistence
     if (active.data.current?.type === 'routine' && over) {
       const activeId = String(active.id);
@@ -287,7 +406,7 @@ export default function HabiTick() {
       setHabits(currentHabits => {
         const habit = currentHabits.find(h => String(h.id) === activeId);
         if (habit) {
-          supabase.from("habits").update({ routine_id: habit.routine_id ?? null }).eq("id", activeId).then(() => {});
+          supabase.from("habits").update({ routine_id: habit.routine_id ?? null }).eq("id", activeId).then(() => { });
           localStorage.setItem(`ht_habitOrder_${session?.user?.id}`, JSON.stringify(currentHabits.map(h => h.id)));
         }
         return currentHabits;
@@ -334,8 +453,8 @@ export default function HabiTick() {
       arr[targetIdx] = { ...arr[targetIdx], routine_id: dragRoutine };
       [arr[dragIdx], arr[targetIdx]] = [arr[targetIdx], arr[dragIdx]];
       if (dragRoutine !== targetRoutine) {
-        supabase.from("habits").update({ routine_id: targetRoutine ?? null }).eq("id", dragId).then(() => {});
-        supabase.from("habits").update({ routine_id: dragRoutine ?? null }).eq("id", targetId).then(() => {});
+        supabase.from("habits").update({ routine_id: targetRoutine ?? null }).eq("id", dragId).then(() => { });
+        supabase.from("habits").update({ routine_id: dragRoutine ?? null }).eq("id", targetId).then(() => { });
       }
       localStorage.setItem(`ht_habitOrder_${session?.user?.id}`, JSON.stringify(arr.map(h => h.id)));
       return arr;
@@ -343,14 +462,34 @@ export default function HabiTick() {
   };
 
   const toggleHabit = async (habitId, dateStr) => {
-    if (dateStr !== today) return; 
+    // Can only toggle habits for the current day (today) to prevent continuity/streak manipulation
+    if (dateStr !== today) return;
     const habit = habits.find(h => h.id === habitId);
     const isDone = habit.completedDates.includes(dateStr);
-    setHabits(prev => prev.map(h => h.id !== habitId ? h : { ...h, completedDates: isDone ? h.completedDates.filter(d => d !== dateStr) : [...h.completedDates, dateStr] }));
+    setHabits(prev => prev.map(h => {
+      if (h.id !== habitId) return h;
+      return {
+        ...h,
+        completedDates: isDone 
+          ? h.completedDates.filter(d => d !== dateStr) 
+          : [...h.completedDates, dateStr],
+        completionTimes: isDone
+          ? (() => { const copy = { ...h.completionTimes }; delete copy[dateStr]; return copy; })()
+          : { ...h.completionTimes, [dateStr]: new Date().toISOString() }
+      };
+    }));
     if (isDone) {
       await supabase.from("habit_completions").delete().eq("habit_id", habitId).eq("completed_date", dateStr);
     } else {
-      await supabase.from("habit_completions").insert({ habit_id: habitId, user_id: session.user.id, completed_date: dateStr });
+      const nowStr = new Date().toISOString();
+      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      await supabase.from("habit_completions").insert({ 
+        habit_id: habitId, 
+        user_id: session.user.id, 
+        completed_date: dateStr,
+        completed_at: nowStr,
+        timezone: userTimezone
+      });
     }
   };
 
@@ -363,7 +502,7 @@ export default function HabiTick() {
         setShowHabitModal(false); setShowUpgradeModal("habits"); return;
       }
       const { data } = await supabase.from("habits").insert({ user_id: session.user.id, name, frequency, days, created_date: today }).select().single();
-      const newHabits = [...habits, { ...data, createdDate: data.created_date, completedDates: [] }];
+      const newHabits = [...habits, { ...data, createdDate: data.created_date, completedDates: [], completionTimes: {} }];
       setHabits(newHabits);
       localStorage.setItem(`ht_habitOrder_${session?.user?.id}`, JSON.stringify(newHabits.map(h => h.id)));
     }
@@ -420,7 +559,31 @@ export default function HabiTick() {
     }
   };
 
-  const todayHabits = showTodayOnly ? habits.filter(h => h.frequency === "daily" || (h.days && h.days.includes(todayDow))) : habits;
+  // Selected date computations
+  const selectedDateObj = parseDateLocal(selectedDate);
+  const selectedDow = selectedDateObj.getDay();
+
+  const todayHabits = (showTodayOnly
+    ? habits.filter(h => h.frequency === "daily" || (h.days && h.days.includes(selectedDow)))
+    : habits
+  ).filter(h => !h.createdDate || h.createdDate <= selectedDate);
+
+  const doneOnSelectedDate = habits.filter(h =>
+    (!h.createdDate || h.createdDate <= selectedDate) &&
+    (h.frequency === "daily" || (h.days && h.days.includes(selectedDow))) &&
+    (h.completedDates || []).includes(selectedDate)
+  ).length;
+
+  const totalOnSelectedDate = habits.filter(h =>
+    (!h.createdDate || h.createdDate <= selectedDate) &&
+    (h.frequency === "daily" || (h.days && h.days.includes(selectedDow)))
+  ).length;
+
+  const percent = totalOnSelectedDate > 0
+    ? Math.round((doneOnSelectedDate / totalOnSelectedDate) * 100)
+    : 0;
+
+  // Keep original today counters for general badge statistics
   const doneToday = habits.filter(h => (h.frequency === "daily" || (h.days && h.days.includes(todayDow))) && (h.completedDates || []).includes(today)).length;
   const totalToday = habits.filter(h => h.frequency === "daily" || (h.days && h.days.includes(todayDow))).length;
 
@@ -461,312 +624,945 @@ export default function HabiTick() {
     }
   };
 
-  if (session === undefined) return <div style={{ minHeight: "100vh", background: "#0d1117", display: "flex", alignItems: "center", justifyContent: "center", color: "#6b7280", fontFamily: "system-ui" }}>Loading...</div>;
+  if (session === undefined) return <div style={{ minHeight: "100vh", background: "#080b11", display: "flex", alignItems: "center", justifyContent: "center", color: "#6b7280", fontFamily: "system-ui" }}>Loading...</div>;
   if (!session) return <AuthScreen />;
   if (!loading && profile && !profile.username) return <OnboardingScreen session={session} onComplete={p => { setProfile(p); setShowHabitModal(true); }} />;
 
+  // Progress Circle Geometry — larger, premium
+  const progressRadius = 62;
+  const progressStroke = 10;
+  const progressNormalizedRadius = progressRadius - progressStroke;
+  const progressCircumference = progressNormalizedRadius * 2 * Math.PI;
+  const progressStrokeDashoffset = progressCircumference - (percent / 100) * progressCircumference;
+
   return (
-    <div style={{ minHeight: "100vh", background: "#0d1117", fontFamily: "'DM Sans', system-ui, sans-serif", color: "#f9fafb" }}>
+    <div className="ht-app-layout">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500;600;700;800&display=swap');
-        html, body, #root { margin: 0; padding: 0; width: 100%; min-height: 100vh; }
+        
+        html, body, #root {
+          margin: 0;
+          padding: 0;
+          width: 100%;
+          min-height: 100vh;
+          min-height: 100dvh;
+          background: #080b11;
+          color: #f9fafb;
+          font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+          overflow-x: hidden;
+        }
         * { box-sizing: border-box; }
         button, input, textarea, select { font-family: inherit; }
         ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb { background: #1f293d; border-radius: 3px; }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .ht-header-pills { display: flex; gap: 8px; align-items: center; }
-        .ht-main { max-width: 1200px; margin: 0 auto; padding: 24px 40px 100px; }
-        .ht-tabs { display: flex; justify-content: center; gap: 6px; padding: 18px 16px 10px; }
-        .ht-habit-grid { display: flex; flex-wrap: wrap; gap: 14px; }
-        .ht-bottom-nav { display: none; }
-        .ht-header-username { display: inline; }
-        .ht-founder-banner { position: relative; z-index: 45; }
-        @media (max-width: 640px) {
-          .ht-header-pills { display: none; }
-          .ht-main { padding: 80px 14px 100px; }
-          .ht-tabs { display: none; }
-          .ht-habit-grid { flex-direction: column; gap: 10px; }
-          .ht-habit-grid > * { max-width: 100% !important; min-width: 0 !important; flex: 1 1 100% !important; }
-          .ht-bottom-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; background: #0d1117ee; backdrop-filter: blur(12px); border-top: 1px solid #1f2937; z-index: 100; padding: 8px 0 24px; justify-content: space-around; }
-          .ht-header-username { display: none; }
-          .ht-analytics-grid { grid-template-columns: repeat(2, 1fr) !important; }
-          .ht-founder-banner { position: fixed; top: 60px; left: 0; right: 0; z-index: 45; background: linear-gradient(90deg, #1d4ed820 0%, #10b98115 100%) !important; }
-          .ht-main-with-banner { padding-top: 140px !important; }
+        
+        /* App Container Layout */
+        .ht-app-layout {
+          display: flex;
+          min-height: 100vh;
+          min-height: 100dvh;
+          width: 100%;
+          background: #080b11;
+          overflow-x: hidden;
+          position: relative;
+        }
+
+        /* Responsive Sidebar */
+        .ht-sidebar {
+          width: 260px;
+          background: #111622;
+          border-right: 1px solid rgba(255, 255, 255, 0.05);
+          display: flex;
+          flex-direction: column;
+          padding: 24px;
+          position: fixed;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          height: 100vh;
+          flex-shrink: 0;
+          z-index: 105;
+        }
+
+        .ht-sidebar-logo {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 36px;
+        }
+
+        .ht-sidebar-nav {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          flex: 1;
+        }
+
+        .ht-sidebar-link {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 16px;
+          border-radius: 12px;
+          color: #9ca3af;
+          font-weight: 600;
+          font-size: 14px;
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          text-align: left;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .ht-sidebar-link:hover {
+          color: #f9fafb;
+          background: rgba(255, 255, 255, 0.03);
+        }
+
+        .ht-sidebar-link.active {
+          color: #fff;
+          background: #2563eb;
+          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+        }
+
+        .ht-sidebar-footer {
+          margin-top: auto;
+          border-top: 1px solid rgba(255, 255, 255, 0.05);
+          padding-top: 20px;
+        }
+
+        /* Content Area */
+        .ht-content-area {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+          overflow-x: hidden;
+          padding-left: 260px; /* Offset the fixed sidebar */
+        }
+
+        .ht-header {
+          height: 64px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+          padding: 0 32px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          background: rgba(8, 11, 17, 0.8);
+          backdrop-filter: blur(12px);
+          position: sticky;
+          top: 0;
+          z-index: 100;
+        }
+
+        .ht-main {
+          flex: 1;
+          padding: 32px;
+          max-width: 1200px;
+          width: 100%;
+          margin: 0 auto;
+          overflow-x: hidden;
+        }
+
+        /* Dashboard grid */
+        .ht-dashboard-grid {
+          display: flex;
+          gap: 24px;
+          align-items: flex-start;
+        }
+
+        .ht-dashboard-main {
+          flex: 1.6;
+          min-width: 0;
+          overflow-x: hidden;
+        }
+
+        .ht-dashboard-sidebar {
+          width: 340px;
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+          flex-shrink: 0;
+          min-width: 0;
+        }
+
+        .ht-bottom-nav {
+          display: none;
+        }
+
+        .ht-mobile-only {
+          display: none !important;
+        }
+
+        .ht-mobile-only-flex {
+          display: none !important;
+        }
+
+        @media (max-width: 1024px) {
+          .ht-dashboard-grid {
+            flex-direction: column;
+            align-items: stretch;
+          }
+          .ht-dashboard-main {
+            width: 100%;
+            max-width: 100%;
+            flex: none;
+          }
+          .ht-dashboard-sidebar {
+            width: 100%;
+            max-width: 100%;
+            flex: none;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .ht-sidebar {
+            display: none;
+          }
+          .ht-header {
+            padding: 0 16px;
+            /* Stay above bottom nav on mobile */
+            position: sticky;
+            top: 0;
+            z-index: 100;
+          }
+          .ht-main {
+            padding: 12px 12px 96px; /* Tighter sides on mobile so cards have more room */
+            padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+          }
+          /* Routine cards: tighter padding on small screens */
+          .ht-routine-card {
+            padding: 12px !important;
+            border-radius: 16px !important;
+          }
+          /* Habit cards: tighter padding on small screens */
+          .ht-habit-card {
+            padding: 11px 12px !important;
+            border-radius: 14px !important;
+          }
+          /* Scroll lives on the page body, not on a clipping wrapper */
+          .ht-content-area {
+            overflow-x: hidden;
+            padding-left: 0 !important;
+          }
+          .ht-desktop-only {
+            display: none !important;
+          }
+          .ht-mobile-only {
+            display: block !important;
+          }
+          .ht-mobile-only-flex {
+            display: flex !important;
+          }
+          .ht-bottom-nav {
+            display: flex;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 64px;
+            /* Extend into safe-area on notched phones */
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+            height: calc(64px + env(safe-area-inset-bottom, 0px));
+            background: rgba(13, 17, 26, 0.97);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            z-index: 9999;
+            justify-content: space-around;
+            align-items: flex-start;
+            padding-top: 8px;
+            box-shadow: 0 -4px 24px rgba(0,0,0,0.5);
+            /* Guarantee it's always on top of any scroll container */
+            will-change: transform;
+          }
+          .ht-bottom-nav-btn {
+            background: none;
+            border: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #6b7280;
+            cursor: pointer;
+            gap: 4px;
+            transition: color 0.15s;
+            padding: 4px 8px;
+            flex: 1;
+            min-width: 0;
+          }
+          .ht-bottom-nav-btn.active {
+            color: #3b82f6;
+          }
+          .ht-bottom-nav-btn span:first-child {
+            font-size: 20px;
+            line-height: 1;
+          }
+          .ht-bottom-nav-btn span:last-child {
+            font-size: 10px;
+            font-weight: 700;
+          }
+        }
+
+        /* Extra tight layout for small phones (≤ 400px, e.g. iPhone 12 Pro at 390px) */
+        @media (max-width: 400px) {
+          .ht-main {
+            padding: 10px 10px 96px;
+            padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+          }
+          .ht-routine-card {
+            padding: 10px !important;
+            border-radius: 14px !important;
+          }
+          .ht-habit-card {
+            padding: 10px !important;
+            border-radius: 12px !important;
+          }
+          /* Override inline styles for smaller phone typography */
+          .ht-routine-card span {
+            font-size: 13.5px !important;
+          }
+          .ht-habit-card span {
+            font-size: 13px !important;
+          }
+          h2 {
+            font-size: 18px !important;
+          }
         }
       `}</style>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 28px", height: "60px", borderBottom: "1px solid #1f2937", position: "sticky", top: 0, background: "#0d1117", zIndex: 110 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <img src="/habitick-blue-logo.png" alt="HabiTick" style={{ width: "32px", height: "32px", borderRadius: "8px", flexShrink: 0, objectFit: "contain" }} />
-          <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "18px", letterSpacing: "-0.02em" }}>HabiTick</span>
+
+      {/* DESKTOP SIDEBAR */}
+      <aside className="ht-sidebar">
+        <div className="ht-sidebar-logo">
+          <img src="/habitick-blue-logo.png" alt="HabiTick" style={{ width: "32px", height: "32px", borderRadius: "8px", objectFit: "contain" }} />
+          <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "20px", letterSpacing: "-0.02em", color: "#fff" }}>HabiTick</span>
         </div>
-        <div className="ht-header-pills" style={{ position: "absolute", left: "50%", transform: "translateX(-50%)" }}>
-          {!isPaused && <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: "1px solid #22c55e33", borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: "#22c55e", fontWeight: 600 }}>✓ {doneToday}/{totalToday} habits today</div>}
-          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-            <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: `1px solid ${isPaused ? "#f59e0b66" : "#3b82f633"}`, borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: isPaused ? "#fcd34d" : "#60a5fa", fontWeight: 600 }}>
-              {isPaused ? "⏸ Streak frozen" : `🔥 Streak: ${currentStreak} days`}
-            </div>
-            <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111827", border: `1px solid ${isPaused ? "#f59e0b66" : "#3b82f633"}`, borderRadius: "999px", padding: "5px 14px", fontSize: "12px", color: isPaused ? "#fcd34d" : "#60a5fa", fontWeight: 600 }}>
-              {`🛡️ Shields: ${typeof shields === 'number' ? `${shields}/${MAX_SHIELDS}` : `0/${MAX_SHIELDS}`}`}
-            </div>
-          </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <button onClick={() => setShowProfile(true)} style={{ display: "flex", alignItems: "center", gap: "8px", background: "#111827", border: "1px solid #1f2937", borderRadius: "999px", padding: "4px 14px 4px 4px", cursor: "pointer", transition: "border-color 0.2s" }}>
+
+        <nav className="ht-sidebar-nav">
+          {[
+            ["today", "Today"],
+            ["calendar", "Calendar"],
+            ["tasks", "Tasks"],
+            ["journal", "Journal"],
+            ["analytics", "Stats"]
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`ht-sidebar-link ${tab === key ? "active" : ""}`}
+            >
+              {renderTabIcon(key, tab === key, 18)}
+              <span>{label}</span>
+            </button>
+          ))}
+        </nav>
+
+        <div className="ht-sidebar-footer">
+          <button onClick={() => setShowProfile(true)} style={{ display: "flex", alignItems: "center", gap: "10px", background: "rgba(255, 255, 255, 0.02)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: "12px", padding: "10px 14px", cursor: "pointer", width: "100%", transition: "all 0.2s" }}>
             {profile?.avatar_url
-              ? <img src={profile.avatar_url} alt="avatar" style={{ width: "30px", height: "30px", borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-              : <div style={{ width: "30px", height: "30px", borderRadius: "50%", background: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "13px", color: "#fff", flexShrink: 0 }}>
+              ? <img src={profile.avatar_url} alt="avatar" style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover" }} />
+              : <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "12px", color: "#fff" }}>
                 {(profile?.username || session.user.email || "?")[0].toUpperCase()}
               </div>
             }
-            <span className="ht-header-username" style={{ color: "#9ca3af", fontSize: "13px", fontWeight: 600, maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <span style={{ color: "#d1d5db", fontSize: "13px", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, textAlign: "left" }}>
               {profile?.username || "Profile"}
             </span>
+            <span style={{ fontSize: "14px", color: "#6b7280" }}>⚙️</span>
           </button>
-        </div>
-      </header>
-
-      {isLifetime && userNumber && userNumber <= LIFETIME_USER_LIMIT && !lifetimeBannerDismissed && (
-        <div className="ht-founder-banner" style={{ background: "linear-gradient(90deg, #1d4ed820 0%, #10b98115 100%)", borderBottom: "1px solid #2563eb30", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
-            <span style={{ fontSize: "18px", flexShrink: 0 }}>🎉</span>
-            <span style={{ fontSize: "13px", color: "#93c5fd", fontWeight: 600, lineHeight: 1.5 }}>
-              You're <span style={{ color: "#60a5fa", fontWeight: 800 }}>#{userNumber}</span> of {LIFETIME_USER_LIMIT.toLocaleString()} founding members — Premium is yours <span style={{ color: "#10b981" }}>free, forever</span>.
-            </span>
+          <div className="ht-desktop-only" style={{ textAlign: "center", marginTop: "10px", fontSize: "10px", color: "#374151", letterSpacing: "0.02em", userSelect: "none" }}>
+            Made with ❤︎⁠ by JKey
           </div>
-          <button onClick={() => {
-            setLifetimeBannerDismissed(true);
-            if (session?.user?.id) localStorage.setItem(`ht_founder_dismissed_${session.user.id}`, "true");
-          }} style={{ background: "none", border: "none", color: "#4b5563", cursor: "pointer", fontSize: "18px", padding: "4px 8px", flexShrink: 0, lineHeight: 1 }}>✕</button>
         </div>
-      )}
+      </aside>
 
-      <div className="ht-tabs">
-        {[["tasks", "Tasks & Habits"], ["calendar", "Calendar"], ["analytics", "Analytics"], ["journal", "Journal"]].map(([key, label]) => (
-          <button key={key} onClick={() => setTab(key)} style={{ padding: "8px 22px", borderRadius: "8px", border: "1px solid", borderColor: tab === key ? "#2563eb" : "#1f2937", background: tab === key ? "#2563eb" : "#111827", color: tab === key ? "#fff" : "#6b7280", cursor: "pointer", fontWeight: 600, fontSize: "14px", transition: "all 0.15s", fontFamily: "inherit" }}>{label}</button>
-        ))}
-      </div>
+      {/* MAIN CONTENT AREA */}
+      <div className="ht-content-area">
+        {/* TOP HEADER */}
+        <header className="ht-header">
+          {/* Logo on Left for Mobile */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }} className="ht-mobile-only-flex">
+            <img src="/habitick-blue-logo.png" alt="HabiTick" style={{ width: "28px", height: "28px", borderRadius: "6px", objectFit: "contain" }} />
+            <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "16px", color: "#fff" }}>HabiTick</span>
+          </div>
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd}
-        autoScroll={{ threshold: { x: 0.1, y: 0.1 }, acceleration: 10 }}
-      >
+          {/* Dashboard Title on Left for Desktop */}
+          <div style={{ fontSize: "13px", color: "#4b5563", fontWeight: 600 }} className="ht-desktop-only">
+            {tab.charAt(0).toUpperCase() + tab.slice(1)} Dashboard
+          </div>
 
+          {/* Badges and Profile Button on Right */}
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111622", border: `1px solid ${isPaused ? "rgba(245,158,11,0.15)" : "rgba(59,130,246,0.15)"}`, borderRadius: "999px", padding: "4px 12px", fontSize: "11px", color: isPaused ? "#fcd34d" : "#60a5fa", fontWeight: 600 }}>
+              {isPaused ? (
+                <>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}><rect x="6" y="4" width="4" height="16" rx="1" /><rect x="14" y="4" width="4" height="16" rx="1" /></svg>
+                  <span>Streak frozen</span>
+                </>
+              ) : (
+                <>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "#f97316", flexShrink: 0 }}><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" /></svg>
+                  <span>{currentStreak} days</span>
+                </>
+              )}
+            </div>
+            <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111622", border: "1px solid rgba(59,130,246,0.15)", borderRadius: "999px", padding: "4px 12px", fontSize: "11px", color: "#60a5fa", fontWeight: 600 }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+              <span>{shields}/{MAX_SHIELDS}</span>
+            </div>
 
-        <main className={`ht-main${isLifetime && userNumber <= LIFETIME_USER_LIMIT && !lifetimeBannerDismissed ? " ht-main-with-banner" : ""}`}>
-          {loading ? (
-            <div style={{ textAlign: "center", padding: "60px", color: "#6b7280" }}>Loading your data...</div>
-          ) : tab === "tasks" ? (
-            <>
-              <section style={{ marginBottom: "36px" }}>
-                <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "22px", marginBottom: "16px", letterSpacing: "-0.02em", color: "#f9fafb" }}>Habits</h2>
-                {!isPremium && habits.length >= FREE_HABIT_LIMIT && (
-                  <div style={{ background: "#1d4ed820", border: "1px solid #2563eb40", borderRadius: "10px", padding: "14px 16px", marginBottom: "14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
-                    <div>
-                      <div style={{ color: "#60a5fa", fontWeight: 700, fontSize: "14px" }}>Habit limit reached ({FREE_HABIT_LIMIT}/{FREE_HABIT_LIMIT})</div>
-                      <div style={{ color: "#4b5563", fontSize: "12px", marginTop: "2px" }}>Upgrade to Premium for unlimited habits</div>
-                    </div>
-                    <button onClick={() => setShowUpgradeModal(true)} style={{ padding: "7px 14px", borderRadius: "8px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "13px", cursor: "pointer", whiteSpace: "nowrap" }}>Upgrade →</button>
+            {/* Profile Avatar Button on Mobile */}
+            <button
+              onClick={() => setShowProfile(true)}
+              className="ht-mobile-only"
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: "4px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center"
+              }}
+            >
+              {profile?.avatar_url ? (
+                <img
+                  src={profile.avatar_url}
+                  alt="avatar"
+                  style={{
+                    width: "28px",
+                    height: "28px",
+                    borderRadius: "50%",
+                    objectFit: "cover",
+                    border: "1.5px solid #2563eb",
+                    boxShadow: "0 0 10px rgba(37, 99, 235, 0.2)"
+                  }}
+                />
+              ) : (
+                <div style={{
+                  width: "28px",
+                  height: "28px",
+                  borderRadius: "50%",
+                  background: "#2563eb",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontFamily: "'Syne', sans-serif",
+                  fontWeight: 800,
+                  fontSize: "12px",
+                  color: "#fff",
+                  border: "1.5px solid #2563eb",
+                  boxShadow: "0 0 10px rgba(37, 99, 235, 0.2)"
+                }}>
+                  {(profile?.username || session.user.email || "?")[0].toUpperCase()}
+                </div>
+              )}
+            </button>
+          </div>
+        </header>
+
+        {/* FOUNDER BANNER */}
+        {isLifetime && userNumber && userNumber <= LIFETIME_USER_LIMIT && !lifetimeBannerDismissed && (
+          <div className="ht-founder-banner" style={{ background: "linear-gradient(90deg, #1d4ed820 0%, #10b98115 100%)", borderBottom: "1px solid #2563eb30", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
+              <span style={{ fontSize: "16px", flexShrink: 0 }}>🎉</span>
+              <span style={{ fontSize: "12px", color: "#93c5fd", fontWeight: 600, lineHeight: 1.5 }}>
+                You're <span style={{ color: "#60a5fa", fontWeight: 800 }}>#{userNumber}</span> of {LIFETIME_USER_LIMIT.toLocaleString()} founding members — Premium is yours <span style={{ color: "#10b981" }}>free, forever</span>.
+              </span>
+            </div>
+            <button onClick={() => {
+              setLifetimeBannerDismissed(true);
+              if (session?.user?.id) localStorage.setItem(`ht_founder_dismissed_${session.user.id}`, "true");
+            }} style={{ background: "none", border: "none", color: "#4b5563", cursor: "pointer", fontSize: "16px", padding: "4px 8px", flexShrink: 0, lineHeight: 1 }}>✕</button>
+          </div>
+        )}
+
+        {/* DnD Context Main Wrapper */}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+          autoScroll={{ threshold: { x: 0.1, y: 0.1 }, acceleration: 10 }}
+        >
+          <main className="ht-main">
+            {loading ? (
+              <div style={{ textAlign: "center", padding: "60px", color: "#6b7280" }}>Loading your data...</div>
+            ) : tab === "today" ? (
+              /* TODAY VIEW LAYOUT */
+              <>
+                {/* 1. WEEK CALENDAR STRIP */}
+                <div style={{ display: "flex", justifyContent: "space-between", background: "rgba(17, 22, 34, 0.6)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: "16px", padding: "10px", marginBottom: "20px" }}>
+                  {getWeekDays(today).map((day) => {
+                    const isSel = day.dateStr === selectedDate;
+                    const isTod = day.dateStr === today;
+                    return (
+                      <button
+                        key={day.dateStr}
+                        onClick={() => setSelectedDate(day.dateStr)}
+                        style={{
+                          flex: 1,
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          background: isSel ? "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)" : "transparent",
+                          border: "none",
+                          borderRadius: "12px",
+                          padding: "8px 2px",
+                          color: isSel ? "#fff" : (isTod ? "#3b82f6" : "#9ca3af"),
+                          cursor: "pointer",
+                          transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+                          boxShadow: isSel ? "0 4px 12px rgba(37,99,235,0.3)" : "none",
+                          margin: "0 2px"
+                        }}
+                      >
+                        <span style={{ fontSize: "9px", fontWeight: 700, textTransform: "uppercase", marginBottom: "4px", opacity: isSel ? 0.9 : 0.6 }}>
+                          {day.dayName}
+                        </span>
+                        <span style={{ fontSize: "14px", fontWeight: 800 }}>
+                          {day.dayNum}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Warning header when looking at past dates */}
+                {selectedDate !== today && (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(245, 158, 11, 0.08)", border: "1px solid rgba(245, 158, 11, 0.15)", borderRadius: "12px", padding: "10px 16px", marginBottom: "20px" }}>
+                    <span style={{ fontSize: "13px", color: "#fcd34d", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><line x1="12" x2="12" y1="9" y2="13" /><line x1="12" x2="12" y1="17" y2="17" /></svg>
+                      <span>Viewing status for {parseDateLocal(selectedDate).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}</span>
+                    </span>
+                    <button
+                      onClick={() => setSelectedDate(today)}
+                      style={{ background: "#f59e0b", border: "none", color: "#000", fontWeight: 700, fontSize: "11px", padding: "4px 10px", borderRadius: "6px", cursor: "pointer" }}
+                    >
+                      Back to Today
+                    </button>
                   </div>
                 )}
-                <div style={{ display: "flex", gap: "12px", marginBottom: "14px" }}>
-                  {(!isPremium && habits.length >= FREE_HABIT_LIMIT) ? null : (
-                    <button onClick={() => { setEditingHabit(null); setShowHabitModal(true); }} style={{ flex: 1, padding: "13px", borderRadius: "10px", border: "1px solid #1f2937", background: "#111827", color: "#60a5fa", cursor: "pointer", fontWeight: 700, fontSize: "14px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", transition: "border-color 0.2s, background 0.2s" }}>+ Add New Habit</button>
-                  )}
-                  <button onClick={() => { setEditingRoutine(null); setShowRoutineModal(true); }} style={{ flex: 1, padding: "13px", borderRadius: "10px", border: "1px solid #1f2937", background: "#111827", color: "#a78bfa", cursor: "pointer", fontWeight: 700, fontSize: "14px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", transition: "border-color 0.2s, background 0.2s" }}>+ New Routine</button>
-                </div>
-                <div style={{ display: "flex", gap: "10px", marginBottom: "16px", flexWrap: "wrap", alignItems: "center" }}>
-                  <button onClick={() => setShowTodayOnly(p => { localStorage.setItem("ht_showTodayOnly", String(!p)); return !p; })} style={{ padding: "7px 16px", borderRadius: "8px", border: "1px solid", borderColor: showTodayOnly ? "#2563eb" : "#374151", background: showTodayOnly ? "#1d4ed8" : "#111827", color: showTodayOnly ? "#fff" : "#9ca3af", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}>{showTodayOnly ? "Show All Habits" : "Show Today's Habits"}</button>
-                  <button onClick={togglePause} style={{ padding: "7px 16px", borderRadius: "8px", border: "1px solid", borderColor: isPaused ? "#f59e0b" : "#374151", background: isPaused ? "#78350f" : "#111827", color: isPaused ? "#fcd34d" : "#9ca3af", cursor: "pointer", fontWeight: 600, fontSize: "13px" }}>{isPaused ? "⏸ Holiday Mode ON — Resume" : "⏸ Pause / Holiday Mode"}</button>
-                </div>
-                {routines.length > 0 && (
-                  <SortableContext items={routines.map(r => r.id)} strategy={rectSortingStrategy}>
-                    <div className="ht-habit-grid" style={{ marginBottom: "14px", width: "100%" }}>
-                      {routines.map(routine => (
-                        <RoutineSortableItem
-                          key={routine.id}
-                          routine={routine}
-                          routineHabits={todayHabits.filter(h => h.routine_id === routine.id)}
-                          widthFactor={Math.min(Math.max(todayHabits.filter(h => h.routine_id === routine.id).length, 1), 3)}
-                          flexBasis={Math.min(Math.max(todayHabits.filter(h => h.routine_id === routine.id).length, 1), 3) === 3 ? "100%" : Math.min(Math.max(todayHabits.filter(h => h.routine_id === routine.id).length, 1), 3) === 2 ? "calc((100% - 14px) * 0.666)" : "calc((100% - 28px) * 0.333)"}
-                          today={today}
-                          onToggle={toggleHabit}
-                          onDelete={deleteHabit}
-                          onDeleteRoutine={deleteRoutine}
-                          onEjectFromRoutine={habitId => moveHabitToRoutine(habitId, null)}
-                          onEdit={thing => {
-                            if (thing.frequency !== undefined) { setEditingHabit(thing); setShowHabitModal(true); }
-                            else { setEditingRoutine(thing); setShowRoutineModal(true); }
-                          }}
-                          isPaused={isPaused}
-                          pausePeriods={pausePeriods}
-                          isPremium={isPremium}
-                          shieldedDates={shieldedDates || []}
-                          dragState={activeId}
-                          onDragStartHabit={() => {}}
-                          onDragEndHabit={() => {}}
-                          onDragEnterHabit={() => {}}
-                          onDropOnRoutine={() => {}}
-                        />
-                      ))}
-                    </div>
-                  </SortableContext>
-                )}
-                <div className="ht-habit-grid">
-                  {todayHabits.filter(h => !h.routine_id).length === 0 && routines.length === 0 && (
-                    <div style={{ color: "#4b5563", fontSize: "14px", padding: "20px 0" }}>No habits yet. Add your first one!</div>
-                  )}
-                  <SortableContext items={todayHabits.filter(h => !h.routine_id).map(h => h.id)} strategy={verticalListSortingStrategy}>
-                    {todayHabits.filter(h => !h.routine_id).map(h => (
-                      <HabitSortableItem
-                        key={h.id}
-                        habit={h}
-                        today={today}
-                        onToggle={toggleHabit}
-                        onDelete={deleteHabit}
-                        isPaused={isPaused}
-                        pausePeriods={pausePeriods}
-                        isPremium={isPremium}
-                        shieldedDates={shieldedDates || []}
-                        onEdit={habit => { setEditingHabit(habit); setShowHabitModal(true); }}
+
+                {/* 2. DAILY PROGRESS CARD — full-width top card matching mockup */}
+                <div style={{
+                  background: "linear-gradient(135deg, rgba(22, 31, 48, 0.4) 0%, rgba(13, 17, 23, 0.5) 100%)",
+                  border: "1px solid rgba(255, 255, 255, 0.05)",
+                  borderRadius: "20px",
+                  padding: "20px 24px",
+                  marginBottom: "24px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "24px"
+                }}>
+                  {/* Circular Progress Ring on Left */}
+                  <div style={{ position: "relative", width: "70px", height: "70px", flexShrink: 0 }}>
+                    <svg height="70" width="70" style={{ transform: "rotate(-90deg)" }}>
+                      <defs>
+                        <linearGradient id="progressGradientToday" x1="0%" y1="0%" x2="100%" y2="0%">
+                          <stop offset="0%" stopColor="#60a5fa" />
+                          <stop offset="100%" stopColor="#3b82f6" />
+                        </linearGradient>
+                      </defs>
+                      <circle
+                        stroke="rgba(255,255,255,0.04)"
+                        fill="transparent"
+                        strokeWidth="5"
+                        r="30"
+                        cx="35"
+                        cy="35"
                       />
-                    ))}
-                  </SortableContext>
+                      <circle
+                        stroke="url(#progressGradientToday)"
+                        fill="transparent"
+                        strokeWidth="5"
+                        strokeDasharray={`${2 * Math.PI * 30}`}
+                        strokeDashoffset={`${2 * Math.PI * 30 - (percent / 100) * (2 * Math.PI * 30)}`}
+                        style={{
+                          transition: 'stroke-dashoffset 0.7s cubic-bezier(0.4, 0, 0.2, 1)'
+                        }}
+                        r="30"
+                        cx="35"
+                        cy="35"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span style={{ fontSize: "14px", fontWeight: 800, fontFamily: "'Syne', sans-serif" }}>{percent}%</span>
+                    </div>
+                  </div>
+
+                  {/* Stats on Right */}
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "6px" }}>
+                    <div style={{ fontSize: "10px", fontWeight: 700, color: "#4b5563", textTransform: "uppercase", letterSpacing: "0.1em" }}>Daily Progress</div>
+
+                    <div style={{ display: "flex", gap: "24px", alignItems: "center" }}>
+                      <div>
+                        <div style={{ fontSize: "10px", color: "#6b7280", fontWeight: 600 }}>Completed</div>
+                        <div style={{ fontSize: "15px", fontWeight: 800, color: "#fff", marginTop: "2px" }}>
+                          {doneOnSelectedDate} <span style={{ fontSize: "11px", color: "#4b5563", fontWeight: 500 }}>/ {totalOnSelectedDate}</span>
+                        </div>
+                      </div>
+                      <div style={{ width: "1px", background: "rgba(255,255,255,0.06)", alignSelf: "stretch", height: "24px" }} />
+                      <div>
+                        <div style={{ fontSize: "10px", color: "#6b7280", fontWeight: 600 }}>Streak</div>
+                        <div style={{ fontSize: "15px", fontWeight: 800, color: "#3b82f6", marginTop: "2px" }}>
+                          {currentStreak} days
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dashboard Grid */}
+                <div className="ht-dashboard-grid">
+                  {/* Left Column: Habits */}
+                  <div className="ht-dashboard-main">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                      <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "20px", margin: 0, color: "#fff" }}>Habits</h2>
+                      <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                        <button
+                          onClick={() => { setEditingHabit(null); setShowHabitModal(true); }}
+                          style={{ background: "none", border: "none", color: "#3b82f6", cursor: "pointer", fontWeight: 700, fontSize: "14px", padding: "4px 8px", whiteSpace: "nowrap", flexShrink: 0 }}
+                          disabled={!isPremium && habits.length >= FREE_HABIT_LIMIT}
+                        >
+                          + Add Habit
+                        </button>
+                      </div>
+                    </div>
+
+                    {!isPremium && habits.length >= FREE_HABIT_LIMIT && (
+                      <div style={{ background: "rgba(37, 99, 235, 0.08)", border: "1px solid rgba(37, 99, 235, 0.15)", borderRadius: "12px", padding: "12px 16px", marginBottom: "16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
+                        <div>
+                          <div style={{ color: "#60a5fa", fontWeight: 700, fontSize: "13px" }}>Habit limit reached ({FREE_HABIT_LIMIT}/{FREE_HABIT_LIMIT})</div>
+                          <div style={{ color: "#6b7280", fontSize: "11px", marginTop: "2px" }}>Upgrade to Premium for unlimited habits</div>
+                        </div>
+                        <button onClick={() => setShowUpgradeModal(true)} style={{ padding: "6px 12px", borderRadius: "8px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "12px", cursor: "pointer" }}>Upgrade</button>
+                      </div>
+                    )}
+
+                    {/* Routines & Standalone lists */}
+                    {routines.length > 0 && (
+                      <SortableContext items={routines.map(r => r.id)} strategy={rectSortingStrategy}>
+                        <div style={{ width: "100%" }}>
+                          {routines.map(routine => (
+                            <RoutineSortableItem
+                              key={routine.id}
+                              routine={routine}
+                              routineHabits={todayHabits.filter(h => h.routine_id === routine.id)}
+                              widthFactor={1}
+                              flexBasis="100%"
+                              today={today}
+                              activeDate={selectedDate}
+                              onToggle={toggleHabit}
+                              onDelete={deleteHabit}
+                              onDeleteRoutine={deleteRoutine}
+                              onEjectFromRoutine={habitId => moveHabitToRoutine(habitId, null)}
+                              onEdit={thing => {
+                                if (thing.frequency !== undefined) { setEditingHabit(thing); setShowHabitModal(true); }
+                                else { setEditingRoutine(thing); setShowRoutineModal(true); }
+                              }}
+                              isPaused={isPaused}
+                              pausePeriods={pausePeriods}
+                              isPremium={isPremium}
+                              shieldedDates={shieldedDates || []}
+                              dragState={activeId}
+                              onDragStartHabit={() => { }}
+                              onDragEndHabit={() => { }}
+                              onDragEnterHabit={() => { }}
+                              onDropOnRoutine={() => { }}
+                            />
+                          ))}
+                        </div>
+                      </SortableContext>
+                    )}
+
+                    <div style={{ width: "100%", marginTop: "8px" }}>
+                      {todayHabits.filter(h => !h.routine_id).length === 0 && routines.length === 0 && (
+                        <div style={{ color: "#4b5563", fontSize: "14px", padding: "20px 0", textAlign: "center" }}>No habits yet. Add your first one!</div>
+                      )}
+                      <SortableContext items={todayHabits.filter(h => !h.routine_id).map(h => h.id)} strategy={verticalListSortingStrategy}>
+                        {todayHabits.filter(h => !h.routine_id).map(h => (
+                          <HabitSortableItem
+                            key={h.id}
+                            habit={h}
+                            today={today}
+                            activeDate={selectedDate}
+                            onToggle={toggleHabit}
+                            onDelete={deleteHabit}
+                            isPaused={isPaused}
+                            pausePeriods={pausePeriods}
+                            isPremium={isPremium}
+                            shieldedDates={shieldedDates || []}
+                            onEdit={habit => { setEditingHabit(habit); setShowHabitModal(true); }}
+                          />
+                        ))}
+                      </SortableContext>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Sidebar Stats & Circles */}
+                  <div className="ht-dashboard-sidebar">
+
+                    {/* Quick Settings & Mode Toggles */}
+                    <div style={{ background: "rgba(22, 31, 48, 0.3)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: "20px", padding: "18px", display: "flex", flexDirection: "column", gap: "10px" }}>
+                      <h3 style={{ margin: "0 0 4px", fontSize: "10px", fontWeight: 700, color: "#4b5563", textTransform: "uppercase", letterSpacing: "0.1em" }}>Quick Actions</h3>
+
+                      <button
+                        onClick={() => { setEditingRoutine(null); setShowRoutineModal(true); }}
+                        style={{ width: "100%", padding: "10px 14px", borderRadius: "12px", border: "1px solid rgba(167, 139, 250, 0.12)", background: "rgba(167, 139, 250, 0.05)", color: "#a78bfa", cursor: "pointer", fontWeight: 700, fontSize: "13px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
+                      >
+                        ⚡ New Routine
+                      </button>
+
+                      <button
+                        onClick={() => setShowTodayOnly(p => { localStorage.setItem("ht_showTodayOnly", String(!p)); return !p; })}
+                        style={{ width: "100%", padding: "10px 14px", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.04)", background: showTodayOnly ? "rgba(37,99,235,0.08)" : "transparent", color: showTodayOnly ? "#60a5fa" : "#6b7280", cursor: "pointer", fontWeight: 600, fontSize: "12px", textAlign: "center" }}
+                      >
+                        {showTodayOnly ? "Scheduled Only" : "All Habits"}
+                      </button>
+
+                      <button
+                        onClick={togglePause}
+                        style={{ width: "100%", padding: "10px 14px", borderRadius: "12px", border: `1px solid ${isPaused ? "rgba(245, 158, 11, 0.15)" : "rgba(255,255,255,0.04)"}`, background: isPaused ? "rgba(245, 158, 11, 0.05)" : "transparent", color: isPaused ? "#fcd34d" : "#6b7280", cursor: "pointer", fontWeight: 600, fontSize: "12px", textAlign: "center" }}
+                      >
+                        {isPaused ? "⏸ Holiday Mode ON" : "⏸ Pause / Holiday Mode"}
+                      </button>
+                    </div>
+
+                    {/* TODAY'S TASKS — relocated to sidebar on desktop / stack on mobile */}
+                    {(() => {
+                      const todayTasks = visibleTodos.filter(t =>
+                        !t.done && (t.due_date === today || (!t.due_date && !t.done) || (t.due_date && t.due_date <= today))
+                      ).slice(0, 5);
+                      const overdueCount = todos.filter(t => !t.done && t.due_date && t.due_date < today).length;
+                      return (
+                        <div style={{ marginTop: "24px" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                            <h3 style={{ margin: 0, fontSize: "10px", fontWeight: 700, color: "#4b5563", textTransform: "uppercase", letterSpacing: "0.1em", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                              <span>Today's Tasks</span>
+                              {overdueCount > 0 && (
+                                <span style={{ fontSize: "9px", background: "rgba(239, 68, 68, 0.1)", color: "#f87171", border: "1px solid rgba(239, 68, 68, 0.2)", borderRadius: "999px", padding: "1px 6px", fontWeight: 700, textTransform: "none", letterSpacing: "normal" }}>
+                                  {overdueCount} overdue
+                                </span>
+                              )}
+                            </h3>
+                            <button
+                              onClick={() => setShowTodoModal(true)}
+                              style={{ background: "none", border: "none", color: "#3b82f6", cursor: "pointer", fontWeight: 700, fontSize: "11px", padding: "2px 6px", textTransform: "uppercase", letterSpacing: "0.05em" }}
+                            >
+                              Add task +
+                            </button>
+                          </div>
+                          {todayTasks.length === 0 ? (
+                            <div style={{ color: "#4b5563", fontSize: "12px", padding: "12px 0", fontStyle: "italic" }}>No pending tasks — all caught up! 🎉</div>
+                          ) : (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                              {todayTasks.map(t => (
+                                <TodoItem
+                                  key={t.id}
+                                  todo={t}
+                                  onToggle={toggleTodo}
+                                  onDelete={deleteTodo}
+                                  onEdit={todo => { setEditingTodo(todo); setShowTodoModal(true); }}
+                                />
+                              ))}
+                              {todos.filter(t => !t.done).length > 5 && (
+                                <button
+                                  onClick={() => setTab("tasks")}
+                                  style={{ background: "none", border: "1px solid rgba(255,255,255,0.05)", borderRadius: "10px", color: "#6b7280", cursor: "pointer", fontWeight: 600, fontSize: "11px", padding: "8px", textAlign: "center", marginTop: "4px" }}
+                                >
+                                  View all {todos.filter(t => !t.done).length} tasks →
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </>
+            ) : tab === "tasks" ? (
+              /* DEDICATED TASKS (TO-DO LIST) TAB */
+              <section style={{ animation: "fadeUp 0.3s ease-out" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                  <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "24px", margin: 0, color: "#fff", letterSpacing: "-0.02em" }}>To-Do List</h2>
+                  <button
+                    onClick={() => setShowTodoModal(true)}
+                    style={{ padding: "8px 16px", borderRadius: "10px", border: "none", background: "#2563eb", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: "13px", boxShadow: "0 4px 12px rgba(37,99,235,0.25)" }}
+                  >
+                    + Add Task
+                  </button>
+                </div>
+
+                <div style={{ display: "flex", gap: "10px", marginBottom: "16px" }}>
+                  <button onClick={() => setShowCompleted(p => !p)} style={{ padding: "7px 14px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.05)", background: showCompleted ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.02)", color: "#9ca3af", cursor: "pointer", fontWeight: 600, fontSize: "12px" }}>
+                    {showCompleted ? "Hide Completed Tasks" : "Show Completed Tasks"}
+                  </button>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  {visibleTodos.length === 0 && (
+                    <div style={{ color: "#4b5563", fontSize: "14px", padding: "30px 0", textAlign: "center" }}>No active tasks. Good job!</div>
+                  )}
+                  {visibleTodos.map(t => (
+                    <TodoItem
+                      key={t.id}
+                      todo={t}
+                      onToggle={toggleTodo}
+                      onDelete={deleteTodo}
+                      onEdit={todo => { setEditingTodo(todo); setShowTodoModal(true); }}
+                    />
+                  ))}
                 </div>
               </section>
-              <section>
-                <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "22px", marginBottom: "16px", letterSpacing: "-0.02em", color: "#f9fafb" }}>To-Do List</h2>
-                <button onClick={() => setShowTodoModal(true)} style={{ width: "100%", padding: "13px", borderRadius: "10px", border: "1px solid #1f2937", background: "#111827", color: "#60a5fa", cursor: "pointer", fontWeight: 700, fontSize: "14px", marginBottom: "14px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>+ Add New To-Do</button>
-                <button onClick={() => setShowCompleted(p => !p)} style={{ padding: "7px 16px", borderRadius: "8px", border: "1px solid #374151", background: "#111827", color: "#9ca3af", cursor: "pointer", fontWeight: 600, fontSize: "13px", marginBottom: "14px" }}>{showCompleted ? "Hide Completed" : "Show Completed"}</button>
-                {visibleTodos.length === 0 && <div style={{ color: "#4b5563", fontSize: "14px" }}>Nothing here yet!</div>}
-                {visibleTodos.map(t => <TodoItem key={t.id} todo={t} onToggle={toggleTodo} onDelete={deleteTodo} onEdit={todo => { setEditingTodo(todo); setShowTodoModal(true); }} />)}
-              </section>
-            </>
-          ) : tab === "calendar" ? (
-            <CalendarTab 
-              habits={habits} 
-              todos={todos} 
-              pausePeriods={pausePeriods} 
-              shieldedDates={shieldedDates || []} 
-              profile={profile} 
-              onToggleHabit={toggleHabit} 
-              onToggleTodo={toggleTodo} 
-              onDeleteTodo={deleteTodo}
-              onAddTodoForDate={(dateStr) => { setEditingTodo({ text: "", due_date: dateStr, isNewFromCalendar: true }); setShowTodoModal(true); }}
-              onAddTodoDirect={async (text, dateStr) => {
-                const activeTodos = todos.filter(t => !t.done);
-                if (!isPremium && activeTodos.length >= FREE_TODO_LIMIT) {
-                  setShowUpgradeModal("todos");
-                  return false;
-                }
-                const { data } = await supabase.from("todos").insert({ 
-                  user_id: session.user.id, 
-                  text, 
-                  priority: null, 
-                  done: false, 
-                  due_date: dateStr, 
-                  due_time: null 
-                }).select().single();
-                setTodos(prev => [...prev, { ...data, doneDate: null }]);
-                return true;
-              }}
-              journalEntries={journalEntries}
-              setJournalEntries={setJournalEntries}
-              session={session}
-              isPremium={isPremium}
-              today={today}
-              setShowUpgradeModal={setShowUpgradeModal}
-            />
-          ) : tab === "analytics" ? (
-            <AnalyticsTab habits={habits} todos={todos} pausePeriods={pausePeriods} isPremium={isPremium} journalEntries={journalEntries} profile={profile} />
-          ) : tab === "journal" ? (
-            <JournalTab journalEntries={journalEntries} setJournalEntries={setJournalEntries} session={session} today={today} isPremium={isPremium} />
-          ) : null}
-        </main>
+            ) : tab === "calendar" ? (
+              <CalendarTab
+                habits={habits}
+                todos={todos}
+                pausePeriods={pausePeriods}
+                shieldedDates={shieldedDates || []}
+                profile={profile}
+                onToggleHabit={toggleHabit}
+                onToggleTodo={toggleTodo}
+                onDeleteTodo={deleteTodo}
+                onAddTodoForDate={(dateStr) => { setEditingTodo({ text: "", due_date: dateStr, isNewFromCalendar: true }); setShowTodoModal(true); }}
+                onAddTodoDirect={async (text, dateStr) => {
+                  const activeTodos = todos.filter(t => !t.done);
+                  if (!isPremium && activeTodos.length >= FREE_TODO_LIMIT) {
+                    setShowUpgradeModal("todos");
+                    return false;
+                  }
+                  const { data } = await supabase.from("todos").insert({
+                    user_id: session.user.id,
+                    text,
+                    priority: null,
+                    done: false,
+                    due_date: dateStr,
+                    due_time: null
+                  }).select().single();
+                  setTodos(prev => [...prev, { ...data, doneDate: null }]);
+                  return true;
+                }}
+                journalEntries={journalEntries}
+                setJournalEntries={setJournalEntries}
+                session={session}
+                isPremium={isPremium}
+                today={today}
+                setShowUpgradeModal={setShowUpgradeModal}
+              />
+            ) : tab === "analytics" ? (
+              <AnalyticsTab 
+                habits={habits} 
+                todos={todos} 
+                pausePeriods={pausePeriods} 
+                isPremium={isPremium} 
+                journalEntries={journalEntries} 
+                profile={profile} 
+                setProfile={setProfile}
+                onRecommendHabit={(habitName) => { setEditingHabit({ name: habitName }); setShowHabitModal(true); }}
+              />
+            ) : tab === "journal" ? (
+              <JournalTab journalEntries={journalEntries} setJournalEntries={setJournalEntries} session={session} today={today} isPremium={isPremium} />
+            ) : null}
+          </main>
 
-        <DragOverlay dropAnimation={{
-          sideEffects: defaultDropAnimationSideEffects({
-            styles: {
-              active: {
-                opacity: '0.4',
+          {/* DND Overlay */}
+          <DragOverlay dropAnimation={{
+            sideEffects: defaultDropAnimationSideEffects({
+              styles: {
+                active: {
+                  opacity: '0.4',
+                },
               },
-            },
-          }),
-        }}>
-          {activeId ? (
-            <div style={{ 
-              width: "320px", 
-              transform: "rotate(2deg)", 
-              filter: "drop-shadow(0 20px 40px rgba(0,0,0,0.4))", 
-              pointerEvents: "none", 
-              zIndex: 9999,
-            }}>
-              {draggedHabit ? (
-                <HabitCard 
-                  habit={draggedHabit} 
-                  today={today} 
-                  onToggle={() => {}} 
-                  onDelete={() => {}} 
-                  onEdit={() => {}} 
-                  isPaused={isPaused} 
-                  pausePeriods={pausePeriods} 
-                  isPremium={isPremium} 
-                  shieldedDates={shieldedDates || []}
-                />
-              ) : routines.find(r => String(r.id) === activeId) ? (
-                <RoutineCard
-                  routine={routines.find(r => String(r.id) === activeId)}
-                  habits={habits.filter(h => String(h.routine_id) === activeId)}
-                  today={today}
-                  onToggle={() => {}}
-                  onDelete={() => {}}
-                  onDeleteRoutine={() => {}}
-                  onEdit={() => {}}
-                  onEjectFromRoutine={() => {}}
-                  isPaused={isPaused}
-                  pausePeriods={pausePeriods}
-                  isPremium={isPremium}
-                  shieldedDates={shieldedDates || []}
-                  isDraggingOverlay={true}
-                />
-              ) : null}
-            </div>
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+            }),
+          }}>
+            {activeId ? (
+              <div style={{
+                width: "320px",
+                transform: "rotate(2deg)",
+                filter: "drop-shadow(0 20px 40px rgba(0,0,0,0.4))",
+                pointerEvents: "none",
+                zIndex: 9999,
+              }}>
+                {draggedHabit ? (
+                  <HabitCard
+                    habit={draggedHabit}
+                    today={today}
+                    activeDate={selectedDate}
+                    onToggle={() => { }}
+                    onDelete={() => { }}
+                    onEdit={() => { }}
+                    isPaused={isPaused}
+                    pausePeriods={pausePeriods}
+                    isPremium={isPremium}
+                    shieldedDates={shieldedDates || []}
+                  />
+                ) : routines.find(r => String(r.id) === activeId) ? (
+                  <RoutineCard
+                    routine={routines.find(r => String(r.id) === activeId)}
+                    habits={habits.filter(h => String(h.routine_id) === activeId)}
+                    today={today}
+                    activeDate={selectedDate}
+                    onToggle={() => { }}
+                    onDelete={() => { }}
+                    onDeleteRoutine={() => { }}
+                    onEdit={() => { }}
+                    onEjectFromRoutine={() => { }}
+                    isPaused={isPaused}
+                    pausePeriods={pausePeriods}
+                    isPremium={isPremium}
+                    shieldedDates={shieldedDates || []}
+                    isDraggingOverlay={true}
+                  />
+                ) : null}
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      </div>
 
-      {showHabitModal && <HabitModal habit={editingHabit} onSave={saveHabit} onClose={() => { setShowHabitModal(false); setEditingHabit(null); }} />}
-      {showTodoModal && <TodoModal todo={editingTodo} onSave={editingTodo && editingTodo.id ? saveTodo : addTodo} onClose={() => { setShowTodoModal(false); setEditingTodo(null); }} />}
-      {showRoutineModal && <RoutineModal routine={editingRoutine} habitsList={habits} onSave={saveRoutine} onEject={habitId => moveHabitToRoutine(habitId, null)} onClose={() => { setShowRoutineModal(false); setEditingRoutine(null); }} />}
-      {showProfile && <ProfileModal session={session} profile={profile} onUpdate={setProfile} onClose={() => setShowProfile(false)} />}
-      {showUpgradeModal && <UpgradeModal onUpgrade={handleUpgrade} onClose={() => setShowUpgradeModal(false)} reason={showUpgradeModal} />}
-
-      <nav className="ht-bottom-nav">
-        {[["tasks", "🏠", "Habits"], ["calendar", "📅", "Calendar"], ["analytics", "📊", "Stats"], ["journal", "📓", "Journal"], ["profile", "👤", "Profile"]].map(([key, icon, label]) => (
-          <button key={key} onClick={() => key === "profile" ? setShowProfile(true) : setTab(key)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", padding: "6px 12px", borderRadius: "10px", color: tab === key ? "#3b82f6" : "#4b5563", transition: "color 0.15s" }}>
-            <span style={{ fontSize: "20px" }}>{icon}</span>
-            <span style={{ fontSize: "10px", fontWeight: 700, color: tab === key ? "#3b82f6" : "#4b5563" }}>{label}</span>
+      {/* MOBILE BOTTOM NAVIGATION — position:fixed so it's always at the viewport bottom */}
+      <nav
+        className="ht-bottom-nav"
+        style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 9999 }}
+      >
+        {[
+          ["today", "Today"],
+          ["calendar", "Calendar"],
+          ["tasks", "Tasks"],
+          ["journal", "Journal"],
+          ["analytics", "Stats"]
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`ht-bottom-nav-btn ${tab === key ? "active" : ""}`}
+            style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", border: "none", background: "none", outline: "none" }}
+          >
+            {renderTabIcon(key, tab === key, 20)}
+            <span style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.01em", marginTop: "4px" }}>{label}</span>
           </button>
         ))}
       </nav>
 
-      <style>{`@media (max-width: 640px) { .ht-mobile-streak { display: flex !important; } }`}</style>
-      <div className="ht-mobile-streak" style={{ display: "none", position: "fixed", top: isLifetime && userNumber && userNumber <= 100 && !lifetimeBannerDismissed ? "120px" : "60px", left: "50%", transform: "translateX(-50%)", width: "auto", background: "#111827dd", backdropFilter: "blur(8px)", border: "1px solid #1f2937", borderRadius: "999px", padding: "8px 16px", gap: "10px", zIndex: 105, justifyContent: "center", boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}>
-        {!isPaused && <div style={{ display: "flex", gap: "6px", alignItems: "center", color: "#22c55e", fontWeight: 700, fontSize: "11px" }}>✓ {doneToday}/{totalToday}</div>}
-        <div style={{ width: "1px", height: "14px", background: "#1f2937" }} />
-        <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-          <div style={{ display: "flex", gap: "5px", alignItems: "center", color: isPaused ? "#fcd34d" : "#60a5fa", fontWeight: 700, fontSize: "11px" }}>
-            {isPaused ? "⏸ Frozen" : `🔥 ${currentStreak}d`}
-          </div>
-          <div style={{ display: "flex", gap: "5px", alignItems: "center", color: isPaused ? "#fcd34d" : "#60a5fa", fontWeight: 700, fontSize: "11px" }}>
-             🛡️ {shields}
-          </div>
-        </div>
-      </div>
+      {/* MODALS */}
+      {showHabitModal && <HabitModal habit={editingHabit} onSave={saveHabit} onClose={() => { setShowHabitModal(false); setEditingHabit(null); }} />}
+      {showTodoModal && <TodoModal todo={editingTodo} onSave={editingTodo && editingTodo.id ? saveTodo : addTodo} onClose={() => { setShowTodoModal(false); setEditingTodo(null); }} />}
+      {showRoutineModal && (
+        <RoutineModal
+          routine={editingRoutine}
+          habitsList={habits}
+          onSave={saveRoutine}
+          onDelete={routineId => { deleteRoutine(routineId); setShowRoutineModal(false); setEditingRoutine(null); }}
+          onEject={habitId => moveHabitToRoutine(habitId, null)}
+          onClose={() => { setShowRoutineModal(false); setEditingRoutine(null); }}
+        />
+      )}
+      {showProfile && <ProfileModal session={session} profile={profile} onUpdate={setProfile} onClose={() => setShowProfile(false)} />}
+      {showUpgradeModal && <UpgradeModal onUpgrade={handleUpgrade} onClose={() => setShowUpgradeModal(false)} reason={showUpgradeModal} />}
     </div>
   );
 }

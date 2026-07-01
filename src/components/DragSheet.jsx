@@ -17,7 +17,7 @@ export function DragSheet({ onClose, children }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#06080cd0", backdropFilter: "blur(4px)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
+    <div style={{ position: "fixed", inset: 0, background: "#06080cd0", backdropFilter: "blur(4px)", zIndex: 20000, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
       onClick={e => e.target === e.currentTarget && onClose()}>
       <div
         onTouchStart={onTouchStart}

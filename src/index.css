@@ -24,10 +24,7 @@ a:hover {
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+  background-color: #080b11;
 }
 
 h1 {
@@ -64,5 +61,31 @@ button:focus-visible {
   }
   button {
     background-color: #f9f9f9;
+  }
+}
+
+/* Custom Checkbox Micro-animations */
+.ht-habit-checkbox {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.ht-habit-checkbox:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+}
+.ht-habit-checkbox:active {
+  transform: scale(0.92);
+}
+
+/* Responsive Analytics Grid */
+.ht-analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+@media (min-width: 640px) {
+  .ht-analytics-grid {
+    grid-template-columns: repeat(4, 1fr);
   }
 }

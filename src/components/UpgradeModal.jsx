@@ -9,7 +9,7 @@ export function UpgradeModal({ onClose, onUpgrade, reason }) {
   const r = reasons[reason] || reasons.habits;
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#000c", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
+    <div style={{ position: "fixed", inset: 0, background: "#000c", zIndex: 20000, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
       <div style={{ background: "#111827", border: "1px solid #374151", borderRadius: "20px", padding: "32px", width: "100%", maxWidth: "380px", textAlign: "center" }}>
         <div style={{ fontSize: "40px", marginBottom: "16px" }}>{r.icon}</div>
         <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "20px", color: "#f9fafb", marginBottom: "10px", letterSpacing: "-0.02em" }}>{r.title}</h2>

@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { S, ROUTINE_EMOJIS } from '../utils/constants.js';
 
-export function RoutineModal({ routine, habitsList, onSave, onClose, onEject }) {
+export function RoutineModal({ routine, habitsList, onSave, onDelete, onClose, onEject }) {
   const [name, setName] = useState(routine?.name || "");
   const [emoji, setEmoji] = useState(routine?.emoji || "📋");
   const routineHabits = habitsList?.filter(h => h.routine_id === routine?.id) || [];
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#000a", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}>
+    <div style={{ position: "fixed", inset: 0, background: "#000a", zIndex: 20000, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}>
       <div style={{ background: "#111827", border: "1px solid #374151", borderRadius: "16px", padding: "28px", width: "100%", maxWidth: "380px", maxHeight: "90vh", overflowY: "auto" }}>
         <h2 style={{ margin: "0 0 20px", color: "#f9fafb", fontSize: "18px", fontFamily: "'Syne', sans-serif", fontWeight: 800 }}>{routine ? "Edit Routine" : "New Routine"}</h2>
         <label style={S.label}>Routine name</label>
@@ -34,9 +34,35 @@ export function RoutineModal({ routine, habitsList, onSave, onClose, onEject }) 
             </div>
           </>
         )}
-        <div style={{ display: "flex", gap: "10px" }}>
-          <button onClick={onClose} style={S.btnSecondary}>Cancel</button>
-          <button onClick={() => { if (name.trim()) onSave({ name: name.trim(), emoji }); }} style={S.btnPrimary}>{routine ? "Save" : "Create Routine"}</button>
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button onClick={onClose} style={{ ...S.btnSecondary, flex: 1 }}>Cancel</button>
+            <button onClick={() => { if (name.trim()) onSave({ name: name.trim(), emoji }); }} style={{ ...S.btnPrimary, flex: 1 }}>{routine ? "Save" : "Create Routine"}</button>
+          </div>
+          {routine && onDelete && (
+            <button 
+              onClick={() => {
+                if (confirm("Are you sure you want to delete this routine? (The habits inside it will not be deleted, they will just be removed from this routine)")) {
+                  onDelete(routine.id);
+                }
+              }} 
+              style={{ 
+                width: "100%", 
+                padding: "12px", 
+                borderRadius: "8px", 
+                border: "1px solid #7f1d1d", 
+                background: "#7f1d1d15", 
+                color: "#f87171", 
+                fontWeight: 700, 
+                fontSize: "14px", 
+                cursor: "pointer", 
+                fontFamily: "inherit",
+                transition: "all 0.15s" 
+              }}
+            >
+              Delete Routine
+            </button>
+          )}
         </div>
       </div>
     </div>

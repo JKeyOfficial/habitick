@@ -130,3 +130,44 @@ export function calcStats(habits, pausePeriods, isPremium, profile = null) {
 
   return { currentStreak, bestStreak, shields: activeShields, cumulativeCompletedDays, shieldedDates };
 }
+
+export function calcHabitStreak(habit, todayStr, pausePeriods = []) {
+  if (!habit.completedDates || habit.completedDates.length === 0) return 0;
+  
+  const completed = habit.completedDates.map(d => d.substring(0, 10));
+  const baseDate = parseDateLocal(todayStr);
+  let streak = 0;
+  let checkDate = new Date(baseDate);
+  
+  while (true) {
+    const ds = getDateStr(checkDate);
+    const dow = checkDate.getDay();
+    const isScheduled = habit.frequency === "daily" || (habit.days && habit.days.includes(dow));
+    const isPaused = isDatePaused(pausePeriods, ds);
+    
+    if (isPaused) {
+      checkDate.setDate(checkDate.getDate() - 1);
+      continue;
+    }
+    
+    if (!isScheduled) {
+      checkDate.setDate(checkDate.getDate() - 1);
+      continue;
+    }
+    
+    if (completed.includes(ds)) {
+      streak++;
+    } else {
+      if (ds === todayStr) {
+        checkDate.setDate(checkDate.getDate() - 1);
+        continue;
+      }
+      break;
+    }
+    
+    checkDate.setDate(checkDate.getDate() - 1);
+  }
+  
+  return streak;
+}
+
