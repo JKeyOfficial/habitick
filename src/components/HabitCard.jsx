@@ -120,43 +120,65 @@ export function HabitCard({
         </div>
 
         {/* Interactive circular checkbox */}
-        <div 
-          onClick={(e) => {
-            e.stopPropagation();
-            if (isScheduledOnActiveDate && !isPaused && !isFuture && activeDate === today) {
-              onToggle(habit.id, activeDate);
-            }
-          }}
-          className="ht-habit-checkbox"
-          style={{
-            width: "22px",
-            height: "22px",
-            borderRadius: "50%",
-            border: doneOnActiveDate 
-              ? "2px solid #3b82f6" 
-              : (isScheduledOnActiveDate && !isFuture && activeDate === today 
+        {(() => {
+          const isShieldedDate = (shieldedDates || []).includes(activeDate);
+          const showShieldIcon = !doneOnActiveDate && isScheduledOnActiveDate && isShieldedDate;
+          
+          return (
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                if (isScheduledOnActiveDate && !isPaused && !isFuture && activeDate === today) {
+                  onToggle(habit.id, activeDate);
+                }
+              }}
+              className="ht-habit-checkbox"
+              style={{
+                width: "22px",
+                height: "22px",
+                borderRadius: "50%",
+                border: doneOnActiveDate 
                   ? "2px solid #3b82f6" 
-                  : "2px solid rgba(255, 255, 255, 0.25)"
-                ),
-            background: doneOnActiveDate 
-              ? "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)" 
-              : "transparent",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-            cursor: (isScheduledOnActiveDate && !isPaused && !isFuture && activeDate === today) ? "pointer" : "default",
-            transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-            boxShadow: doneOnActiveDate ? "0 0 8px rgba(59, 130, 246, 0.4)" : "none",
-            opacity: (isScheduledOnActiveDate && !isPaused && !isFuture && activeDate === today) || doneOnActiveDate ? 1 : 0.5
-          }}
-        >
-          {doneOnActiveDate && (
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          )}
-        </div>
+                  : (showShieldIcon
+                      ? "2px solid rgba(96, 165, 250, 0.6)"
+                      : (isScheduledOnActiveDate && !isFuture && activeDate === today 
+                          ? "2px solid #3b82f6" 
+                          : "2px solid rgba(255, 255, 255, 0.25)"
+                        )
+                    ),
+                background: doneOnActiveDate 
+                  ? "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)" 
+                  : (showShieldIcon
+                      ? "rgba(59, 130, 246, 0.08)"
+                      : "transparent"
+                    ),
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                cursor: (isScheduledOnActiveDate && !isPaused && !isFuture && activeDate === today) ? "pointer" : "default",
+                transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+                boxShadow: doneOnActiveDate 
+                  ? "0 0 8px rgba(59, 130, 246, 0.4)" 
+                  : (showShieldIcon
+                      ? "0 0 6px rgba(59, 130, 246, 0.2)"
+                      : "none"
+                    ),
+                opacity: (isScheduledOnActiveDate && !isPaused && !isFuture && activeDate === today) || doneOnActiveDate || showShieldIcon ? 1 : 0.5
+              }}
+            >
+              {doneOnActiveDate ? (
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              ) : showShieldIcon ? (
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+              ) : null}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Expanded Actions & Calendar */}

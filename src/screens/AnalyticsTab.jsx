@@ -145,7 +145,7 @@ function getTypicalTimeStr(completionTimes, completions) {
   return ` (usually in the ${period} around ${displayHrs}:${displayMins} ${ampm})`;
 }
 
-function AICoach({ habits, todos, journalEntries, rangeDays, todayStr, isPremium, profile, setProfile, onRecommendHabit }) {
+function AICoach({ habits, todos, goals = [], journalEntries, rangeDays, todayStr, isPremium, profile, setProfile, onRecommendHabit }) {
   const [loadingStep, setLoadingStep] = useState(0); 
   const [summary, setSummary] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
@@ -271,6 +271,10 @@ function AICoach({ habits, todos, journalEntries, rangeDays, todayStr, isPremium
     start.setDate(start.getDate() - rangeDays);
     const startStr = getDateStr(start);
 
+    // Goals data
+    const activeGoalsDetails = (goals || []).filter(g => !g.completed).map(g => `- ${g.title}${g.description ? ` (${g.description})` : ""}${g.target_date ? ` (Target: ${g.target_date})` : ""}`).join("\n");
+    const completedGoalsDetails = (goals || []).filter(g => g.completed).map(g => `- ${g.title} (Completed on ${g.completed_at ? g.completed_at.substring(0, 10) : "recently"})`).join("\n");
+
     // Habits data
     const habitDetails = habits.map(h => {
       const completions = (h.completedDates || []).filter(d => d >= startStr && d <= todayStr);
@@ -308,7 +312,7 @@ function AICoach({ habits, todos, journalEntries, rangeDays, todayStr, isPremium
       `- Rated ${f.rating === 'up' ? '👍 Helpful' : '👎 Unhelpful'} on a previous coaching summary.${f.reason ? ` Reason/correction from user: "${f.reason}"` : ""}`
     ).join("\n");
 
-    return `You are a wise, supportive, and observant personal coach. Analyze the user's last ${rangeDays} days using their habits, tasks, and journal entries.
+    return `You are a wise, supportive, and observant personal coach. Analyze the user's last ${rangeDays} days using their habits, tasks, journal entries, and long-term goals.
 
 Long-term AI Context Memory (use this to maintain consistency, understand relationships like friends or love interests, stressors, and inferred demographics):
 ${savedPersona}
@@ -328,9 +332,16 @@ Rules:
 - Never use placeholder names. Only use real names that appear in the user's journal entries or Context Memory.
 - Read between the lines. Be specific when the user shows strong interest or emotion toward someone.
 - Be caring and supportive, like a good friend who notices what matters to them.
+- Look at the user's Long-term Goals and connect them to their daily habits and tasks. If you notice a habit or task directly supporting a long-term goal (for example, a study habit supporting a goal to pass an exam like AZ-104, or a running habit supporting a goal to run a marathon), highlight this connection in your Patterns & Insights or Encouragement (e.g., "Keep up the streak of studying, it will help you pass that AZ-104 exam!").
 - Balance honesty with encouragement. No fluff.
 
 Data:
+Long-term Goals:
+Active Goals:
+${activeGoalsDetails || "No active goals logged."}
+Completed Goals:
+${completedGoalsDetails || "No completed goals logged."}
+
 Habits:
 ${habitDetails || "No habits logged."}
 
@@ -345,6 +356,11 @@ ${journalDetails || "No journal entries logged."}
 ---
 CRITICAL INSTRUCTION FOR STRUCTURED DATA EXTRACTION:
 At the very end of your response, output a structured JSON block enclosed in the custom tags. Update the Dynamic Persona Map and generate 3 custom recommendations/insights (2 of type 'habit_recommendation' or 'habit_pairing', and 1 of type 'consistency_pattern').
+
+CRITICAL RULES FOR RECOMMENDATIONS:
+1. SPECIFIC & ACTIONABLE TITLES ONLY: For type 'habit_recommendation' and 'habit_pairing', the 'title' MUST be a specific, discrete, trackable habit name (e.g., 'Play Guitar', 'Learn Japanese', '10-minute Walk', 'Journal thoughts') and NOT a vague, high-level goal, routine advice, or general process (do NOT output 'Boost Afternoon Habits', 'Improve Consistency', 'Optimize Routine', 'Spanish Study Flow', or anything containing the words 'sprint', 'flow', 'routine', 'consistency', 'boost', 'habits'). The titles must be ready to be added directly as a habit list entry.
+2. DO NOT recommend habits that the user is already tracking or variations of them (refer to the "Data: Habits" section above). For example, if they already track a habit named "Creatine" or "Spanish", do not recommend "Boost Creatine Consistency" or "Spanish Study Flow" or variations of them.
+3. HOLISTIC APPROACH: Based on the user's journals and lifestyle, recommend entirely new, complementary habits or habits that address gaps identified in their journals (e.g., stress relief, learning a different creative instrument or skill, mindfulness, physical exercise, reading/studying different topics).
 
 Use exactly this format:
 \`\`\`JSON_DATA_START
@@ -374,7 +390,7 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
   const triggerAnalysis = async () => {
     // Spam protection check
     const lastReportTime = profile?.ai_persona?.reports?.[rangeDays]?.timestamp;
-    if (lastReportTime) {
+    if (lastReportTime && !profile?.is_admin) {
       const isWithinCooldown = Date.now() - lastReportTime < cooldownMs;
       if (isWithinCooldown) {
         alert(`Limit reached. You can only generate one ${rangeDays === 7 ? "weekly" : "monthly"} AI summary every ${rangeDays === 7 ? "7" : "30"} days to prevent spam.`);
@@ -778,25 +794,27 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255, 255, 255, 0.05)", paddingTop: "14px", marginTop: "8px" }}>
             <span style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600 }}>
-              {hasCooldownActive ? `Cached (Refreshes in ${getCooldownRemainingStr()})` : "Ready to regenerate"}
+              {hasCooldownActive && !profile?.is_admin ? `Cached (Refreshes in ${getCooldownRemainingStr()})` : "Ready to regenerate"}
             </span>
-            <button
-              onClick={triggerAnalysis}
-              disabled={hasCooldownActive}
-              style={{
-                background: hasCooldownActive ? "none" : "rgba(167, 139, 250, 0.08)",
-                border: hasCooldownActive ? "1px solid rgba(255,255,255,0.05)" : "1px solid rgba(167, 139, 250, 0.2)",
-                borderRadius: "8px",
-                color: hasCooldownActive ? "#4b5563" : "#a78bfa",
-                fontSize: "11px",
-                fontWeight: 600,
-                padding: "6px 12px",
-                cursor: hasCooldownActive ? "default" : "pointer",
-                transition: "all 0.15s"
-              }}
-            >
-              Regenerate Review
-            </button>
+            {(!hasCooldownActive || profile?.is_admin) && (
+              <button
+                onClick={triggerAnalysis}
+                disabled={hasCooldownActive && !profile?.is_admin}
+                style={{
+                  background: (hasCooldownActive && !profile?.is_admin) ? "none" : "rgba(167, 139, 250, 0.08)",
+                  border: (hasCooldownActive && !profile?.is_admin) ? "1px solid rgba(255,255,255,0.05)" : "1px solid rgba(167, 139, 250, 0.2)",
+                  borderRadius: "8px",
+                  color: (hasCooldownActive && !profile?.is_admin) ? "#4b5563" : "#a78bfa",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  padding: "6px 12px",
+                  cursor: (hasCooldownActive && !profile?.is_admin) ? "default" : "pointer",
+                  transition: "all 0.15s"
+                }}
+              >
+                Regenerate Review
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -804,7 +822,7 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
   );
 }
 
-export function AnalyticsTab({ habits, todos, pausePeriods, isPremium, journalEntries, profile, setProfile, onRecommendHabit }) {
+export function AnalyticsTab({ habits, todos, goals = [], pausePeriods, isPremium, journalEntries, profile, setProfile, onRecommendHabit }) {
   const [range, setRange] = useState("7days");
   const today = new Date();
   const todayStr = getDateStr(today);
@@ -895,8 +913,8 @@ export function AnalyticsTab({ habits, todos, pausePeriods, isPremium, journalEn
         </svg>
       ), 
       label: "Shields", 
-      value: `${shields}/5`, 
-      sub: shields >= 5 ? "Max shields held!" : `Next in ${daysToNextShield} completed day${daysToNextShield !== 1 ? "s" : ""}` 
+      value: `${shields}/${isPremium ? 5 : 3}`, 
+      sub: shields >= (isPremium ? 5 : 3) ? "Max shields held!" : "Buy at the Profile XP Shop" 
     },
     { 
       icon: (
@@ -1008,11 +1026,11 @@ export function AnalyticsTab({ habits, todos, pausePeriods, isPremium, journalEn
         </div>
       </div>
 
-      {/* Render AI coach only for 7days and 30days as requested */}
       {rangeDays !== null && (rangeDays === 7 || rangeDays === 30) ? (
         <AICoach 
           habits={habits} 
           todos={todos} 
+          goals={goals}
           journalEntries={journalEntries} 
           rangeDays={rangeDays} 
           todayStr={todayStr} 

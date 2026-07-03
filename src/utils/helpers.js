@@ -51,14 +51,13 @@ export function calcStats(habits, pausePeriods, isPremium, profile = null) {
   const today = getDateStr(new Date());
   const initialShields = (profile && profile.initial_shields) ? Number(profile.initial_shields) : 0;
   const initialShieldsDate = profile && profile.initial_shields_granted_at ? (profile.initial_shields_granted_at || '').substring(0, 10) : null;
+  const purchasedShields = (profile && profile.purchased_shields) ? Number(profile.purchased_shields) : 0;
+  const maxShieldLimit = isPremium ? 5 : 3;
+
   if (habits.length === 0) {
-    const availableInitial = (initialShields > 0 && initialShieldsDate && initialShieldsDate <= today) ? Math.min(initialShields, MAX_SHIELDS) : 0;
+    const availableInitial = (initialShields > 0 && initialShieldsDate && initialShieldsDate <= today) ? Math.min(initialShields + purchasedShields, maxShieldLimit) : Math.min(purchasedShields, maxShieldLimit);
     return { currentStreak: 0, bestStreak: 0, shields: availableInitial, cumulativeCompletedDays: 0 };
   }
-
-  // Pro: 1 shield per 7 cumulative completed days
-  // Free: 1 shield per 14 cumulative completed days
-  const shieldThreshold = isPremium ? 7 : 14;
 
   const normalisedHabits = habits.map(h => ({
     ...h,
@@ -72,8 +71,9 @@ export function calcStats(habits, pausePeriods, isPremium, profile = null) {
 
   // ── Unified single pass: compute streaks, earn and consume shields chronologically ──
   let cumulativeCompletedDays = 0;
-  let shieldsEarnedThresholds = 0;
-  let activeShields = 0;
+  let activeShields = purchasedShields;
+  if (activeShields > maxShieldLimit) activeShields = maxShieldLimit;
+
   let currentStreak = 0;
   let bestStreak = 0;
   let shieldedDates = [];
@@ -86,9 +86,9 @@ export function calcStats(habits, pausePeriods, isPremium, profile = null) {
     const ds = getDateStr(fwd);
 
     if (!isDatePaused(pausePeriods, ds)) {
-      if (initialShields > 0 && initialShieldsDate && ds === initialShieldsDate && !initialShieldsApplied) {
+      if (initialShields > 0 && initialShieldsDate && ds >= initialShieldsDate && !initialShieldsApplied) {
         activeShields += initialShields;
-        if (activeShields > MAX_SHIELDS) activeShields = MAX_SHIELDS;
+        if (activeShields > maxShieldLimit) activeShields = maxShieldLimit;
         initialShieldsApplied = true;
       }
 
@@ -96,14 +96,6 @@ export function calcStats(habits, pausePeriods, isPremium, profile = null) {
 
       if (complete === true) {
         cumulativeCompletedDays++;
-        const newThresholds = Math.floor(cumulativeCompletedDays / shieldThreshold);
-        if (newThresholds > shieldsEarnedThresholds) {
-          const delta = newThresholds - shieldsEarnedThresholds;
-          activeShields += delta;
-          if (activeShields > MAX_SHIELDS) activeShields = MAX_SHIELDS;
-          shieldsEarnedThresholds = newThresholds;
-        }
-
         currentStreak++;
         if (currentStreak > bestStreak) bestStreak = currentStreak;
       } else if (complete === null) {
@@ -131,30 +123,109 @@ export function calcStats(habits, pausePeriods, isPremium, profile = null) {
   return { currentStreak, bestStreak, shields: activeShields, cumulativeCompletedDays, shieldedDates };
 }
 
+export function calcXp(habits, todos, journalEntries, goals = []) {
+  // 1. Completing a normal habit: +10 XP per completion
+  let habitXp = 0;
+  habits.forEach(h => {
+    if (h.completedDates) {
+      habitXp += h.completedDates.length * 10;
+    }
+  });
+
+  // 2. Completing a task: +5 XP
+  const taskXp = todos.filter(t => t.done).length * 5;
+
+  // 3. Writing a journal entry: +25 XP
+  const journalXp = Object.keys(journalEntries || {}).length * 25;
+
+  // 4. Perfect Day Bonus: +50 XP
+  // A perfect day is when all habits scheduled for that day are completed.
+  // We only look at days from the earliest habit creation date to today.
+  let perfectDayXp = 0;
+  if (habits.length > 0) {
+    const today = new Date();
+    const todayStr = getDateStr(today);
+
+    const normalisedHabits = habits.map(h => ({
+      ...h,
+      createdDate: (h.createdDate || h.created_date || todayStr).substring(0, 10),
+      completedDates: (h.completedDates || []).map(d => d.substring(0, 10)),
+    }));
+
+    const earliestHabitDate = normalisedHabits.reduce((earliest, h) => {
+      return h.createdDate < earliest ? h.createdDate : earliest;
+    }, todayStr);
+
+    const fwd = new Date(parseDateLocal(earliestHabitDate));
+    const fwdEnd = new Date(parseDateLocal(todayStr));
+
+    while (fwd <= fwdEnd) {
+      const ds = getDateStr(fwd);
+
+      // Check if there was at least one habit scheduled on this day,
+      // and if all scheduled habits were completed.
+      let hasScheduled = false;
+      let allCompleted = true;
+      const dow = fwd.getDay();
+
+      normalisedHabits.forEach(h => {
+        if (ds >= h.createdDate) {
+          const scheduled = h.frequency === "daily" || (h.days && h.days.includes(dow));
+          if (scheduled) {
+            hasScheduled = true;
+            if (!h.completedDates.includes(ds)) {
+              allCompleted = false;
+            }
+          }
+        }
+      });
+
+      if (hasScheduled && allCompleted) {
+        perfectDayXp += 50;
+      }
+
+      fwd.setDate(fwd.getDate() + 1);
+    }
+  }
+
+  // 5. Completing a goal: +100 XP
+  const goalsXp = (goals || []).filter(g => g.completed).length * 100;
+
+  const totalEarned = habitXp + taskXp + journalXp + perfectDayXp + goalsXp;
+  return {
+    totalEarned,
+    habitXp,
+    taskXp,
+    journalXp,
+    perfectDayXp,
+    goalsXp
+  };
+}
+
 export function calcHabitStreak(habit, todayStr, pausePeriods = []) {
   if (!habit.completedDates || habit.completedDates.length === 0) return 0;
-  
+
   const completed = habit.completedDates.map(d => d.substring(0, 10));
   const baseDate = parseDateLocal(todayStr);
   let streak = 0;
   let checkDate = new Date(baseDate);
-  
+
   while (true) {
     const ds = getDateStr(checkDate);
     const dow = checkDate.getDay();
     const isScheduled = habit.frequency === "daily" || (habit.days && habit.days.includes(dow));
     const isPaused = isDatePaused(pausePeriods, ds);
-    
+
     if (isPaused) {
       checkDate.setDate(checkDate.getDate() - 1);
       continue;
     }
-    
+
     if (!isScheduled) {
       checkDate.setDate(checkDate.getDate() - 1);
       continue;
     }
-    
+
     if (completed.includes(ds)) {
       streak++;
     } else {
@@ -164,10 +235,18 @@ export function calcHabitStreak(habit, todayStr, pausePeriods = []) {
       }
       break;
     }
-    
+
     checkDate.setDate(checkDate.getDate() - 1);
   }
-  
+
   return streak;
+}
+
+export function getLevel(totalEarned) {
+  return Math.floor(Math.sqrt(totalEarned / 25)) + 1;
+}
+
+export function getXpForLevelStart(level) {
+  return 25 * (level - 1) * (level - 1);
 }
 

@@ -8,8 +8,6 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  DragOverlay,
-  defaultDropAnimationSideEffects,
 } from '@dnd-kit/core';
 
 import {
@@ -25,7 +23,7 @@ import { CSS } from '@dnd-kit/utilities';
 
 // Config and Utils
 import { STRIPE_CHECKOUT_URL, FREE_HABIT_LIMIT, FREE_TODO_LIMIT, FREE_JOURNAL_DAYS, LIFETIME_USER_LIMIT, MAX_SHIELDS, DAYS_SHORT, MONTHS_SHORT, S, VAPID_PUBLIC_KEY } from "./utils/constants.js";
-import { getTodayStr, getDateStr, parseDateLocal, isSameDay, getCalendarDays, isDayComplete, isDatePaused, calcStats } from "./utils/helpers.js";
+import { getTodayStr, getDateStr, parseDateLocal, isSameDay, getCalendarDays, isDayComplete, isDatePaused, calcStats, calcXp, getLevel, getXpForLevelStart } from "./utils/helpers.js";
 import { NotificationManager } from "./utils/notifications.js";
 import { decryptText, encryptText } from "./utils/crypto.js";
 
@@ -46,10 +44,16 @@ import { HabitCard } from "./components/HabitCard.jsx";
 import { HabitSortableItem } from "./components/HabitSortableItem.jsx";
 import { HabitModal } from "./components/HabitModal.jsx";
 import { TodoItem, TodoModal } from "./components/Todos.jsx";
-import { CalendarTab } from "./screens/CalendarTab.jsx";
 import { AnalyticsTab } from "./screens/AnalyticsTab.jsx";
 import { JournalTab } from "./screens/JournalTab.jsx";
 import { BillingTab } from "./screens/BillingTab.jsx";
+import { GoalsTab } from "./screens/GoalsTab.jsx";
+import { GoalModal } from "./components/GoalModal.jsx";
+const restrictToVerticalAxis = ({ transform }) => ({
+  ...transform,
+  x: 0,
+});
+
 const renderTabIcon = (tabKey, isActive, size = 18) => {
   const props = {
     width: size,
@@ -71,13 +75,14 @@ const renderTabIcon = (tabKey, isActive, size = 18) => {
           <polyline points="9 22 9 12 15 12 15 22" />
         </svg>
       );
-    case "calendar":
+    case "goals":
       return (
         <svg {...props}>
-          <rect width="18" height="18" x="3" y="4" rx="2" ry="2" fill={isActive ? "rgba(37, 99, 235, 0.2)" : "none"} />
-          <line x1="16" x2="16" y1="2" y2="6" />
-          <line x1="8" x2="8" y1="2" y2="6" />
-          <line x1="3" x2="21" y1="10" y2="10" />
+          <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+          <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+          <path d="M4 22h16" />
+          <path d="M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34" />
+          <path d="M12 2a4 4 0 0 0-4 4v5a4 4 0 0 0 8 0V6a4 4 0 0 0-4-4Z" fill={isActive ? "rgba(37, 99, 235, 0.2)" : "none"} />
         </svg>
       );
     case "tasks":
@@ -118,6 +123,9 @@ export default function HabiTick() {
   const [showHabitModal, setShowHabitModal] = useState(false);
   const [editingHabit, setEditingHabit] = useState(null);
   const [showTodoModal, setShowTodoModal] = useState(false);
+  const [goals, setGoals] = useState([]);
+  const [showGoalModal, setShowGoalModal] = useState(false);
+  const [editingGoal, setEditingGoal] = useState(null);
 
   // Handle deep linking from PWA shortcuts
   useEffect(() => {
@@ -212,7 +220,7 @@ export default function HabiTick() {
   const loadAll = async () => {
     setLoading(true);
     const uid = session.user.id;
-    const [habitsRes, completionsRes, todosRes, pauseRes, journalRes, profileRes, routinesRes] = await Promise.all([
+    const [habitsRes, completionsRes, todosRes, pauseRes, journalRes, profileRes, routinesRes, goalsRes] = await Promise.all([
       supabase.from("habits").select("*").eq("user_id", uid).order("created_at"),
       supabase.from("habit_completions").select("habit_id, completed_date, completed_at, timezone").eq("user_id", uid),
       supabase.from("todos").select("*").eq("user_id", uid).order("created_at"),
@@ -220,6 +228,7 @@ export default function HabiTick() {
       supabase.from("journal_entries").select("*").eq("user_id", uid).order("entry_date"),
       supabase.from("profiles").select("*").eq("id", uid).single(),
       supabase.from("routines").select("*").eq("user_id", uid).order("created_at"),
+      supabase.from("goals").select("*").eq("user_id", uid).order("created_at"),
     ]);
     const completionsByHabit = {};
     const completionTimesByHabit = {};
@@ -234,13 +243,21 @@ export default function HabiTick() {
       }
     });
 
+    // Decrypt habit names
+    const decryptedHabits = [];
+    for (const h of (habitsRes.data || [])) {
+      const name = await decryptText(h.name, uid);
+      decryptedHabits.push({
+        ...h,
+        name,
+        createdDate: (h.created_date || getDateStr(new Date())).substring(0, 10), 
+        completedDates: completionsByHabit[h.id] || [],
+        completionTimes: completionTimesByHabit[h.id] || {}
+      });
+    }
+
     // Sort habits based on local storage if available
-    let loadedHabits = (habitsRes.data || []).map(h => ({ 
-      ...h, 
-      createdDate: (h.created_date || getDateStr(new Date())).substring(0, 10), 
-      completedDates: completionsByHabit[h.id] || [],
-      completionTimes: completionTimesByHabit[h.id] || {}
-    }));
+    let loadedHabits = decryptedHabits;
     const savedHabitOrder = localStorage.getItem(`ht_habitOrder_${uid}`);
     if (savedHabitOrder) {
       try {
@@ -254,7 +271,18 @@ export default function HabiTick() {
     }
     setHabits(loadedHabits);
 
-    setTodos((todosRes.data || []).map(t => ({ ...t, doneDate: t.done_date ? t.done_date.substring(0, 10) : null })));
+    // Decrypt todo texts
+    const loadedTodos = [];
+    for (const t of (todosRes.data || [])) {
+      const decryptedTextVal = await decryptText(t.text, uid);
+      loadedTodos.push({
+        ...t,
+        text: decryptedTextVal,
+        doneDate: t.done_date ? t.done_date.substring(0, 10) : null
+      });
+    }
+    setTodos(loadedTodos);
+
     setPausePeriods((pauseRes.data || []).map(p => ({ id: p.id, start: (p.start_date || '').substring(0, 10), end: p.end_date ? p.end_date.substring(0, 10) : null })));
     const entriesMap = {};
     if (journalRes.data) {
@@ -302,9 +330,18 @@ export default function HabiTick() {
       }
     }
 
+    // Decrypt routine names
+    const decryptedRoutines = [];
+    for (const r of (routinesRes.data || [])) {
+      const decryptedName = await decryptText(r.name, uid);
+      decryptedRoutines.push({
+        ...r,
+        name: decryptedName
+      });
+    }
 
     // Sort routines by saved order
-    const routineData = routinesRes.data || [];
+    const routineData = decryptedRoutines;
     const savedOrder = localStorage.getItem(`ht_routineOrder_${uid}`);
     if (savedOrder) {
       try {
@@ -321,6 +358,18 @@ export default function HabiTick() {
       setRoutines(routineData);
     }
 
+    // Decrypt goals title and description
+    const decryptedGoals = [];
+    for (const g of (goalsRes.data || [])) {
+      const decryptedTitle = await decryptText(g.title, uid);
+      const decryptedDesc = g.description ? await decryptText(g.description, uid) : "";
+      decryptedGoals.push({
+        ...g,
+        title: decryptedTitle,
+        description: decryptedDesc
+      });
+    }
+    setGoals(decryptedGoals);
     setLoading(false);
   };
 
@@ -418,12 +467,13 @@ export default function HabiTick() {
   };
 
   const saveRoutine = async ({ name, emoji }) => {
+    const encryptedName = await encryptText(name, session.user.id);
     if (editingRoutine) {
-      const { data } = await supabase.from("routines").update({ name, emoji }).eq("id", editingRoutine.id).select().single();
-      setRoutines(prev => prev.map(r => r.id === editingRoutine.id ? data : r));
+      const { data } = await supabase.from("routines").update({ name: encryptedName, emoji }).eq("id", editingRoutine.id).select().single();
+      setRoutines(prev => prev.map(r => r.id === editingRoutine.id ? { ...data, name } : r));
     } else {
-      const { data } = await supabase.from("routines").insert({ user_id: session.user.id, name, emoji }).select().single();
-      setRoutines(prev => [...prev, data]);
+      const { data } = await supabase.from("routines").insert({ user_id: session.user.id, name: encryptedName, emoji }).select().single();
+      setRoutines(prev => [...prev, { ...data, name }]);
     }
     setShowRoutineModal(false); setEditingRoutine(null);
   };
@@ -494,15 +544,16 @@ export default function HabiTick() {
   };
 
   const saveHabit = async ({ name, frequency, days }) => {
+    const encryptedName = await encryptText(name, session.user.id);
     if (editingHabit) {
-      const { data } = await supabase.from("habits").update({ name, frequency, days }).eq("id", editingHabit.id).select().single();
-      setHabits(prev => prev.map(h => h.id === editingHabit.id ? { ...h, ...data, createdDate: data.created_date } : h));
+      const { data } = await supabase.from("habits").update({ name: encryptedName, frequency, days }).eq("id", editingHabit.id).select().single();
+      setHabits(prev => prev.map(h => h.id === editingHabit.id ? { ...h, ...data, name, createdDate: data.created_date } : h));
     } else {
       if (!isPremium && habits.length >= FREE_HABIT_LIMIT) {
         setShowHabitModal(false); setShowUpgradeModal("habits"); return;
       }
-      const { data } = await supabase.from("habits").insert({ user_id: session.user.id, name, frequency, days, created_date: today }).select().single();
-      const newHabits = [...habits, { ...data, createdDate: data.created_date, completedDates: [], completionTimes: {} }];
+      const { data } = await supabase.from("habits").insert({ user_id: session.user.id, name: encryptedName, frequency, days, created_date: today }).select().single();
+      const newHabits = [...habits, { ...data, name, createdDate: data.created_date, completedDates: [], completionTimes: {} }];
       setHabits(newHabits);
       localStorage.setItem(`ht_habitOrder_${session?.user?.id}`, JSON.stringify(newHabits.map(h => h.id)));
     }
@@ -523,14 +574,16 @@ export default function HabiTick() {
     if (!isPremium && activeTodos.length >= FREE_TODO_LIMIT) {
       setShowTodoModal(false); setShowUpgradeModal("todos"); return;
     }
-    const { data } = await supabase.from("todos").insert({ user_id: session.user.id, text, priority: priority || null, done: false, due_date: due_date || null, due_time: due_time || null }).select().single();
-    setTodos(prev => [...prev, { ...data, doneDate: null }]);
+    const encryptedText = await encryptText(text, session.user.id);
+    const { data } = await supabase.from("todos").insert({ user_id: session.user.id, text: encryptedText, priority: priority || null, done: false, due_date: due_date || null, due_time: due_time || null }).select().single();
+    setTodos(prev => [...prev, { ...data, text, doneDate: null }]);
     setShowTodoModal(false);
   };
 
   const saveTodo = async ({ text, priority, due_date, due_time }) => {
-    const { data } = await supabase.from("todos").update({ text, priority: priority || null, due_date: due_date || null, due_time: due_time || null }).eq("id", editingTodo.id).select().single();
-    setTodos(prev => prev.map(t => t.id === editingTodo.id ? { ...t, ...data } : t));
+    const encryptedText = await encryptText(text, session.user.id);
+    const { data } = await supabase.from("todos").update({ text: encryptedText, priority: priority || null, due_date: due_date || null, due_time: due_time || null }).eq("id", editingTodo.id).select().single();
+    setTodos(prev => prev.map(t => t.id === editingTodo.id ? { ...t, ...data, text } : t));
     setShowTodoModal(false); setEditingTodo(null);
   };
 
@@ -545,6 +598,56 @@ export default function HabiTick() {
   const deleteTodo = async id => {
     setTodos(prev => prev.filter(t => t.id !== id));
     await supabase.from("todos").delete().eq("id", id);
+  };
+
+  const addGoal = async (title, description, targetDate) => {
+    const encryptedTitle = await encryptText(title, session.user.id);
+    const encryptedDesc = description ? await encryptText(description, session.user.id) : null;
+    const { data, error } = await supabase.from("goals").insert({
+      user_id: session.user.id,
+      title: encryptedTitle,
+      description: encryptedDesc,
+      target_date: targetDate || null,
+      completed: false
+    }).select().single();
+    if (!error && data) {
+      setGoals(prev => [...prev, { ...data, title, description }]);
+    }
+    setShowGoalModal(false);
+  };
+
+  const saveGoal = async (id, updates) => {
+    const encryptedTitle = await encryptText(updates.title, session.user.id);
+    const encryptedDesc = updates.description ? await encryptText(updates.description, session.user.id) : null;
+    const { data, error } = await supabase.from("goals").update({
+      title: encryptedTitle,
+      description: encryptedDesc,
+      target_date: updates.target_date || null
+    }).eq("id", id).select().single();
+    if (!error && data) {
+      setGoals(prev => prev.map(g => g.id === id ? { ...data, title: updates.title, description: updates.description } : g));
+    }
+    setShowGoalModal(false); setEditingGoal(null);
+  };
+
+  const toggleGoal = async (id) => {
+    const goal = goals.find(g => g.id === id);
+    if (!goal) return;
+    const nextCompleted = !goal.completed;
+    const completedAt = nextCompleted ? new Date().toISOString() : null;
+
+    // Instantly update local state for snappy UI
+    setGoals(prev => prev.map(g => g.id === id ? { ...g, completed: nextCompleted, completed_at: completedAt } : g));
+
+    await supabase.from("goals").update({
+      completed: nextCompleted,
+      completed_at: completedAt
+    }).eq("id", id);
+  };
+
+  const deleteGoal = async (id) => {
+    setGoals(prev => prev.filter(g => g.id !== id));
+    await supabase.from("goals").delete().eq("id", id);
   };
 
   const isPaused = pausePeriods.some(p => p.end === null);
@@ -589,6 +692,44 @@ export default function HabiTick() {
 
   const isPremium = profile?.is_premium === true || profile?.is_lifetime === true;
   const { currentStreak, shields, shieldedDates } = calcStats(habits, pausePeriods, isPremium, profile);
+  const { totalEarned } = calcXp(habits, todos, journalEntries, goals);
+  const remainingXp = Math.max(totalEarned - ((profile?.purchased_shields || 0) * 500), 0);
+  const maxShields = isPremium ? 5 : 3;
+
+  const currentLvl = getLevel(totalEarned);
+  const currentLvlStart = getXpForLevelStart(currentLvl);
+  const nextLvlStart = getXpForLevelStart(currentLvl + 1);
+  const xpInCurrentLvl = totalEarned - currentLvlStart;
+  const xpNeededForCurrentLvl = nextLvlStart - currentLvlStart;
+  const levelProgressPct = (xpInCurrentLvl / xpNeededForCurrentLvl) * 100;
+
+  const [purchasingShieldSidebar, setPurchasingShieldSidebar] = useState(false);
+  const buyShieldSidebar = async () => {
+    if (remainingXp < 500) return;
+    const currentStats = calcStats(habits, pausePeriods, isPremium, profile);
+    if (currentStats.shields >= maxShields) {
+      alert(`Max shields reached (${maxShields})`);
+      return;
+    }
+    
+    setPurchasingShieldSidebar(true);
+    const newPurchasedCount = (profile?.purchased_shields || 0) + 1;
+    
+    const { error } = await supabase
+      .from("profiles")
+      .update({ 
+        purchased_shields: newPurchasedCount, 
+        updated_at: new Date().toISOString() 
+      })
+      .eq("id", session?.user?.id);
+      
+    if (error) {
+      alert(error.message);
+    } else {
+      setProfile(prev => ({ ...prev, purchased_shields: newPurchasedCount }));
+    }
+    setPurchasingShieldSidebar(false);
+  };
 
   const priorityOrder = { high: 1, med: 2, low: 3, "": 4 };
   const visibleTodos = (showCompleted ? todos : todos.filter(t => !t.done)).slice().sort((a, b) => {
@@ -696,7 +837,6 @@ export default function HabiTick() {
           display: flex;
           flex-direction: column;
           gap: 8px;
-          flex: 1;
         }
 
         .ht-sidebar-link {
@@ -942,9 +1082,9 @@ export default function HabiTick() {
         <nav className="ht-sidebar-nav">
           {[
             ["today", "Today"],
-            ["calendar", "Calendar"],
             ["tasks", "Tasks"],
             ["journal", "Journal"],
+            ["goals", "Goals"],
             ["analytics", "Stats"]
           ].map(([key, label]) => (
             <button
@@ -957,6 +1097,90 @@ export default function HabiTick() {
             </button>
           ))}
         </nav>
+
+        {/* DESKTOP XP & SHIELD SHOP */}
+        <div style={{ 
+          marginTop: "24px", 
+          marginBottom: "16px", 
+          background: "linear-gradient(135deg, rgba(168, 85, 247, 0.02) 0%, rgba(59, 130, 246, 0.02) 100%)", 
+          border: "1px solid rgba(255, 255, 255, 0.03)", 
+          borderRadius: "16px", 
+          padding: "16px",
+          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.15)"
+        }}>
+          {/* Header with Level & XP */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+            <span style={{ 
+              fontFamily: "'Syne', sans-serif",
+              fontSize: "11px", 
+              fontWeight: 800, 
+              color: "#3b82f6",
+              letterSpacing: "0.05em",
+              textTransform: "uppercase"
+            }}>
+              Level {currentLvl}
+            </span>
+            <span style={{ fontSize: "11.5px", color: "#9ca3af", fontWeight: 700, fontFamily: "'Syne', sans-serif", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: "middle" }}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z"/></svg>
+              {remainingXp} <span style={{ fontSize: "9.5px", color: "#4b5563" }}>XP</span>
+            </span>
+          </div>
+
+          {/* Level Progress bar - matching other bars */}
+          <div style={{ height: "3px", background: "rgba(255, 255, 255, 0.05)", borderRadius: "999px", overflow: "hidden", marginBottom: "14px" }}>
+            <div style={{ 
+              height: "100%", 
+              background: "linear-gradient(90deg, #3b82f6 0%, #2563eb 100%)", 
+              width: `${levelProgressPct}%`,
+              borderRadius: "999px"
+            }} />
+          </div>
+
+          {/* Shields status */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "11px", color: "#6b7280", marginBottom: "12px", fontWeight: 600 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: "middle" }}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              Streak Shields
+            </span>
+            <span style={{ fontWeight: 700, color: "#e5e7eb" }}>
+              {shields} <span style={{ color: "#4b5563", fontWeight: 500 }}>/ {maxShields}</span>
+            </span>
+          </div>
+
+          {/* Buy shield button */}
+          <button
+            onClick={buyShieldSidebar}
+            disabled={remainingXp < 500 || shields >= maxShields || purchasingShieldSidebar}
+            style={{
+              width: "100%",
+              padding: "8px 12px",
+              borderRadius: "10px",
+              border: remainingXp >= 500 && shields < maxShields ? "none" : "1px solid rgba(255, 255, 255, 0.05)",
+              background: remainingXp >= 500 && shields < maxShields ? "linear-gradient(135deg, #a855f7 0%, #3b82f6 100%)" : "rgba(255, 255, 255, 0.01)",
+              color: remainingXp >= 500 && shields < maxShields ? "#fff" : "#4b5563",
+              fontWeight: 700,
+              fontSize: "10.5px",
+              cursor: remainingXp >= 500 && shields < maxShields ? "pointer" : "default",
+              fontFamily: "inherit",
+              transition: "all 0.2s ease",
+              boxShadow: remainingXp >= 500 && shields < maxShields ? "0 4px 14px rgba(168, 85, 247, 0.25)" : "none"
+            }}
+            onMouseEnter={e => {
+              if (remainingXp >= 500 && shields < maxShields) {
+                e.currentTarget.style.filter = "brightness(1.1)";
+                e.currentTarget.style.boxShadow = "0 6px 20px rgba(168, 85, 247, 0.35)";
+              }
+            }}
+            onMouseLeave={e => {
+              if (remainingXp >= 500 && shields < maxShields) {
+                e.currentTarget.style.filter = "none";
+                e.currentTarget.style.boxShadow = "0 4px 14px rgba(168, 85, 247, 0.25)";
+              }
+            }}
+          >
+            {purchasingShieldSidebar ? "Buying..." : shields >= maxShields ? "Shields at Max Capacity" : "Buy Shield (500 XP)"}
+          </button>
+        </div>
 
         <div className="ht-sidebar-footer">
           <button onClick={() => setShowProfile(true)} style={{ display: "flex", alignItems: "center", gap: "10px", background: "rgba(255, 255, 255, 0.02)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: "12px", padding: "10px 14px", cursor: "pointer", width: "100%", transition: "all 0.2s" }}>
@@ -1009,7 +1233,7 @@ export default function HabiTick() {
             </div>
             <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111622", border: "1px solid rgba(59,130,246,0.15)", borderRadius: "999px", padding: "4px 12px", fontSize: "11px", color: "#60a5fa", fontWeight: 600 }}>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
-              <span>{shields}/{MAX_SHIELDS}</span>
+              <span>{shields}/{isPremium ? 5 : 3}</span>
             </div>
 
             {/* Profile Avatar Button on Mobile */}
@@ -1086,6 +1310,7 @@ export default function HabiTick() {
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
           autoScroll={{ threshold: { x: 0.1, y: 0.1 }, acceleration: 10 }}
+          modifiers={[restrictToVerticalAxis]}
         >
           <main className="ht-main">
             {loading ? (
@@ -1098,6 +1323,50 @@ export default function HabiTick() {
                   {getWeekDays(today).map((day) => {
                     const isSel = day.dateStr === selectedDate;
                     const isTod = day.dateStr === today;
+                    const isPast = day.dateStr < today;
+
+                    let bg = "transparent";
+                    let color = "#9ca3af";
+                    let border = "1px solid transparent";
+                    let boxShadow = "none";
+
+                    if (isSel) {
+                      bg = "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)";
+                      color = "#fff";
+                      boxShadow = "0 4px 12px rgba(37, 99, 235, 0.3)";
+                    } else if (isTod) {
+                      bg = "rgba(59, 130, 246, 0.05)";
+                      color = "#3b82f6";
+                      border = "1px solid rgba(59, 130, 246, 0.15)";
+                    } else if (isPast) {
+                      const pDateObj = parseDateLocal(day.dateStr);
+                      const pDow = pDateObj.getDay();
+                      const pScheduled = habits.filter(h =>
+                        (!h.createdDate || h.createdDate <= day.dateStr) &&
+                        (h.frequency === "daily" || (h.days && h.days.includes(pDow)))
+                      );
+                      const pDone = pScheduled.filter(h => (h.completedDates || []).includes(day.dateStr));
+                      const isAllDone = pScheduled.length > 0 && pDone.length === pScheduled.length;
+                      const isAnyMissing = pScheduled.length > 0 && pDone.length < pScheduled.length;
+                      const isShielded = (shieldedDates || []).includes(day.dateStr);
+
+                      if (isAllDone) {
+                        bg = "rgba(16, 185, 129, 0.06)";
+                        color = "#10b981";
+                        border = "1px solid rgba(16, 185, 129, 0.12)";
+                      } else if (isShielded) {
+                        bg = "rgba(59, 130, 246, 0.06)";
+                        color = "#60a5fa";
+                        border = "1px solid rgba(59, 130, 246, 0.15)";
+                      } else if (isAnyMissing) {
+                        bg = "rgba(245, 158, 11, 0.06)";
+                        color = "#f59e0b";
+                        border = "1px solid rgba(245, 158, 11, 0.12)";
+                      }
+                    }
+
+                    const isShieldedDay = isPast && (shieldedDates || []).includes(day.dateStr);
+
                     return (
                       <button
                         key={day.dateStr}
@@ -1107,15 +1376,16 @@ export default function HabiTick() {
                           display: "flex",
                           flexDirection: "column",
                           alignItems: "center",
-                          background: isSel ? "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)" : "transparent",
-                          border: "none",
+                          background: bg,
+                          border,
                           borderRadius: "12px",
                           padding: "8px 2px",
-                          color: isSel ? "#fff" : (isTod ? "#3b82f6" : "#9ca3af"),
+                          color,
                           cursor: "pointer",
                           transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-                          boxShadow: isSel ? "0 4px 12px rgba(37,99,235,0.3)" : "none",
-                          margin: "0 2px"
+                          boxShadow,
+                          margin: "0 2px",
+                          position: "relative"
                         }}
                       >
                         <span style={{ fontSize: "9px", fontWeight: 700, textTransform: "uppercase", marginBottom: "4px", opacity: isSel ? 0.9 : 0.6 }}>
@@ -1219,17 +1489,10 @@ export default function HabiTick() {
                 <div className="ht-dashboard-grid">
                   {/* Left Column: Habits */}
                   <div className="ht-dashboard-main">
+
+
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
                       <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "20px", margin: 0, color: "#fff" }}>Habits</h2>
-                      <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                        <button
-                          onClick={() => { setEditingHabit(null); setShowHabitModal(true); }}
-                          style={{ background: "none", border: "none", color: "#3b82f6", cursor: "pointer", fontWeight: 700, fontSize: "14px", padding: "4px 8px", whiteSpace: "nowrap", flexShrink: 0 }}
-                          disabled={!isPremium && habits.length >= FREE_HABIT_LIMIT}
-                        >
-                          + Add Habit
-                        </button>
-                      </div>
                     </div>
 
                     {!isPremium && habits.length >= FREE_HABIT_LIMIT && (
@@ -1300,29 +1563,33 @@ export default function HabiTick() {
                         ))}
                       </SortableContext>
                     </div>
-                  </div>
 
-                  {/* Right Column: Sidebar Stats & Circles */}
-                  <div className="ht-dashboard-sidebar">
-
-                    {/* Quick Settings & Mode Toggles */}
-                    <div style={{ background: "rgba(22, 31, 48, 0.3)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: "20px", padding: "18px", display: "flex", flexDirection: "column", gap: "10px" }}>
-                      <h3 style={{ margin: "0 0 4px", fontSize: "10px", fontWeight: 700, color: "#4b5563", textTransform: "uppercase", letterSpacing: "0.1em" }}>Quick Actions</h3>
-
-                      <button
-                        onClick={() => { setEditingRoutine(null); setShowRoutineModal(true); }}
-                        style={{ width: "100%", padding: "10px 14px", borderRadius: "12px", border: "1px solid rgba(167, 139, 250, 0.12)", background: "rgba(167, 139, 250, 0.05)", color: "#a78bfa", cursor: "pointer", fontWeight: 700, fontSize: "13px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
-                      >
-                        ⚡ New Routine
-                      </button>
-
-                      <button
-                        onClick={() => setShowTodayOnly(p => { localStorage.setItem("ht_showTodayOnly", String(!p)); return !p; })}
-                        style={{ width: "100%", padding: "10px 14px", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.04)", background: showTodayOnly ? "rgba(37,99,235,0.08)" : "transparent", color: showTodayOnly ? "#60a5fa" : "#6b7280", cursor: "pointer", fontWeight: 600, fontSize: "12px", textAlign: "center" }}
-                      >
-                        {showTodayOnly ? "Scheduled Only" : "All Habits"}
-                      </button>
-
+                    {/* Quick Actions Bar */}
+                    <div style={{
+                      background: "rgba(22, 31, 48, 0.3)",
+                      border: "1px solid rgba(255, 255, 255, 0.04)",
+                      borderRadius: "20px",
+                      padding: "16px",
+                      marginTop: "24px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "10px"
+                    }}>
+                      <div style={{ display: "flex", gap: "10px", width: "100%" }}>
+                        <button
+                          onClick={() => { setEditingHabit(null); setShowHabitModal(true); }}
+                          style={{ flex: 1, padding: "10px 14px", borderRadius: "12px", border: "1px solid rgba(59, 130, 246, 0.15)", background: "rgba(59, 130, 246, 0.05)", color: "#60a5fa", cursor: "pointer", fontWeight: 700, fontSize: "13px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
+                          disabled={!isPremium && habits.length >= FREE_HABIT_LIMIT}
+                        >
+                          ✨ New Habit
+                        </button>
+                        <button
+                          onClick={() => { setEditingRoutine(null); setShowRoutineModal(true); }}
+                          style={{ flex: 1, padding: "10px 14px", borderRadius: "12px", border: "1px solid rgba(167, 139, 250, 0.15)", background: "rgba(167, 139, 250, 0.05)", color: "#a78bfa", cursor: "pointer", fontWeight: 700, fontSize: "13px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
+                        >
+                          ⚡ New Routine
+                        </button>
+                      </div>
                       <button
                         onClick={togglePause}
                         style={{ width: "100%", padding: "10px 14px", borderRadius: "12px", border: `1px solid ${isPaused ? "rgba(245, 158, 11, 0.15)" : "rgba(255,255,255,0.04)"}`, background: isPaused ? "rgba(245, 158, 11, 0.05)" : "transparent", color: isPaused ? "#fcd34d" : "#6b7280", cursor: "pointer", fontWeight: 600, fontSize: "12px", textAlign: "center" }}
@@ -1330,6 +1597,12 @@ export default function HabiTick() {
                         {isPaused ? "⏸ Holiday Mode ON" : "⏸ Pause / Holiday Mode"}
                       </button>
                     </div>
+                  </div>
+
+                  {/* Right Column: Sidebar Stats & Circles */}
+                  <div className="ht-dashboard-sidebar">
+
+
 
                     {/* TODAY'S TASKS — relocated to sidebar on desktop / stack on mobile */}
                     {(() => {
@@ -1338,7 +1611,7 @@ export default function HabiTick() {
                       ).slice(0, 5);
                       const overdueCount = todos.filter(t => !t.done && t.due_date && t.due_date < today).length;
                       return (
-                        <div style={{ marginTop: "24px" }}>
+                        <div className="ht-desktop-only" style={{ marginTop: "24px" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
                             <h3 style={{ margin: 0, fontSize: "10px", fontWeight: 700, color: "#4b5563", textTransform: "uppercase", letterSpacing: "0.1em", display: "inline-flex", alignItems: "center", gap: "6px" }}>
                               <span>Today's Tasks</span>
@@ -1418,45 +1691,11 @@ export default function HabiTick() {
                   ))}
                 </div>
               </section>
-            ) : tab === "calendar" ? (
-              <CalendarTab
-                habits={habits}
-                todos={todos}
-                pausePeriods={pausePeriods}
-                shieldedDates={shieldedDates || []}
-                profile={profile}
-                onToggleHabit={toggleHabit}
-                onToggleTodo={toggleTodo}
-                onDeleteTodo={deleteTodo}
-                onAddTodoForDate={(dateStr) => { setEditingTodo({ text: "", due_date: dateStr, isNewFromCalendar: true }); setShowTodoModal(true); }}
-                onAddTodoDirect={async (text, dateStr) => {
-                  const activeTodos = todos.filter(t => !t.done);
-                  if (!isPremium && activeTodos.length >= FREE_TODO_LIMIT) {
-                    setShowUpgradeModal("todos");
-                    return false;
-                  }
-                  const { data } = await supabase.from("todos").insert({
-                    user_id: session.user.id,
-                    text,
-                    priority: null,
-                    done: false,
-                    due_date: dateStr,
-                    due_time: null
-                  }).select().single();
-                  setTodos(prev => [...prev, { ...data, doneDate: null }]);
-                  return true;
-                }}
-                journalEntries={journalEntries}
-                setJournalEntries={setJournalEntries}
-                session={session}
-                isPremium={isPremium}
-                today={today}
-                setShowUpgradeModal={setShowUpgradeModal}
-              />
             ) : tab === "analytics" ? (
               <AnalyticsTab 
                 habits={habits} 
                 todos={todos} 
+                goals={goals}
                 pausePeriods={pausePeriods} 
                 isPremium={isPremium} 
                 journalEntries={journalEntries} 
@@ -1464,63 +1703,20 @@ export default function HabiTick() {
                 setProfile={setProfile}
                 onRecommendHabit={(habitName) => { setEditingHabit({ name: habitName }); setShowHabitModal(true); }}
               />
+            ) : tab === "goals" ? (
+              <GoalsTab
+                goals={goals}
+                onAdd={() => { setEditingGoal(null); setShowGoalModal(true); }}
+                onEdit={goal => { setEditingGoal(goal); setShowGoalModal(true); }}
+                onToggle={toggleGoal}
+                onDelete={deleteGoal}
+              />
             ) : tab === "journal" ? (
               <JournalTab journalEntries={journalEntries} setJournalEntries={setJournalEntries} session={session} today={today} isPremium={isPremium} />
             ) : null}
           </main>
 
-          {/* DND Overlay */}
-          <DragOverlay dropAnimation={{
-            sideEffects: defaultDropAnimationSideEffects({
-              styles: {
-                active: {
-                  opacity: '0.4',
-                },
-              },
-            }),
-          }}>
-            {activeId ? (
-              <div style={{
-                width: "320px",
-                transform: "rotate(2deg)",
-                filter: "drop-shadow(0 20px 40px rgba(0,0,0,0.4))",
-                pointerEvents: "none",
-                zIndex: 9999,
-              }}>
-                {draggedHabit ? (
-                  <HabitCard
-                    habit={draggedHabit}
-                    today={today}
-                    activeDate={selectedDate}
-                    onToggle={() => { }}
-                    onDelete={() => { }}
-                    onEdit={() => { }}
-                    isPaused={isPaused}
-                    pausePeriods={pausePeriods}
-                    isPremium={isPremium}
-                    shieldedDates={shieldedDates || []}
-                  />
-                ) : routines.find(r => String(r.id) === activeId) ? (
-                  <RoutineCard
-                    routine={routines.find(r => String(r.id) === activeId)}
-                    habits={habits.filter(h => String(h.routine_id) === activeId)}
-                    today={today}
-                    activeDate={selectedDate}
-                    onToggle={() => { }}
-                    onDelete={() => { }}
-                    onDeleteRoutine={() => { }}
-                    onEdit={() => { }}
-                    onEjectFromRoutine={() => { }}
-                    isPaused={isPaused}
-                    pausePeriods={pausePeriods}
-                    isPremium={isPremium}
-                    shieldedDates={shieldedDates || []}
-                    isDraggingOverlay={true}
-                  />
-                ) : null}
-              </div>
-            ) : null}
-          </DragOverlay>
+
         </DndContext>
       </div>
 
@@ -1531,9 +1727,9 @@ export default function HabiTick() {
       >
         {[
           ["today", "Today"],
-          ["calendar", "Calendar"],
           ["tasks", "Tasks"],
           ["journal", "Journal"],
+          ["goals", "Goals"],
           ["analytics", "Stats"]
         ].map(([key, label]) => (
           <button
@@ -1549,19 +1745,43 @@ export default function HabiTick() {
       </nav>
 
       {/* MODALS */}
-      {showHabitModal && <HabitModal habit={editingHabit} onSave={saveHabit} onClose={() => { setShowHabitModal(false); setEditingHabit(null); }} />}
+      {showHabitModal && <HabitModal habit={editingHabit} profile={profile} habits={habits} onSave={saveHabit} onClose={() => { setShowHabitModal(false); setEditingHabit(null); }} />}
       {showTodoModal && <TodoModal todo={editingTodo} onSave={editingTodo && editingTodo.id ? saveTodo : addTodo} onClose={() => { setShowTodoModal(false); setEditingTodo(null); }} />}
       {showRoutineModal && (
         <RoutineModal
           routine={editingRoutine}
           habitsList={habits}
+          profile={profile}
           onSave={saveRoutine}
           onDelete={routineId => { deleteRoutine(routineId); setShowRoutineModal(false); setEditingRoutine(null); }}
           onEject={habitId => moveHabitToRoutine(habitId, null)}
           onClose={() => { setShowRoutineModal(false); setEditingRoutine(null); }}
         />
       )}
-      {showProfile && <ProfileModal session={session} profile={profile} onUpdate={setProfile} onClose={() => setShowProfile(false)} />}
+      {showProfile && (
+        <ProfileModal 
+          session={session} 
+          profile={profile} 
+          habits={habits}
+          todos={todos}
+          goals={goals}
+          journalEntries={journalEntries}
+          showTodayOnly={showTodayOnly}
+          onChangeShowTodayOnly={val => {
+            localStorage.setItem("ht_showTodayOnly", String(val));
+            setShowTodayOnly(val);
+          }}
+          onUpdate={setProfile} 
+          onClose={() => setShowProfile(false)} 
+        />
+      )}
+      {showGoalModal && (
+        <GoalModal
+          goal={editingGoal}
+          onSave={editingGoal && editingGoal.id ? (updates) => saveGoal(editingGoal.id, updates) : addGoal}
+          onClose={() => { setShowGoalModal(false); setEditingGoal(null); }}
+        />
+      )}
       {showUpgradeModal && <UpgradeModal onUpgrade={handleUpgrade} onClose={() => setShowUpgradeModal(false)} reason={showUpgradeModal} />}
     </div>
   );

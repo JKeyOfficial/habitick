@@ -5,10 +5,10 @@ import { getTodayStr, getDateStr, parseDateLocal } from '../utils/helpers.js';
 import { encryptText } from '../utils/crypto.js';
 
 const MOOD_OPTIONS = [
-  { value: "great", label: "Great", emoji: "🌟" },
-  { value: "good", label: "Good", emoji: "😊" },
-  { value: "okay", label: "Okay", emoji: "😐" },
   { value: "bad", label: "Bad", emoji: "😔" },
+  { value: "okay", label: "Okay", emoji: "😐" },
+  { value: "good", label: "Good", emoji: "😊" },
+  { value: "great", label: "Great", emoji: "🌟" },
 ];
 const CHAR_LIMIT = 2000;
 
@@ -126,7 +126,14 @@ export function JournalTab({ journalEntries, setJournalEntries, session, today, 
       </div>
 
       {/* Page */}
-      <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: "16px", padding: "28px", position: "relative" }}>
+      <div style={{ 
+        background: "#111827", 
+        border: "1px solid rgba(255, 255, 255, 0.05)", 
+        borderRadius: "16px", 
+        padding: "24px", 
+        position: "relative",
+        boxShadow: "0 8px 32px rgba(0, 0, 0, 0.2)"
+      }}>
         {isJournalLocked && (
           <div style={{ position: "absolute", inset: 0, borderRadius: "16px", background: "#0d111799", backdropFilter: "blur(4px)", zIndex: 10, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "12px" }}>
             <div style={{ fontSize: "32px" }}>🔒</div>
@@ -134,33 +141,73 @@ export function JournalTab({ journalEntries, setJournalEntries, session, today, 
             <div style={{ color: "#9ca3af", fontSize: "13px", textAlign: "center", maxWidth: "240px" }}>Free accounts can access the last {FREE_JOURNAL_DAYS} days. Upgrade for full history.</div>
           </div>
         )}
-        {/* Mood */}
-        <div style={{ marginBottom: "20px" }}>
-          <div style={{ color: "#6b7280", fontSize: "12px", fontWeight: 600, marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}>How are you feeling?</div>
-          <div style={{ display: "flex", gap: "8px" }}>
-            {MOOD_OPTIONS.map(m => (
-              <button key={m.value} onClick={() => { setMood(prev => prev === m.value ? "" : m.value); scheduleAutosave(); }} style={{ flex: 1, padding: "10px 6px", borderRadius: "10px", border: "1px solid", borderColor: mood === m.value ? "#2563eb" : "#1f2937", background: mood === m.value ? "#1d4ed820" : "#0d1117", cursor: "pointer", textAlign: "center", transition: "all 0.15s" }}>
-                <div style={{ fontSize: "20px", marginBottom: "4px" }}>{m.emoji}</div>
-                <div style={{ fontSize: "11px", color: mood === m.value ? "#60a5fa" : "#4b5563", fontWeight: 600 }}>{m.label}</div>
+        
+        {/* Floating rating bar modeled after the calendar strip */}
+        <div style={{ 
+          display: "flex", 
+          background: "rgba(17, 22, 34, 0.6)", 
+          border: "1px solid rgba(255, 255, 255, 0.05)", 
+          borderRadius: "16px", 
+          padding: "6px", 
+          marginBottom: "20px" 
+        }}>
+          {MOOD_OPTIONS.map((m) => {
+            const isSel = mood === m.value;
+            return (
+              <button
+                key={m.value}
+                onClick={() => { setMood(prev => prev === m.value ? "" : m.value); scheduleAutosave(); }}
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px",
+                  background: isSel ? "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)" : "transparent",
+                  border: "none",
+                  borderRadius: "12px",
+                  padding: "10px 4px",
+                  color: isSel ? "#fff" : "#9ca3af",
+                  cursor: "pointer",
+                  transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+                  boxShadow: isSel ? "0 4px 12px rgba(37,99,235,0.3)" : "none",
+                  margin: "0 2px",
+                  fontFamily: "inherit",
+                  fontWeight: isSel ? 700 : 500
+                }}
+              >
+                <span style={{ fontSize: "15px", lineHeight: 1 }}>{m.emoji}</span>
+                <span style={{ fontSize: "12px" }}>{m.label}</span>
               </button>
-            ))}
-          </div>
+            );
+          })}
         </div>
 
-        {/* Text area */}
-        <div style={{ marginBottom: "16px" }}>
-          <div style={{ color: "#6b7280", fontSize: "12px", fontWeight: 600, marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Your thoughts</div>
-          <textarea
-            value={draft}
-            onChange={e => { if (e.target.value.length <= CHAR_LIMIT) { setDraft(e.target.value); scheduleAutosave(); } }}
-            placeholder={isFuture ? "" : "Write anything — what happened today, how you feel, what you're grateful for..."}
-            disabled={isFuture}
-            style={{ width: "100%", minHeight: "220px", padding: "14px", borderRadius: "10px", border: "1px solid #1f2937", background: "#0d1117", color: "#e5e7eb", fontSize: "15px", fontFamily: "inherit", lineHeight: 1.7, resize: "vertical", outline: "none", boxSizing: "border-box", cursor: isFuture ? "default" : "text" }}
-          />
-          <div style={{ display: "flex", justifyContent: "space-between", marginTop: "6px" }}>
-            <span style={{ fontSize: "11px", color: charsLeft < 100 ? "#f87171" : "#4b5563" }}>{charsLeft} characters remaining</span>
-            <span style={{ fontSize: "11px", color: saving ? "#6b7280" : "#22c55e", fontWeight: 600, minWidth: "60px", textAlign: "right" }}>{saving ? "Saving..." : saved ? "✓ Saved" : ""}</span>
-          </div>
+        {/* Text area - sleek, no inner double-box */}
+        <textarea
+          value={draft}
+          onChange={e => { if (e.target.value.length <= CHAR_LIMIT) { setDraft(e.target.value); scheduleAutosave(); } }}
+          placeholder={isFuture ? "" : "Write anything — what happened today, how you feel, what you're grateful for..."}
+          disabled={isFuture}
+          style={{ 
+            width: "100%", 
+            minHeight: "280px", 
+            padding: "8px 0", 
+            background: "transparent", 
+            border: "none", 
+            color: "#e5e7eb", 
+            fontSize: "15px", 
+            fontFamily: "inherit", 
+            lineHeight: 1.7, 
+            resize: "vertical", 
+            outline: "none", 
+            boxSizing: "border-box", 
+            cursor: isFuture ? "default" : "text" 
+          }}
+        />
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: "12px", borderTop: "1px solid rgba(255, 255, 255, 0.03)", paddingTop: "12px" }}>
+          <span style={{ fontSize: "11px", color: charsLeft < 100 ? "#f87171" : "#4b5563" }}>{charsLeft} characters remaining</span>
+          <span style={{ fontSize: "11px", color: saving ? "#6b7280" : "#22c55e", fontWeight: 600, minWidth: "60px", textAlign: "right" }}>{saving ? "Saving..." : saved ? "✓ Saved" : ""}</span>
         </div>
       </div>
 

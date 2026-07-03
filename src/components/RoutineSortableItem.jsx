@@ -26,7 +26,7 @@ export function RoutineSortableItem({ routine, routineHabits, widthFactor, flexB
 
   const style = {
     transform: transformString,
-    transition: transition || "transform 250ms cubic-bezier(0.2, 0, 0, 1)",
+    transition: isDragging ? "none" : (transition || "transform 250ms cubic-bezier(0.2, 0, 0, 1)"),
     flex: widthFactor === 3 ? "1 1 100%" : `1 1 ${flexBasis}`,
     maxWidth: widthFactor === 3 ? "100%" : flexBasis,
     minWidth: 0, /* was '300px' — caused horizontal overflow on mobile */
