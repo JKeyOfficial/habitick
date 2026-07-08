@@ -1607,14 +1607,17 @@ export default function HabiTick() {
                     {/* TODAY'S TASKS — relocated to sidebar on desktop / stack on mobile */}
                     {(() => {
                       const todayTasks = visibleTodos.filter(t =>
-                        !t.done && (t.due_date === today || (!t.due_date && !t.done) || (t.due_date && t.due_date <= today))
+                        !t.done && (t.due_date === selectedDate || (!t.due_date && !t.done) || (t.due_date && t.due_date <= selectedDate))
                       ).slice(0, 5);
-                      const overdueCount = todos.filter(t => !t.done && t.due_date && t.due_date < today).length;
+                      const overdueCount = todos.filter(t => !t.done && t.due_date && t.due_date < selectedDate).length;
+                      const headingText = selectedDate === today 
+                        ? "Today's Tasks" 
+                        : `Tasks for ${parseDateLocal(selectedDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}`;
                       return (
                         <div className="ht-desktop-only" style={{ marginTop: "24px" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
                             <h3 style={{ margin: 0, fontSize: "10px", fontWeight: 700, color: "#4b5563", textTransform: "uppercase", letterSpacing: "0.1em", display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                              <span>Today's Tasks</span>
+                              <span>{headingText}</span>
                               {overdueCount > 0 && (
                                 <span style={{ fontSize: "9px", background: "rgba(239, 68, 68, 0.1)", color: "#f87171", border: "1px solid rgba(239, 68, 68, 0.2)", borderRadius: "999px", padding: "1px 6px", fontWeight: 700, textTransform: "none", letterSpacing: "normal" }}>
                                   {overdueCount} overdue
