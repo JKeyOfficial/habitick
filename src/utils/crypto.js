@@ -1,8 +1,34 @@
-const CRYPTO_SALT = "HabiTick_Frontend_Secure_Salt_2026"; // Frontend-only salt
+let cachedSalt = null;
 
-async function getKey(userId) {
+async function getSalt() {
+  if (cachedSalt) return cachedSalt;
+  try {
+    const res = await fetch("/api/get-salt");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data && data.salt) {
+      cachedSalt = data.salt;
+      console.log("[HabiTick Crypto] Salt fetched dynamically.");
+      return cachedSalt;
+    }
+    throw new Error("Invalid response format");
+  } catch (e) {
+    console.error("[HabiTick Crypto] Failed to fetch dynamic salt, using fallback:", e);
+    return "HabiTick_Frontend_Secure_Salt_2026"; // Return fallback but do not cache it
+  }
+}
+
+async function getKey(userId, version) {
   const enc = new TextEncoder();
-  const keyData = enc.encode(userId + CRYPTO_SALT);
+  
+  let salt;
+  if (version === 2) {
+    salt = await getSalt();
+  } else {
+    salt = "HabiTick_Frontend_Secure_Salt_2026"; // V1 Fallback
+  }
+
+  const keyData = enc.encode(userId + salt);
   const hash = await crypto.subtle.digest("SHA-256", keyData);
   return crypto.subtle.importKey(
     "raw",
@@ -15,9 +41,9 @@ async function getKey(userId) {
 
 export async function encryptText(text, userId) {
   if (!text) return "";
-  console.log("[HabiTick Crypto] Starting encryption for user:", userId);
+  console.log("[HabiTick Crypto] Starting encryption for user (Version 2):", userId);
   try {
-    const key = await getKey(userId);
+    const key = await getKey(userId, 2);
     const enc = new TextEncoder();
     const encoded = enc.encode(text);
     const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -38,7 +64,7 @@ export async function encryptText(text, userId) {
     }
     const encrypted = btoa(binary);
     console.log("[HabiTick Crypto] Encryption successful.");
-    return encrypted;
+    return "htv2:" + encrypted;
   } catch (e) {
     console.error("[HabiTick Crypto] Encryption failed:", e);
     return text;
@@ -47,11 +73,18 @@ export async function encryptText(text, userId) {
 
 export async function decryptText(encryptedBase64, userId) {
   if (!encryptedBase64) return "";
-  // Check if it looks like encrypted base64 (encrypted base64 will typically be raw binary encoded, not normal English sentences)
-  // We can log decrypt attempt
+  
   try {
-    const key = await getKey(userId);
-    const binaryString = atob(encryptedBase64);
+    let cleanCiphertext = encryptedBase64;
+    let version = 1;
+    
+    if (encryptedBase64.startsWith("htv2:")) {
+      cleanCiphertext = encryptedBase64.substring(5);
+      version = 2;
+    }
+    
+    const key = await getKey(userId, version);
+    const binaryString = atob(cleanCiphertext);
     const len = binaryString.length;
     const bytes = new Uint8Array(len);
     for (let i = 0; i < len; i++) {
@@ -65,7 +98,7 @@ export async function decryptText(encryptedBase64, userId) {
       key,
       ciphertext
     );
-    console.log("[HabiTick Crypto] Decrypted successfully.");
+    console.log(`[HabiTick Crypto] Decrypted successfully (Version ${version}).`);
     return dec.decode(decrypted);
   } catch (e) {
     // If decryption fails, it's plaintext

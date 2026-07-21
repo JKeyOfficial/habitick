@@ -95,7 +95,7 @@ function renderMarkdown(text) {
   return text.split("\n").map((line, idx) => {
     let clean = line.trim();
     if (!clean) return <div key={idx} style={{ height: "8px" }} />;
-    
+
     if (clean.startsWith("### ")) {
       return <h5 key={idx} style={{ margin: "14px 0 6px", color: "#fff", fontSize: "13px", fontWeight: 700 }}>{clean.substring(4)}</h5>;
     }
@@ -103,7 +103,7 @@ function renderMarkdown(text) {
       const val = clean.startsWith("## ") ? clean.substring(3) : clean.substring(2);
       return <h4 key={idx} style={{ margin: "18px 0 8px", color: "#a78bfa", fontSize: "14px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>{val}</h4>;
     }
-    
+
     if (clean.startsWith("- ") || clean.startsWith("* ")) {
       const val = clean.substring(2);
       return (
@@ -136,27 +136,27 @@ function getTypicalTimeStr(completionTimes, completions) {
   const ampm = hrs >= 12 ? "PM" : "AM";
   const displayHrs = hrs % 12 || 12;
   const displayMins = String(mins).padStart(2, '0');
-  
+
   let period = "Morning";
   if (hrs >= 12 && hrs < 17) period = "Afternoon";
   else if (hrs >= 17 && hrs < 22) period = "Evening";
   else if (hrs >= 22 || hrs < 5) period = "Night";
-  
+
   return ` (usually in the ${period} around ${displayHrs}:${displayMins} ${ampm})`;
 }
 
 function AICoach({ habits, todos, goals = [], journalEntries, rangeDays, todayStr, isPremium, profile, setProfile, onRecommendHabit }) {
-  const [loadingStep, setLoadingStep] = useState(0); 
+  const [loadingStep, setLoadingStep] = useState(0);
   const [summary, setSummary] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
   const [feedbackRating, setFeedbackRating] = useState(null);
   const [feedbackReason, setFeedbackReason] = useState("");
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
-  
+
   const cacheKey = `ht_ai_report_${rangeDays}days`;
   const timestampKey = `ht_ai_report_${rangeDays}days_timestamp`;
 
-  const cooldownMs = rangeDays === 7 
+  const cooldownMs = rangeDays === 7
     ? 7 * 24 * 60 * 60 * 1000 // 7 days
     : 30 * 24 * 60 * 60 * 1000; // 30 days
 
@@ -171,7 +171,7 @@ function AICoach({ habits, todos, goals = [], journalEntries, rangeDays, todaySt
         timestamp: Date.now()
       };
     }
-    
+
     const feedbacks = currentPersona.feedbacks || [];
     feedbacks.push({
       timestamp: Date.now(),
@@ -189,7 +189,7 @@ function AICoach({ habits, todos, goals = [], journalEntries, rangeDays, todaySt
     try {
       const encryptedPersona = await encryptText(JSON.stringify(updatedPersona), profile.id);
       const encryptedSuggestions = await encryptText(JSON.stringify(profile?.ai_suggestions || {}), profile.id);
-      
+
       const { data: updatedProfile } = await supabase
         .from("profiles")
         .update({
@@ -199,7 +199,7 @@ function AICoach({ habits, todos, goals = [], journalEntries, rangeDays, todaySt
         .eq("id", profile.id)
         .select()
         .single();
-      
+
       if (updatedProfile) {
         updatedProfile.ai_persona = updatedPersona;
         updatedProfile.ai_suggestions = profile?.ai_suggestions || {};
@@ -232,10 +232,10 @@ function AICoach({ habits, todos, goals = [], journalEntries, rangeDays, todaySt
     } else {
       setSuggestions([]);
     }
-    
+
     setFeedbackRating(null);
     setFeedbackReason("");
-    
+
     const report = profile?.ai_persona?.reports?.[rangeDays];
     if (report) {
       const isWithinCooldown = Date.now() - report.timestamp < cooldownMs;
@@ -246,7 +246,7 @@ function AICoach({ habits, todos, goals = [], journalEntries, rangeDays, todaySt
         return;
       }
     }
-    
+
     setSummary(null);
     setFeedbackSubmitted(false);
     setLoadingStep(0);
@@ -261,7 +261,7 @@ function AICoach({ habits, todos, goals = [], journalEntries, rangeDays, todaySt
 
     const remainingDays = Math.ceil(remainingMs / (24 * 60 * 60 * 1000));
     if (remainingDays > 1) return `${remainingDays} days`;
-    
+
     const remainingHours = Math.ceil(remainingMs / (60 * 60 * 1000));
     return `${remainingHours} hours`;
   };
@@ -308,7 +308,7 @@ function AICoach({ habits, todos, goals = [], journalEntries, rangeDays, todaySt
     const savedPersona = profile?.ai_persona ? JSON.stringify(cleanPersona, null, 2) : "No previous persona data.";
 
     const feedbacks = profile?.ai_persona?.feedbacks || [];
-    const feedbackList = feedbacks.slice(-5).map(f => 
+    const feedbackList = feedbacks.slice(-5).map(f =>
       `- Rated ${f.rating === 'up' ? '👍 Helpful' : '👎 Unhelpful'} on a previous coaching summary.${f.reason ? ` Reason/correction from user: "${f.reason}"` : ""}`
     ).join("\n");
 
@@ -320,7 +320,7 @@ ${savedPersona}
 Historical Feedback Loop (use this feedback to adjust your coaching tone, recommendations, and insights. Avoid repeating things the user marked as unhelpful):
 ${feedbackList || "No feedback logged yet."}
 
-Write a warm, natural ${rangeDays === 7 ? "weekly" : "30-day"} summary (max 175 words) with this structure:
+Write a warm, natural ${rangeDays === 7 ? "weekly" : "30-day"} summary (max 250 words) with this structure:
 
 1. **Opening** – One strong, positive but honest sentence.
 2. **Key Wins** – Highlight the most important achievements and positive developments.
@@ -329,6 +329,7 @@ Write a warm, natural ${rangeDays === 7 ? "weekly" : "30-day"} summary (max 175 
 5. **Closing** – Motivational and uplifting final line.
 
 Rules:
+- Be honest. Acknowledge the bad things, the pain, but try to support them.
 - Never use placeholder names. Only use real names that appear in the user's journal entries or Context Memory.
 - Read between the lines. Be specific when the user shows strong interest or emotion toward someone.
 - Be caring and supportive, like a good friend who notices what matters to them.
@@ -404,7 +405,7 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
       setLoadingStep(2);
       await new Promise(r => setTimeout(r, 450));
       setLoadingStep(3);
-      
+
       const prompt = buildPrompt();
       const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${DEFAULT_GEMINI_KEY}`, {
         method: 'POST',
@@ -429,10 +430,10 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
       // Extract and save Dynamic Persona Map + Suggestions
       const startTag = "```JSON_DATA_START";
       const endTag = "```JSON_DATA_END";
-      
+
       const startIndex = text.indexOf(startTag);
       const endIndex = text.indexOf(endTag);
-      
+
       let newPersona = {};
       let suggestionsList = [];
       let parsedSucceeded = false;
@@ -607,7 +608,7 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
             justifyContent: "center",
             animation: "spin 2s linear infinite"
           }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" /></svg>
           </div>
           <span style={{ fontSize: "13px", color: "#c084fc", fontWeight: 600 }}>{stepTexts[loadingStep]}</span>
         </div>
@@ -728,7 +729,7 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
                   let badgeColor = "#60a5fa";
                   let badgeBg = "rgba(96, 165, 250, 0.15)";
                   let borderCol = "rgba(96, 165, 250, 0.25)";
-                  
+
                   if (s.type === "habit_pairing") {
                     badgeText = "🔗 Habit Pairing";
                     badgeColor = "#c084fc";
@@ -759,7 +760,7 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
                           {badgeText}
                         </span>
                       </div>
-                      
+
                       <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                         <p style={{ margin: 0, fontSize: "11.5px", color: "#6b7280", lineHeight: 1.4 }}>{s.insight}</p>
                         <p style={{ margin: 0, fontSize: "12px", color: "#d1d5db", fontWeight: 600, lineHeight: 1.4 }}>💡 {s.actionable}</p>
@@ -896,71 +897,71 @@ export function AnalyticsTab({ habits, todos, goals = [], pausePeriods, isPremiu
   const chartTitle = range === "7days" ? "Daily Activity — Last 7 Days" : range === "30days" ? "Daily Activity — Last 30 Days" : range === "year" ? "Weekly Activity — Last Year" : "Weekly Activity — All Time";
 
   const stats = [
-    { 
+    {
       icon: (
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+          <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
         </svg>
-      ), 
-      label: "Current Streak", 
-      value: `${currentStreak} days`, 
-      sub: "All scheduled habits done" 
+      ),
+      label: "Current Streak",
+      value: `${currentStreak} days`,
+      sub: "All scheduled habits done"
     },
-    { 
+    {
       icon: (
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
         </svg>
-      ), 
-      label: "Shields", 
-      value: `${shields}/${isPremium ? 5 : 3}`, 
-      sub: shields >= (isPremium ? 5 : 3) ? "Max shields held!" : "Buy at the Profile XP Shop" 
+      ),
+      label: "Shields",
+      value: `${shields}/${isPremium ? 5 : 3}`,
+      sub: shields >= (isPremium ? 5 : 3) ? "Max shields held!" : "Buy at the Profile XP Shop"
     },
-    { 
+    {
       icon: (
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
-          <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
-          <path d="M4 22h16"/>
-          <path d="M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34"/>
-          <path d="M12 2a6 6 0 0 1 6 6c0 3.31-2.69 6-6 6a6 6 0 0 1-6-6 6 6 0 0 1 6-6z"/>
+          <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+          <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+          <path d="M4 22h16" />
+          <path d="M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34" />
+          <path d="M12 2a6 6 0 0 1 6 6c0 3.31-2.69 6-6 6a6 6 0 0 1-6-6 6 6 0 0 1 6-6z" />
         </svg>
-      ), 
-      label: "Best Streak", 
-      value: `${bestStreak} days`, 
-      sub: "Personal record" 
+      ),
+      label: "Best Streak",
+      value: `${bestStreak} days`,
+      sub: "Personal record"
     },
-    { 
+    {
       icon: (
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21.21 15.89A10 10 0 1 1 8 2.83"/>
-          <path d="M22 12A10 10 0 0 0 12 2v10z"/>
+          <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+          <path d="M22 12A10 10 0 0 0 12 2v10z" />
         </svg>
-      ), 
-      label: "Completion Rate", 
-      value: completionRate !== null ? `${completionRate}%` : "—", 
-      sub: `${totalCompletions} completions` 
+      ),
+      label: "Completion Rate",
+      value: completionRate !== null ? `${completionRate}%` : "—",
+      sub: `${totalCompletions} completions`
     },
   ];
 
   return (
     <div style={{ maxWidth: "1000px", margin: "0 auto", padding: "10px 0" }}>
       <h1 style={{ fontFamily: "'Syne', sans-serif", textAlign: "center", color: "#f9fafb", fontWeight: 800, fontSize: "28px", marginBottom: "24px", letterSpacing: "-0.02em" }}>Your Analytics</h1>
-      
+
       <div style={{ display: "flex", gap: "8px", justifyContent: "center", marginBottom: "28px" }}>
         {[["7days", "7 Days"], ["30days", "30 Days"], ["year", "Year"], ["all", "All Time"]].map(([val, label]) => (
-          <button 
-            key={val} 
-            onClick={() => setRange(val)} 
-            style={{ 
-              padding: "7px 18px", 
-              borderRadius: "999px", 
-              border: range === val ? "1px solid #2563eb" : "1px solid rgba(255,255,255,0.08)", 
-              background: range === val ? "rgba(37,99,235,0.15)" : "rgba(255,255,255,0.02)", 
-              color: range === val ? "#60a5fa" : "#9ca3af", 
-              cursor: "pointer", 
-              fontWeight: 700, 
-              fontSize: "12.5px", 
+          <button
+            key={val}
+            onClick={() => setRange(val)}
+            style={{
+              padding: "7px 18px",
+              borderRadius: "999px",
+              border: range === val ? "1px solid #2563eb" : "1px solid rgba(255,255,255,0.08)",
+              background: range === val ? "rgba(37,99,235,0.15)" : "rgba(255,255,255,0.02)",
+              color: range === val ? "#60a5fa" : "#9ca3af",
+              cursor: "pointer",
+              fontWeight: 700,
+              fontSize: "12.5px",
               fontFamily: "inherit",
               transition: "all 0.2s"
             }}
@@ -972,10 +973,10 @@ export function AnalyticsTab({ habits, todos, goals = [], pausePeriods, isPremiu
 
       <div className="ht-analytics-grid">
         {stats.map((stat, i) => (
-          <div key={i} style={{ 
+          <div key={i} style={{
             background: "linear-gradient(135deg, rgba(22, 31, 48, 0.4) 0%, rgba(13, 17, 23, 0.5) 100%)",
             border: "1px solid rgba(255, 255, 255, 0.05)",
-            borderRadius: "20px", 
+            borderRadius: "20px",
             padding: "20px 18px",
             boxShadow: "0 8px 32px rgba(0,0,0,0.3)"
           }}>
@@ -987,10 +988,10 @@ export function AnalyticsTab({ habits, todos, goals = [], pausePeriods, isPremiu
         ))}
       </div>
 
-      <div style={{ 
+      <div style={{
         background: "linear-gradient(135deg, rgba(22, 31, 48, 0.4) 0%, rgba(13, 17, 23, 0.5) 100%)",
         border: "1px solid rgba(255, 255, 255, 0.05)",
-        borderRadius: "20px", 
+        borderRadius: "20px",
         padding: "22px",
         boxShadow: "0 8px 32px rgba(0,0,0,0.3)"
       }}>
@@ -1005,17 +1006,17 @@ export function AnalyticsTab({ habits, todos, goals = [], pausePeriods, isPremiu
           {finalChartData.map((d, i) => (
             <div key={i} style={{ minWidth: finalChartData.length > 14 ? "18px" : undefined, display: "flex", flexDirection: "column", alignItems: "center", height: "100%", flex: 1 }}>
               <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-end", gap: "2px", width: "100%" }}>
-                <div style={{ 
-                  background: "linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%)", 
-                  borderRadius: "3px 3px 0 0", 
-                  height: `${(d.habits / maxVal) * 90}%`, 
+                <div style={{
+                  background: "linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%)",
+                  borderRadius: "3px 3px 0 0",
+                  height: `${(d.habits / maxVal) * 90}%`,
                   minHeight: d.habits > 0 ? "4px" : "0",
                   boxShadow: d.habits > 0 ? "0 0 8px rgba(59, 130, 246, 0.4)" : "none"
                 }} />
-                <div style={{ 
-                  background: "linear-gradient(180deg, #4ade80 0%, #22c55e 100%)", 
-                  borderRadius: "3px 3px 0 0", 
-                  height: `${(d.tasks / maxVal) * 90}%`, 
+                <div style={{
+                  background: "linear-gradient(180deg, #4ade80 0%, #22c55e 100%)",
+                  borderRadius: "3px 3px 0 0",
+                  height: `${(d.tasks / maxVal) * 90}%`,
                   minHeight: d.tasks > 0 ? "4px" : "0",
                   boxShadow: d.tasks > 0 ? "0 0 8px rgba(34, 197, 94, 0.4)" : "none"
                 }} />
@@ -1027,13 +1028,13 @@ export function AnalyticsTab({ habits, todos, goals = [], pausePeriods, isPremiu
       </div>
 
       {rangeDays !== null && (rangeDays === 7 || rangeDays === 30) ? (
-        <AICoach 
-          habits={habits} 
-          todos={todos} 
+        <AICoach
+          habits={habits}
+          todos={todos}
           goals={goals}
-          journalEntries={journalEntries} 
-          rangeDays={rangeDays} 
-          todayStr={todayStr} 
+          journalEntries={journalEntries}
+          rangeDays={rangeDays}
+          todayStr={todayStr}
           isPremium={isPremium}
           profile={profile}
           setProfile={setProfile}
