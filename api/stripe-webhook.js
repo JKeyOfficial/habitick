@@ -7,7 +7,7 @@
 //   SUPABASE_SERVICE_KEY     Supabase service_role key (NOT anon key) — bypasses RLS
 //
 // In Stripe → Webhooks, add endpoint: https://<your-app-domain>/api/stripe-webhook
-// Events to listen for: checkout.session.completed, customer.subscription.deleted
+// Events to listen for: checkout.session.completed, customer.subscription.deleted, customer.subscription.updated
 
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
@@ -38,6 +38,7 @@ export default async function handler(req, res) {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
+  // 1. Successful Purchase (Monthly or Lifetime)
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
     const userId = session.metadata?.supabase_user_id;
@@ -54,6 +55,7 @@ export default async function handler(req, res) {
     }
   }
 
+  // 2. Subscription Cancelled / Deleted
   if (event.type === "customer.subscription.deleted") {
     const customerId = event.data.object.customer;
     const { data: profiles } = await supabase
@@ -62,6 +64,21 @@ export default async function handler(req, res) {
       await supabase.from("profiles")
         .update({ is_premium: false, updated_at: new Date().toISOString() })
         .eq("id", profiles[0].id);
+    }
+  }
+
+  // 3. Subscription Status Updated (Canceled or Unpaid)
+  if (event.type === "customer.subscription.updated") {
+    const sub = event.data.object;
+    if (sub.status === "canceled" || sub.status === "unpaid") {
+      const customerId = sub.customer;
+      const { data: profiles } = await supabase
+        .from("profiles").select("id, is_lifetime").eq("stripe_customer_id", customerId);
+      if (profiles?.[0] && !profiles[0].is_lifetime) {
+        await supabase.from("profiles")
+          .update({ is_premium: false, updated_at: new Date().toISOString() })
+          .eq("id", profiles[0].id);
+      }
     }
   }
 
