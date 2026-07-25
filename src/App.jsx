@@ -22,7 +22,7 @@ import { CSS } from '@dnd-kit/utilities';
 
 
 // Config and Utils
-import { STRIPE_CHECKOUT_URL, FREE_HABIT_LIMIT, FREE_TODO_LIMIT, FREE_JOURNAL_DAYS, LIFETIME_USER_LIMIT, MAX_SHIELDS, DAYS_SHORT, MONTHS_SHORT, S, VAPID_PUBLIC_KEY } from "./utils/constants.js";
+import { STRIPE_CHECKOUT_URL, FREE_HABIT_LIMIT, FREE_TODO_LIMIT, FREE_GOALS_LIMIT, FREE_JOURNAL_DAYS, LIFETIME_USER_LIMIT, MAX_SHIELDS, DAYS_SHORT, MONTHS_SHORT, S, VAPID_PUBLIC_KEY } from "./utils/constants.js";
 import { getTodayStr, getDateStr, parseDateLocal, isSameDay, getCalendarDays, isDayComplete, isDatePaused, calcStats, calcXp, getLevel, getXpForLevelStart } from "./utils/helpers.js";
 import { NotificationManager } from "./utils/notifications.js";
 import { decryptText, encryptText } from "./utils/crypto.js";
@@ -150,8 +150,9 @@ export default function HabiTick() {
   const [showRoutineModal, setShowRoutineModal] = useState(false);
   const [editingRoutine, setEditingRoutine] = useState(null);
   const [activeId, setActiveId] = useState(null);
-  const [draggedHabit, setDraggedHabit] = useState(null);
   const [lifetimeBannerDismissed, setLifetimeBannerDismissed] = useState(false);
+  const [showShieldPopover, setShowShieldPopover] = useState(false);
+  const [profileTab, setProfileTab] = useState("account");
 
 
   const sensors = useSensors(
@@ -601,6 +602,11 @@ export default function HabiTick() {
   };
 
   const addGoal = async (title, description, targetDate) => {
+    if (!isPremium && goals.length >= FREE_GOALS_LIMIT) {
+      setShowGoalModal(false);
+      setShowUpgradeModal("goals");
+      return;
+    }
     const encryptedTitle = await encryptText(title, session.user.id);
     const encryptedDesc = description ? await encryptText(description, session.user.id) : null;
     const { data, error } = await supabase.from("goals").insert({
@@ -691,45 +697,7 @@ export default function HabiTick() {
   const totalToday = habits.filter(h => h.frequency === "daily" || (h.days && h.days.includes(todayDow))).length;
 
   const isPremium = profile?.is_premium === true || profile?.is_lifetime === true;
-  const { currentStreak, shields, shieldedDates } = calcStats(habits, pausePeriods, isPremium, profile);
-  const { totalEarned } = calcXp(habits, todos, journalEntries, goals);
-  const remainingXp = Math.max(totalEarned - ((profile?.purchased_shields || 0) * 500), 0);
-  const maxShields = isPremium ? 5 : 3;
-
-  const currentLvl = getLevel(totalEarned);
-  const currentLvlStart = getXpForLevelStart(currentLvl);
-  const nextLvlStart = getXpForLevelStart(currentLvl + 1);
-  const xpInCurrentLvl = totalEarned - currentLvlStart;
-  const xpNeededForCurrentLvl = nextLvlStart - currentLvlStart;
-  const levelProgressPct = (xpInCurrentLvl / xpNeededForCurrentLvl) * 100;
-
-  const [purchasingShieldSidebar, setPurchasingShieldSidebar] = useState(false);
-  const buyShieldSidebar = async () => {
-    if (remainingXp < 500) return;
-    const currentStats = calcStats(habits, pausePeriods, isPremium, profile);
-    if (currentStats.shields >= maxShields) {
-      alert(`Max shields reached (${maxShields})`);
-      return;
-    }
-    
-    setPurchasingShieldSidebar(true);
-    const newPurchasedCount = (profile?.purchased_shields || 0) + 1;
-    
-    const { error } = await supabase
-      .from("profiles")
-      .update({ 
-        purchased_shields: newPurchasedCount, 
-        updated_at: new Date().toISOString() 
-      })
-      .eq("id", session?.user?.id);
-      
-    if (error) {
-      alert(error.message);
-    } else {
-      setProfile(prev => ({ ...prev, purchased_shields: newPurchasedCount }));
-    }
-    setPurchasingShieldSidebar(false);
-  };
+  const { currentStreak, shields, maxShields, progressToNextShield, shieldedDates } = calcStats(habits, pausePeriods, isPremium, profile);
 
   const priorityOrder = { high: 1, med: 2, low: 3, "": 4 };
   const visibleTodos = (showCompleted ? todos : todos.filter(t => !t.done)).slice().sort((a, b) => {
@@ -751,17 +719,27 @@ export default function HabiTick() {
   const isLifetime = profile?.is_lifetime === true;
   const userNumber = profile?.user_number || null;
 
-  const handleUpgrade = async () => {
+  const handleUpgrade = async (planType = "monthly") => {
     try {
       const res = await fetch(STRIPE_CHECKOUT_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: session.user.id, userEmail: session.user.email }),
+        body: JSON.stringify({ userId: session.user.id, userEmail: session.user.email, planType }),
       });
-      const { url } = await res.json();
-      window.location.href = url;
-    } catch {
-      alert("Something went wrong. Please try again.");
+      
+      const text = await res.text();
+      let data = {};
+      try { data = JSON.parse(text); } catch {}
+
+      if (res.ok && data?.url) {
+        window.location.href = data.url;
+      } else if (res.status === 404) {
+        alert("Local Vite dev server cannot execute Vercel serverless functions (/api/create-checkout) directly.\n\nDeploy to Vercel or run `npx vercel dev` to test live Stripe Checkout, and ensure STRIPE_SECRET_KEY is set in your env!");
+      } else {
+        alert(data?.error || `Stripe error (${res.status}): ${text.slice(0, 100)}`);
+      }
+    } catch (err) {
+      alert(`Checkout error: ${err.message || "Failed to reach serverless API."}`);
     }
   };
 
@@ -1098,92 +1076,10 @@ export default function HabiTick() {
           ))}
         </nav>
 
-        {/* DESKTOP XP & SHIELD SHOP */}
-        <div style={{ 
-          marginTop: "24px", 
-          marginBottom: "16px", 
-          background: "linear-gradient(135deg, rgba(168, 85, 247, 0.02) 0%, rgba(59, 130, 246, 0.02) 100%)", 
-          border: "1px solid rgba(255, 255, 255, 0.03)", 
-          borderRadius: "16px", 
-          padding: "16px",
-          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.15)"
-        }}>
-          {/* Header with Level & XP */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-            <span style={{ 
-              fontFamily: "'Syne', sans-serif",
-              fontSize: "11px", 
-              fontWeight: 800, 
-              color: "#3b82f6",
-              letterSpacing: "0.05em",
-              textTransform: "uppercase"
-            }}>
-              Level {currentLvl}
-            </span>
-            <span style={{ fontSize: "11.5px", color: "#9ca3af", fontWeight: 700, fontFamily: "'Syne', sans-serif", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: "middle" }}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z"/></svg>
-              {remainingXp} <span style={{ fontSize: "9.5px", color: "#4b5563" }}>XP</span>
-            </span>
-          </div>
 
-          {/* Level Progress bar - matching other bars */}
-          <div style={{ height: "3px", background: "rgba(255, 255, 255, 0.05)", borderRadius: "999px", overflow: "hidden", marginBottom: "14px" }}>
-            <div style={{ 
-              height: "100%", 
-              background: "linear-gradient(90deg, #3b82f6 0%, #2563eb 100%)", 
-              width: `${levelProgressPct}%`,
-              borderRadius: "999px"
-            }} />
-          </div>
-
-          {/* Shields status */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "11px", color: "#6b7280", marginBottom: "12px", fontWeight: 600 }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: "middle" }}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-              Streak Shields
-            </span>
-            <span style={{ fontWeight: 700, color: "#e5e7eb" }}>
-              {shields} <span style={{ color: "#4b5563", fontWeight: 500 }}>/ {maxShields}</span>
-            </span>
-          </div>
-
-          {/* Buy shield button */}
-          <button
-            onClick={buyShieldSidebar}
-            disabled={remainingXp < 500 || shields >= maxShields || purchasingShieldSidebar}
-            style={{
-              width: "100%",
-              padding: "8px 12px",
-              borderRadius: "10px",
-              border: remainingXp >= 500 && shields < maxShields ? "none" : "1px solid rgba(255, 255, 255, 0.05)",
-              background: remainingXp >= 500 && shields < maxShields ? "linear-gradient(135deg, #a855f7 0%, #3b82f6 100%)" : "rgba(255, 255, 255, 0.01)",
-              color: remainingXp >= 500 && shields < maxShields ? "#fff" : "#4b5563",
-              fontWeight: 700,
-              fontSize: "10.5px",
-              cursor: remainingXp >= 500 && shields < maxShields ? "pointer" : "default",
-              fontFamily: "inherit",
-              transition: "all 0.2s ease",
-              boxShadow: remainingXp >= 500 && shields < maxShields ? "0 4px 14px rgba(168, 85, 247, 0.25)" : "none"
-            }}
-            onMouseEnter={e => {
-              if (remainingXp >= 500 && shields < maxShields) {
-                e.currentTarget.style.filter = "brightness(1.1)";
-                e.currentTarget.style.boxShadow = "0 6px 20px rgba(168, 85, 247, 0.35)";
-              }
-            }}
-            onMouseLeave={e => {
-              if (remainingXp >= 500 && shields < maxShields) {
-                e.currentTarget.style.filter = "none";
-                e.currentTarget.style.boxShadow = "0 4px 14px rgba(168, 85, 247, 0.25)";
-              }
-            }}
-          >
-            {purchasingShieldSidebar ? "Buying..." : shields >= maxShields ? "Shields at Max Capacity" : "Buy Shield (500 XP)"}
-          </button>
-        </div>
 
         <div className="ht-sidebar-footer">
-          <button onClick={() => setShowProfile(true)} style={{ display: "flex", alignItems: "center", gap: "10px", background: "rgba(255, 255, 255, 0.02)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: "12px", padding: "10px 14px", cursor: "pointer", width: "100%", transition: "all 0.2s" }}>
+          <button onClick={() => { setProfileTab("account"); setShowProfile(true); }} style={{ display: "flex", alignItems: "center", gap: "10px", background: "rgba(255, 255, 255, 0.02)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: "12px", padding: "10px 14px", cursor: "pointer", width: "100%", transition: "all 0.2s" }}>
             {profile?.avatar_url
               ? <img src={profile.avatar_url} alt="avatar" style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover" }} />
               : <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "12px", color: "#fff" }}>
@@ -1231,14 +1127,101 @@ export default function HabiTick() {
                 </>
               )}
             </div>
-            <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111622", border: "1px solid rgba(59,130,246,0.15)", borderRadius: "999px", padding: "4px 12px", fontSize: "11px", color: "#60a5fa", fontWeight: 600 }}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
-              <span>{shields}/{isPremium ? 5 : 3}</span>
+            <div 
+              style={{ position: "relative" }}
+              onMouseEnter={() => setShowShieldPopover(true)}
+              onMouseLeave={() => setShowShieldPopover(false)}
+            >
+              <button
+                onClick={() => { setProfileTab("shields"); setShowShieldPopover(false); setShowProfile(true); }}
+                style={{
+                  display: "flex",
+                  gap: "6px",
+                  alignItems: "center",
+                  background: showShieldPopover ? "rgba(37, 99, 235, 0.15)" : "#111622",
+                  border: `1px solid ${showShieldPopover ? "#2563eb" : "rgba(59,130,246,0.15)"}`,
+                  borderRadius: "999px",
+                  padding: "4px 12px",
+                  fontSize: "11px",
+                  color: "#60a5fa",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  transition: "all 0.2s"
+                }}
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+                <span>{shields}/{isPremium ? 5 : 3}</span>
+              </button>
+
+              {showShieldPopover && (
+                <div style={{
+                  position: "absolute",
+                  top: "100%",
+                  right: 0,
+                  paddingTop: "6px",
+                  zIndex: 1000
+                }}>
+                  <div style={{
+                    width: "260px",
+                    background: "#111622",
+                    border: "1px solid rgba(255, 255, 255, 0.08)",
+                    borderRadius: "16px",
+                    padding: "16px",
+                    boxShadow: "0 12px 36px rgba(0, 0, 0, 0.5)",
+                    animation: "fadeUp 0.15s ease-out"
+                  }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: "#fff", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                      Streak Shields
+                    </span>
+                    <span style={{ fontSize: "11px", color: "#60a5fa", fontWeight: 700, background: "rgba(59, 130, 246, 0.1)", padding: "2px 8px", borderRadius: "999px", border: "1px solid rgba(59, 130, 246, 0.2)" }}>
+                      {shields} / {maxShields}
+                    </span>
+                  </div>
+
+                  <p style={{ margin: "0 0 12px", fontSize: "11.5px", color: "#9ca3af", lineHeight: 1.4 }}>
+                    Streak Shields automatically protect your streak if you miss a day. Earn 1 shield every 5 perfect days.
+                  </p>
+
+                  {/* Progress bar towards next shield */}
+                  <div style={{ background: "rgba(0,0,0,0.2)", borderRadius: "10px", padding: "10px 12px", border: "1px solid rgba(255,255,255,0.04)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10.5px", color: "#6b7280", fontWeight: 600, marginBottom: "6px" }}>
+                      <span>Next Shield</span>
+                      <span style={{ color: "#3b82f6", fontWeight: 700 }}>{progressToNextShield} / 5 perfect days</span>
+                    </div>
+                    <div style={{ height: "4px", background: "rgba(255, 255, 255, 0.06)", borderRadius: "999px", overflow: "hidden" }}>
+                      <div style={{ height: "100%", background: "#2563eb", width: `${(progressToNextShield / 5) * 100}%`, borderRadius: "999px", transition: "width 0.3s ease" }} />
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => { setProfileTab("shields"); setShowShieldPopover(false); setShowProfile(true); }}
+                    style={{
+                      width: "100%",
+                      marginTop: "12px",
+                      background: "rgba(255, 255, 255, 0.03)",
+                      border: "1px solid rgba(255, 255, 255, 0.06)",
+                      borderRadius: "8px",
+                      color: "#9ca3af",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      padding: "6px",
+                      cursor: "pointer",
+                      textAlign: "center",
+                      transition: "all 0.15s"
+                    }}
+                  >
+                    View Shield Rules & Stats →
+                  </button>
+                </div>
+              </div>
+            )}
             </div>
 
             {/* Profile Avatar Button on Mobile */}
             <button
-              onClick={() => setShowProfile(true)}
+              onClick={() => { setProfileTab("account"); setShowProfile(true); }}
               className="ht-mobile-only"
               style={{
                 background: "none",
@@ -1272,7 +1255,6 @@ export default function HabiTick() {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontFamily: "'Syne', sans-serif",
                   fontWeight: 800,
                   fontSize: "12px",
                   color: "#fff",
@@ -1763,6 +1745,7 @@ export default function HabiTick() {
       )}
       {showProfile && (
         <ProfileModal 
+          initialTab={profileTab}
           session={session} 
           profile={profile} 
           habits={habits}
@@ -1775,7 +1758,8 @@ export default function HabiTick() {
             setShowTodayOnly(val);
           }}
           onUpdate={setProfile} 
-          onClose={() => setShowProfile(false)} 
+          onClose={() => setShowProfile(false)}
+          onUpgrade={handleUpgrade}
         />
       )}
       {showGoalModal && (

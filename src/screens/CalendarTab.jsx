@@ -211,10 +211,7 @@ export function CalendarTab({
     return getDateStr(d);
   }, [today, todayStr]);
 
-  const isJournalLocked = useMemo(() => {
-    if (!selectedDateStr || !journalCutoff) return false;
-    return !isPremium && selectedDateStr < journalCutoff;
-  }, [selectedDateStr, journalCutoff, isPremium]);
+  const isJournalLocked = false;
 
   return (
     <div style={{ padding: "0", maxWidth: "100%" }}>

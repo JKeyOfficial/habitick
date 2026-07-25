@@ -1,12 +1,12 @@
 // api/stripe-webhook.js — place at /api/stripe-webhook.js in project root
 //
-// Env vars needed in Vercel:
-//   STRIPE_SECRET_KEY        stripe secret key
-//   STRIPE_WEBHOOK_SECRET    Stripe → Developers → Webhooks → signing secret
-//   SUPABASE_URL             your project URL
-//   SUPABASE_SERVICE_KEY     service_role key (NOT anon key) — bypasses RLS
+// Env vars needed in Vercel / .env:
+//   STRIPE_SECRET_KEY        Stripe secret key (sk_live_... or sk_test_...)
+//   STRIPE_WEBHOOK_SECRET    Stripe → Developers → Webhooks → signing secret (whsec_...)
+//   SUPABASE_URL             Your Supabase project URL
+//   SUPABASE_SERVICE_KEY     Supabase service_role key (NOT anon key) — bypasses RLS
 //
-// In Stripe → Webhooks, add: https://app.habitick.pro/api/stripe-webhook
+// In Stripe → Webhooks, add endpoint: https://<your-app-domain>/api/stripe-webhook
 // Events to listen for: checkout.session.completed, customer.subscription.deleted
 
 import Stripe from "stripe";
@@ -41,11 +41,14 @@ export default async function handler(req, res) {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
     const userId = session.metadata?.supabase_user_id;
+    const isLifetime = session.metadata?.plan_type === "lifetime" || session.mode === "payment";
+
     if (userId) {
       await supabase.from("profiles").update({
         is_premium: true,
-        stripe_customer_id: session.customer,
-        stripe_subscription_id: session.subscription,
+        is_lifetime: isLifetime,
+        stripe_customer_id: session.customer || null,
+        stripe_subscription_id: session.subscription || null,
         updated_at: new Date().toISOString(),
       }).eq("id", userId);
     }

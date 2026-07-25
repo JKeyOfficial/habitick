@@ -1,8 +1,8 @@
-import { FREE_HABIT_LIMIT, FREE_JOURNAL_DAYS } from '../utils/constants.js';
+import { FREE_HABIT_LIMIT, FREE_GOALS_LIMIT, FREE_JOURNAL_DAYS } from '../utils/constants.js';
 import { supabase } from '../lib/supabase.js';
 import { useState } from 'react';
 
-export function BillingTab({ profile, session, showToast }) {
+export function BillingTab({ profile, session, showToast, onUpgrade }) {
   const [loading, setLoading] = useState(false);
 
   const isPremium = profile?.is_premium === true;
@@ -27,41 +27,60 @@ export function BillingTab({ profile, session, showToast }) {
     setLoading(false);
   };
 
-  const row = (label, value, highlight) => (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid #1f2937" }}>
-      <span style={{ color: "#6b7280", fontSize: "13px" }}>{label}</span>
-      <span style={{ color: highlight ? "#10b981" : "#f9fafb", fontWeight: 600, fontSize: "13px" }}>{value}</span>
+  const tableRow = (feature, freeVal, proVal, isHeader = false, isLast = false) => (
+    <div style={{
+      display: "grid",
+      gridTemplateColumns: "1.2fr 1fr 1fr",
+      padding: isHeader ? "14px 16px" : "12px 16px",
+      alignItems: "center",
+      background: isHeader ? "rgba(17, 24, 39, 0.8)" : "transparent",
+      borderBottom: isLast ? "none" : "1px solid rgba(255, 255, 255, 0.05)",
+      fontSize: isHeader ? "12px" : "13px"
+    }}>
+      <div style={{ fontWeight: isHeader ? 700 : 500, color: isHeader ? "#9ca3af" : "#d1d5db", textTransform: isHeader ? "uppercase" : "none", letterSpacing: isHeader ? "0.04em" : "normal" }}>
+        {feature}
+      </div>
+      <div style={{ textAlign: "center", color: isHeader ? "#9ca3af" : "#9ca3af", fontWeight: isHeader ? 700 : 500, textTransform: isHeader ? "uppercase" : "none" }}>
+        {freeVal}
+      </div>
+      <div style={{
+        textAlign: "center",
+        color: isHeader ? "#60a5fa" : "#3b82f6",
+        fontWeight: isHeader ? 800 : 700,
+        textTransform: isHeader ? "uppercase" : "none",
+        background: isHeader ? "rgba(59, 130, 246, 0.1)" : "rgba(59, 130, 246, 0.06)",
+        padding: isHeader ? "4px 8px" : "4px 6px",
+        borderRadius: "6px",
+        fontFamily: isHeader ? "'Syne', sans-serif" : "inherit"
+      }}>
+        {proVal}
+      </div>
     </div>
   );
 
   return (
     <div>
-      <div style={{ background: "#0d1117", border: `1px solid ${isPremium ? "#2563eb40" : "#1f2937"}`, borderRadius: "12px", padding: "16px", marginBottom: "20px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-          <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "16px", color: "#f9fafb" }}>
-            {isLifetime ? "Founder Plan" : isPremium ? "Pro Plan" : "Free Plan"}
-          </span>
-          <span style={{
-            fontSize: "11px", padding: "3px 10px", borderRadius: "999px", fontWeight: 700,
-            background: isLifetime ? "#065f46" : isPremium ? "#2563eb20" : "#1f2937",
-            border: `1px solid ${isLifetime ? "#10b981" : isPremium ? "#2563eb" : "#374151"}`,
-            color: isLifetime ? "#10b981" : isPremium ? "#60a5fa" : "#6b7280"
-          }}>
-            {isLifetime ? "LIFETIME PREMIUM ✦" : isPremium ? "ACTIVE" : "FREE"}
-          </span>
-        </div>
+      {/* Active Plan Status Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px", padding: "12px 16px", background: "#0d1117", border: "1px solid rgba(255, 255, 255, 0.06)", borderRadius: "12px" }}>
+        <span style={{ fontSize: "13px", color: "#9ca3af", fontWeight: 600 }}>Your Current Plan:</span>
+        <span style={{
+          fontSize: "11px", padding: "3px 10px", borderRadius: "999px", fontWeight: 700,
+          background: isLifetime ? "#065f46" : isPremium ? "rgba(37, 99, 235, 0.2)" : "rgba(255, 255, 255, 0.05)",
+          border: `1px solid ${isLifetime ? "#10b981" : isPremium ? "#2563eb" : "rgba(255, 255, 255, 0.1)"}`,
+          color: isLifetime ? "#10b981" : isPremium ? "#60a5fa" : "#9ca3af"
+        }}>
+          {isLifetime ? "LIFETIME PREMIUM ✦" : isPremium ? "PRO PLAN ACTIVE" : "FREE PLAN"}
+        </span>
+      </div>
 
-        {isLifetime && row("Price", "Premium, free, forever", true)}
-        {!isLifetime && isPremium && row("Price", "£0.99 / month", false)}
-        {!isPremium && row("Price", "£0", false)}
-
-        {isLifetime && row("Billing", "Never — you're a founding member", true)}
-        {!isLifetime && isPremium && row("Billing", "Managed via Stripe", false)}
-        {!isPremium && row("Upgrade", "£0.99/month for unlimited everything", false)}
-
-        {row("Habits", isPremium ? "Unlimited" : `${FREE_HABIT_LIMIT} max`, isPremium)}
-        {row("Journal history", isPremium ? "All time" : "Last 7 days", isPremium)}
-        {row("Backdating", isPremium ? "7 days" : "Yesterday only", isPremium)}
+      {/* Split Comparison Table */}
+      <div style={{ background: "#0d1117", border: "1px solid rgba(255, 255, 255, 0.08)", borderRadius: "16px", overflow: "hidden", marginBottom: "20px", boxShadow: "0 8px 32px rgba(0,0,0,0.3)" }}>
+        {tableRow("Feature", "Free", "Pro ✨", true)}
+        {tableRow("Max Habits", `${FREE_HABIT_LIMIT}`, "Unlimited ✦")}
+        {tableRow("Max Goals", `${FREE_GOALS_LIMIT}`, "Unlimited ✦")}
+        {tableRow("Streak Shields", "3 Max", "5 Max 🛡️")}
+        {tableRow("AI Summary", "None", "Full Access ✨")}
+        {tableRow("Price", "£0", "99p/mo or £12.99", false, true)}
       </div>
 
       {isLifetime && (
@@ -83,9 +102,30 @@ export function BillingTab({ profile, session, showToast }) {
       )}
 
       {!isPremium && (
-        <button onClick={() => showToast("Use the Upgrade button from the app", "error")} style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "14px", cursor: "pointer", fontFamily: "inherit" }}>
-          Upgrade to Pro — £0.99/month →
-        </button>
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          {/* Monthly Primary CTA */}
+          <button
+            onClick={() => onUpgrade && onUpgrade("monthly")}
+            style={{ width: "100%", padding: "13px", borderRadius: "10px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "14px", cursor: "pointer", fontFamily: "inherit", boxShadow: "0 4px 16px rgba(37,99,235,0.3)" }}
+          >
+            Subscribe Pro — £0.99 / month →
+          </button>
+
+          {/* OR Divider */}
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", margin: "2px 0" }}>
+            <div style={{ flex: 1, height: "1px", background: "rgba(255, 255, 255, 0.08)" }} />
+            <span style={{ fontSize: "11px", color: "#6b7280", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>or</span>
+            <div style={{ flex: 1, height: "1px", background: "rgba(255, 255, 255, 0.08)" }} />
+          </div>
+
+          {/* Lifetime Pass Secondary CTA */}
+          <button
+            onClick={() => onUpgrade && onUpgrade("lifetime")}
+            style={{ width: "100%", padding: "13px", borderRadius: "10px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "14px", cursor: "pointer", fontFamily: "inherit", boxShadow: "0 4px 16px rgba(37,99,235,0.3)" }}
+          >
+            Get Lifetime Pass — £12.99 (One-Time) ✦
+          </button>
+        </div>
       )}
     </div>
   );

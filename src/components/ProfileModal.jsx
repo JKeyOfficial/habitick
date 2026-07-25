@@ -7,8 +7,8 @@ import { VAPID_PUBLIC_KEY } from '../utils/constants.js';
 import { calcXp, calcStats, getLevel, getXpForLevelStart } from '../utils/helpers.js';
 
 
-export function ProfileModal({ session, profile, habits = [], todos = [], goals = [], journalEntries = {}, showTodayOnly, onChangeShowTodayOnly, onUpdate, onClose }) {
-  const [tab, setTab] = useState("account");
+export function ProfileModal({ initialTab = "account", session, profile, habits = [], todos = [], goals = [], journalEntries = {}, showTodayOnly, onChangeShowTodayOnly, onUpdate, onClose, onUpgrade }) {
+  const [tab, setTab] = useState(initialTab);
   const [username, setUsername] = useState(profile?.username || "");
   const [usernameMsg, setUsernameMsg] = useState("");
   const [usernameErr, setUsernameErr] = useState("");
@@ -32,51 +32,8 @@ export function ProfileModal({ session, profile, habits = [], todos = [], goals 
   const [notificationsEnabled, setNotificationsEnabled] = useState(profile?.notifications_enabled || false);
   const [savingNotifications, setSavingNotifications] = useState(false);
   const [toast, setToast] = useState(null);
-  const [purchasingShield, setPurchasingShield] = useState(false);
-
-  // Compute XP and Shield Stats
-  const { totalEarned, habitXp, taskXp, journalXp, perfectDayXp, goalsXp } = calcXp(habits, todos, journalEntries, goals);
-  const { shields } = calcStats(habits, [], profile?.is_premium, profile);
-  const maxShields = profile?.is_premium ? 5 : 3;
-  const remainingXp = Math.max(totalEarned - ((profile?.purchased_shields || 0) * 500), 0);
-
-  const currentLvl = getLevel(totalEarned);
-  const currentLvlStart = getXpForLevelStart(currentLvl);
-  const nextLvlStart = getXpForLevelStart(currentLvl + 1);
-  const xpInCurrentLvl = totalEarned - currentLvlStart;
-  const xpNeededForCurrentLvl = nextLvlStart - currentLvlStart;
-  const levelProgressPct = (xpInCurrentLvl / xpNeededForCurrentLvl) * 100;
-
-  const buyShield = async () => {
-    if (remainingXp < 500) return;
-    const currentStats = calcStats(habits, [], profile?.is_premium, profile);
-    if (currentStats.shields >= maxShields) {
-      showToast(`Max shields reached (${maxShields})`, "error");
-      return;
-    }
-
-    setPurchasingShield(true);
-    const newPurchasedCount = (profile?.purchased_shields || 0) + 1;
-
-    const { data, error } = await supabase
-      .from("profiles")
-      .update({
-        purchased_shields: newPurchasedCount,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", session.user.id)
-      .select()
-      .single();
-
-    if (error) {
-      showToast(error.message, "error");
-    } else {
-      showToast("Shield purchased successfully! 🛡️");
-      onUpdate(prev => ({ ...prev, purchased_shields: newPurchasedCount }));
-    }
-    setPurchasingShield(false);
-  };
-
+  // Compute Streak and Shield Stats
+  const { currentStreak, shields, maxShields, perfectDaysCount, progressToNextShield } = calcStats(habits, [], profile?.is_premium, profile);
 
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
@@ -269,18 +226,28 @@ export function ProfileModal({ session, profile, habits = [], todos = [], goals 
           <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "8px" }}>
             <span style={{ 
               fontSize: "11px", 
-              fontWeight: 800, 
-              color: "#3b82f6", 
+              fontWeight: 700, 
+              color: "#60a5fa", 
               background: "rgba(59, 130, 246, 0.08)",
               border: "1px solid rgba(59, 130, 246, 0.2)",
               padding: "2px 8px", 
               borderRadius: "6px"
             }}>
-              Lvl {currentLvl}
+              🔥 {currentStreak} Day Streak
             </span>
-            <span style={{ fontSize: "11px", color: "#9ca3af", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "4px" }}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: "middle" }}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z"/></svg>
-              {remainingXp.toLocaleString()} / {totalEarned.toLocaleString()} XP
+            <span style={{ 
+              fontSize: "11px", 
+              color: "#9ca3af", 
+              fontWeight: 600, 
+              background: "rgba(255, 255, 255, 0.03)",
+              border: "1px solid rgba(255, 255, 255, 0.06)",
+              padding: "2px 8px", 
+              borderRadius: "6px",
+              display: "inline-flex", 
+              alignItems: "center", 
+              gap: "4px" 
+            }}>
+              🛡️ {shields} / {maxShields} Shields
             </span>
           </div>
           {avatarUrl && <button onClick={removeAvatar} style={{ background: "none", border: "none", color: "#6b7280", fontSize: "12px", cursor: "pointer", padding: 0, textDecoration: "underline" }}>Remove photo</button>}
@@ -290,7 +257,7 @@ export function ProfileModal({ session, profile, habits = [], todos = [], goals 
       {/* Tab bar — 4 clean tabs */}
       <div style={{ display: "flex", gap: "6px", marginBottom: "24px", flexWrap: "wrap" }}>
         <button style={tabStyle("account")} onClick={() => setTab("account")}>Account</button>
-        <button style={tabStyle("xp")} onClick={() => setTab("xp")}>XP & Shop</button>
+        <button style={tabStyle("shields")} onClick={() => setTab("shields")}>Shields</button>
         <button style={tabStyle("notifications")} onClick={() => setTab("notifications")}>Notifications</button>
         <button style={tabStyle("billing")} onClick={() => setTab("billing")}>Billing</button>
       </div>
@@ -383,173 +350,84 @@ export function ProfileModal({ session, profile, habits = [], todos = [], goals 
         </div>
       )}
 
-      {/* ── XP & SHOP TAB ── */}
-      {tab === "xp" && (
+      {/* ── STREAK & SHIELDS TAB ── */}
+      {tab === "shields" && (
         <div style={{ animation: "fadeUp 0.2s ease-out" }}>
-          {/* Level Progress Card */}
+          {/* Shields Summary Card */}
           <div style={{ 
-            background: "linear-gradient(135deg, rgba(168, 85, 247, 0.04) 0%, rgba(59, 130, 246, 0.04) 100%)", 
-            border: "1px solid rgba(255, 255, 255, 0.04)", 
+            background: "rgba(22, 31, 48, 0.4)", 
+            border: "1px solid rgba(255, 255, 255, 0.05)", 
             borderRadius: "20px", 
             padding: "24px", 
-            marginBottom: "20px",
-            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.2)"
+            marginBottom: "20px"
           }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "4px" }}>
-              <h3 style={{ margin: 0, fontFamily: "'Syne', sans-serif", fontSize: "22px", fontWeight: 800, color: "#3b82f6" }}>
-                Level {currentLvl}
-              </h3>
-              <span style={{ fontSize: "12px", color: "#9ca3af", fontWeight: 700, fontFamily: "'Syne', sans-serif", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: "middle" }}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z"/></svg>
-                {xpInCurrentLvl} / {xpNeededForCurrentLvl} XP to next level
-              </span>
-            </div>
-            
-            {/* Progress bar */}
-            <div style={{ height: "3px", background: "rgba(255, 255, 255, 0.05)", borderRadius: "999px", margin: "14px 0 6px", overflow: "hidden" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "14px", marginBottom: "16px" }}>
               <div style={{ 
-                height: "100%", 
-                background: "linear-gradient(90deg, #3b82f6 0%, #2563eb 100%)", 
-                width: `${levelProgressPct}%`,
-                borderRadius: "999px"
-              }} />
+                width: "48px", 
+                height: "48px", 
+                borderRadius: "12px", 
+                background: "rgba(59, 130, 246, 0.08)", 
+                border: "1px solid rgba(59, 130, 246, 0.15)",
+                display: "flex", 
+                alignItems: "center", 
+                justifyContent: "center",
+                flexShrink: 0
+              }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "18px", fontWeight: 700, color: "#fff" }}>Streak Shields</h3>
+                <div style={{ fontSize: "12px", color: "#60a5fa", fontWeight: 600, marginTop: "2px" }}>
+                  {shields} / {maxShields} Shields {profile?.is_premium ? "(Premium Max 5)" : "(Max 3 — Upgrade for 5)"}
+                </div>
+              </div>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "#4b5563", fontWeight: 600 }}>
-              <span>Level {currentLvl}</span>
-              <span>Level {currentLvl + 1}</span>
+
+            <p style={{ margin: "0 0 16px", fontSize: "13px", color: "#9ca3af", lineHeight: 1.5 }}>
+              Streak Shields protect your active habit streak when you miss a day. Shields are automatically awarded every <strong>5 perfect days</strong>.
+            </p>
+
+            {/* Next shield progress */}
+            <div style={{ background: "rgba(0, 0, 0, 0.2)", borderRadius: "12px", padding: "14px", border: "1px solid rgba(255, 255, 255, 0.04)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#d1d5db", fontWeight: 600, marginBottom: "8px" }}>
+                <span>Progress to Next Shield</span>
+                <span style={{ color: "#3b82f6", fontWeight: 700 }}>{progressToNextShield} / 5 Perfect Days</span>
+              </div>
+              <div style={{ height: "6px", background: "rgba(255, 255, 255, 0.06)", borderRadius: "999px", overflow: "hidden" }}>
+                <div style={{ height: "100%", background: "#2563eb", width: `${(progressToNextShield / 5) * 100}%`, borderRadius: "999px", transition: "width 0.4s ease" }} />
+              </div>
             </div>
           </div>
 
-          {/* XP Status Panel */}
+          {/* How Shields Work Rules */}
+          <span style={sectionLbl}>How Shields Work</span>
           <div style={{ 
-            display: "flex", 
             background: "rgba(255, 255, 255, 0.01)", 
-            border: "1px solid rgba(255, 255, 255, 0.03)", 
-            borderRadius: "16px", 
-            padding: "16px 0",
-            marginBottom: "24px" 
-          }}>
-            <div style={{ flex: 1, textAlign: "center", borderRight: "1px solid rgba(255, 255, 255, 0.05)" }}>
-              <div style={{ fontSize: "10px", color: "#6b7280", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "4px" }}>Spendable XP</div>
-              <div style={{ fontSize: "24px", fontFamily: "'Syne', sans-serif", fontWeight: 800, color: "#3b82f6", display: "inline-flex", alignItems: "center", gap: "6px", justifyContent: "center", width: "100%" }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: "middle" }}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z"/></svg>
-                {remainingXp}
-              </div>
-            </div>
-            <div style={{ flex: 1, textAlign: "center" }}>
-              <div style={{ fontSize: "10px", color: "#6b7280", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "4px" }}>Total Earned</div>
-              <div style={{ fontSize: "24px", fontFamily: "'Syne', sans-serif", fontWeight: 800, color: "#e5e7eb" }}>
-                {totalEarned}
-              </div>
-            </div>
-          </div>
-
-          {/* Shield Shop Section */}
-          <span style={sectionLbl}>XP Shield Shop</span>
-          <div style={{ 
-            background: "linear-gradient(135deg, rgba(59, 130, 246, 0.01) 0%, rgba(37, 99, 235, 0.01) 100%)", 
-            border: "1px solid rgba(255, 255, 255, 0.03)", 
-            borderRadius: "20px", 
-            padding: "20px", 
-            marginBottom: "24px",
-            display: "flex",
-            alignItems: "center",
-            gap: "20px",
-            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.15)"
-          }}>
-            <div style={{ 
-              width: "56px", 
-              height: "56px", 
-              borderRadius: "14px", 
-              background: "rgba(59, 130, 246, 0.04)", 
-              border: "1px solid rgba(59, 130, 246, 0.12)",
-              display: "flex", 
-              alignItems: "center", 
-              justifyContent: "center",
-              flexShrink: 0
-            }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ color: "#fff", fontWeight: 800, fontSize: "15px", display: "flex", alignItems: "center", gap: "8px", fontFamily: "'Syne', sans-serif" }}>
-                Streak Shield
-                <span style={{ fontSize: "11px", color: "#60a5fa", background: "rgba(96, 165, 250, 0.08)", padding: "3px 8px", borderRadius: "6px", border: "1px solid rgba(96, 165, 250, 0.12)", fontWeight: 700 }}>
-                  {shields} / {maxShields} held
-                </span>
-              </div>
-              <p style={{ margin: "6px 0 14px", fontSize: "13px", color: "#9ca3af", lineHeight: 1.5 }}>
-                Protects your streak for one missed day. Max capacity is {maxShields} shields {profile?.is_premium ? "(Pro Limit)" : "(Upgrade to Pro for max 5)"}.
-              </p>
-              
-              <button 
-                onClick={buyShield}
-                disabled={remainingXp < 500 || shields >= maxShields || purchasingShield}
-                style={{ 
-                  padding: "9px 18px", 
-                  borderRadius: "10px", 
-                  border: remainingXp >= 500 && shields < maxShields ? "none" : "1px solid rgba(255, 255, 255, 0.05)", 
-                  background: remainingXp >= 500 && shields < maxShields ? "linear-gradient(135deg, #a855f7 0%, #3b82f6 100%)" : "rgba(255, 255, 255, 0.01)", 
-                  color: remainingXp >= 500 && shields < maxShields ? "#fff" : "#4b5563", 
-                  fontWeight: 700, 
-                  fontSize: "12px", 
-                  cursor: remainingXp >= 500 && shields < maxShields ? "pointer" : "default", 
-                  fontFamily: "inherit",
-                  transition: "all 0.2s ease",
-                  boxShadow: remainingXp >= 500 && shields < maxShields ? "0 4px 14px rgba(168, 85, 247, 0.25)" : "none"
-                }}
-                onMouseEnter={e => {
-                  if (remainingXp >= 500 && shields < maxShields) e.currentTarget.style.filter = "brightness(1.1)";
-                }}
-                onMouseLeave={e => {
-                  if (remainingXp >= 500 && shields < maxShields) e.currentTarget.style.filter = "none";
-                }}
-              >
-                {purchasingShield ? "Buying..." : shields >= maxShields ? "Max capacity reached" : `Buy Shield (500 XP)`}
-              </button>
-            </div>
-          </div>
-
-          {/* XP Earned Breakdown */}
-          <span style={sectionLbl}>XP Breakdown</span>
-          <div style={{ 
-            background: "rgba(255, 255, 255, 0.005)", 
-            border: "1px solid rgba(255, 255, 255, 0.02)", 
+            border: "1px solid rgba(255, 255, 255, 0.04)", 
             borderRadius: "16px", 
             padding: "20px", 
             display: "flex", 
             flexDirection: "column", 
             gap: "14px", 
-            fontSize: "13.5px" 
+            fontSize: "13px" 
           }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ color: "#9ca3af", display: "flex", alignItems: "center", gap: "8px" }}>
-                <span>📋</span> Habit Completions (+10 XP)
-              </span>
-              <span style={{ color: "#fff", fontWeight: 700, fontFamily: "'Syne', sans-serif" }}>{habitXp} XP</span>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+              <span style={{ fontSize: "16px", flexShrink: 0 }}>✨</span>
+              <div style={{ color: "#9ca3af", lineHeight: 1.4 }}>
+                <strong style={{ color: "#f3f4f6" }}>Automated Rewards:</strong> Complete all scheduled habits on any day (with at least 1 habit scheduled) to earn a perfect day. Every 5 total perfect days awards 1 shield.
+              </div>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.03)", paddingTop: "12px" }}>
-              <span style={{ color: "#9ca3af", display: "flex", alignItems: "center", gap: "8px" }}>
-                <span>✅</span> Task Completions (+5 XP)
-              </span>
-              <span style={{ color: "#fff", fontWeight: 700, fontFamily: "'Syne', sans-serif" }}>{taskXp} XP</span>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "10px", borderTop: "1px solid rgba(255,255,255,0.03)", paddingTop: "12px" }}>
+              <span style={{ fontSize: "16px", flexShrink: 0 }}>📅</span>
+              <div style={{ color: "#9ca3af", lineHeight: 1.4 }}>
+                <strong style={{ color: "#f3f4f6" }}>Non-Consecutive Count:</strong> Perfect days do not need to be in order. Missed days between perfect days won't reset your 5-day counter!
+              </div>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.03)", paddingTop: "12px" }}>
-              <span style={{ color: "#9ca3af", display: "flex", alignItems: "center", gap: "8px" }}>
-                <span>📓</span> Journal Entries (+25 XP)
-              </span>
-              <span style={{ color: "#fff", fontWeight: 700, fontFamily: "'Syne', sans-serif" }}>{journalXp} XP</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.03)", paddingTop: "12px" }}>
-              <span style={{ color: "#9ca3af", display: "flex", alignItems: "center", gap: "8px" }}>
-                <span>🔥</span> Perfect Day Bonuses (+50 XP)
-              </span>
-              <span style={{ color: "#fff", fontWeight: 700, fontFamily: "'Syne', sans-serif" }}>{perfectDayXp} XP</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.03)", paddingTop: "12px" }}>
-              <span style={{ color: "#9ca3af", display: "flex", alignItems: "center", gap: "8px" }}>
-                <span>🏅</span> Completed Goals (+100 XP)
-              </span>
-              <span style={{ color: "#fff", fontWeight: 700, fontFamily: "'Syne', sans-serif" }}>{goalsXp} XP</span>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "10px", borderTop: "1px solid rgba(255,255,255,0.03)", paddingTop: "12px" }}>
+              <span style={{ fontSize: "16px", flexShrink: 0 }}>🛡️</span>
+              <div style={{ color: "#9ca3af", lineHeight: 1.4 }}>
+                <strong style={{ color: "#f3f4f6" }}>Automatic Streak Protection:</strong> If you miss a scheduled day, an available shield is automatically used so your streak continues uninterrupted.
+              </div>
             </div>
           </div>
         </div>
@@ -617,7 +495,7 @@ export function ProfileModal({ session, profile, habits = [], todos = [], goals 
       )}
 
       {/* ── BILLING TAB ── */}
-      {tab === "billing" && <BillingTab profile={profile} session={session} showToast={showToast} />}
+      {tab === "billing" && <BillingTab profile={profile} session={session} showToast={showToast} onUpgrade={onUpgrade} />}
 
       {/* Sign out + Delete — always visible at bottom */}
       <div style={{ borderTop: "1px solid #1f2937", marginTop: "24px", paddingTop: "16px", paddingBottom: "24px", display: "flex", flexDirection: "column", gap: "10px" }}>

@@ -54,9 +54,9 @@ export function calcStats(habits, pausePeriods, isPremium, profile = null) {
   const purchasedShields = (profile && profile.purchased_shields) ? Number(profile.purchased_shields) : 0;
   const maxShieldLimit = isPremium ? 5 : 3;
 
-  if (habits.length === 0) {
+  if (!habits || habits.length === 0) {
     const availableInitial = (initialShields > 0 && initialShieldsDate && initialShieldsDate <= today) ? Math.min(initialShields + purchasedShields, maxShieldLimit) : Math.min(purchasedShields, maxShieldLimit);
-    return { currentStreak: 0, bestStreak: 0, shields: availableInitial, cumulativeCompletedDays: 0 };
+    return { currentStreak: 0, bestStreak: 0, shields: availableInitial, maxShields: maxShieldLimit, cumulativeCompletedDays: 0, perfectDaysCount: 0, progressToNextShield: 0, shieldedDates: [] };
   }
 
   const normalisedHabits = habits.map(h => ({
@@ -69,10 +69,9 @@ export function calcStats(habits, pausePeriods, isPremium, profile = null) {
     return h.createdDate < earliest ? h.createdDate : earliest;
   }, today);
 
-  // ── Unified single pass: compute streaks, earn and consume shields chronologically ──
   let cumulativeCompletedDays = 0;
-  let activeShields = purchasedShields;
-  if (activeShields > maxShieldLimit) activeShields = maxShieldLimit;
+  let perfectDaysCount = 0;
+  let activeShields = Math.min(purchasedShields, maxShieldLimit);
 
   let currentStreak = 0;
   let bestStreak = 0;
@@ -87,8 +86,7 @@ export function calcStats(habits, pausePeriods, isPremium, profile = null) {
 
     if (!isDatePaused(pausePeriods, ds)) {
       if (initialShields > 0 && initialShieldsDate && ds >= initialShieldsDate && !initialShieldsApplied) {
-        activeShields += initialShields;
-        if (activeShields > maxShieldLimit) activeShields = maxShieldLimit;
+        activeShields = Math.min(activeShields + initialShields, maxShieldLimit);
         initialShieldsApplied = true;
       }
 
@@ -96,10 +94,16 @@ export function calcStats(habits, pausePeriods, isPremium, profile = null) {
 
       if (complete === true) {
         cumulativeCompletedDays++;
+        perfectDaysCount++;
         currentStreak++;
         if (currentStreak > bestStreak) bestStreak = currentStreak;
+
+        // Auto-reward 1 shield every 5 perfect days
+        if (perfectDaysCount % 5 === 0) {
+          activeShields = Math.min(activeShields + 1, maxShieldLimit);
+        }
       } else if (complete === null) {
-        // Rest day
+        // Rest day (no habits scheduled)
         currentStreak++;
         if (currentStreak > bestStreak) bestStreak = currentStreak;
       } else if (complete === false && ds !== today) {
@@ -113,14 +117,25 @@ export function calcStats(habits, pausePeriods, isPremium, profile = null) {
           currentStreak = 0;
         }
       } else if (complete === false && ds === today) {
-        // Today is incomplete, it does not break the streak or consume shields yet
+        // Today is incomplete, does not break streak or consume shield yet
       }
     }
 
     fwd.setDate(fwd.getDate() + 1);
   }
 
-  return { currentStreak, bestStreak, shields: activeShields, cumulativeCompletedDays, shieldedDates };
+  const progressToNextShield = perfectDaysCount % 5;
+
+  return {
+    currentStreak,
+    bestStreak,
+    shields: activeShields,
+    maxShields: maxShieldLimit,
+    cumulativeCompletedDays,
+    perfectDaysCount,
+    progressToNextShield,
+    shieldedDates
+  };
 }
 
 export function calcXp(habits, todos, journalEntries, goals = []) {

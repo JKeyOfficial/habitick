@@ -67,9 +67,7 @@ export function JournalTab({ journalEntries, setJournalEntries, session, today, 
   const goBack = () => {
     const next = parseDateLocal(currentDate);
     next.setDate(next.getDate() - 1);
-    const nextStr = getDateStr(next);
-    if (!isPremium && nextStr < journalCutoff) return;
-    setCurrentDate(nextStr);
+    setCurrentDate(getDateStr(next));
   };
   const goForward = () => {
     if (currentDate >= today) return;
@@ -90,12 +88,6 @@ export function JournalTab({ journalEntries, setJournalEntries, session, today, 
   const hasNextWritten = sortedDates.some(d => d > currentDate);
   const isToday = currentDate === today;
   const isFuture = currentDate > today;
-  const isJournalLocked = !isPremium && currentDate < journalCutoff;
-  const atJournalLimit = !isPremium && (() => {
-    const next = parseDateLocal(currentDate);
-    next.setDate(next.getDate() - 1);
-    return getDateStr(next) < journalCutoff;
-  })();
 
   const formatDisplayDate = (ds) => {
     const d = parseDateLocal(ds);
@@ -110,7 +102,7 @@ export function JournalTab({ journalEntries, setJournalEntries, session, today, 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "28px" }}>
         <div style={{ display: "flex", gap: "6px" }}>
           <button onClick={jumpPrevWritten} disabled={!hasPrevWritten} title="Previous entry" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #374151", background: "#111827", color: hasPrevWritten ? "#9ca3af" : "#2d3748", cursor: hasPrevWritten ? "pointer" : "default", fontSize: "16px", fontWeight: 700 }}>«</button>
-          <button onClick={goBack} title="Previous day" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #374151", background: "#111827", color: atJournalLimit ? "#2d3748" : "#9ca3af", cursor: atJournalLimit ? "default" : "pointer", fontSize: "16px", fontWeight: 700 }}>‹</button>
+          <button onClick={goBack} title="Previous day" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #374151", background: "#111827", color: "#9ca3af", cursor: "pointer", fontSize: "16px", fontWeight: 700 }}>‹</button>
         </div>
         <div style={{ textAlign: "center" }}>
           <div style={{ color: "#f9fafb", fontWeight: 700, fontSize: "16px" }}>
@@ -134,13 +126,6 @@ export function JournalTab({ journalEntries, setJournalEntries, session, today, 
         position: "relative",
         boxShadow: "0 8px 32px rgba(0, 0, 0, 0.2)"
       }}>
-        {isJournalLocked && (
-          <div style={{ position: "absolute", inset: 0, borderRadius: "16px", background: "#0d111799", backdropFilter: "blur(4px)", zIndex: 10, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "12px" }}>
-            <div style={{ fontSize: "32px" }}>🔒</div>
-            <div style={{ color: "#f9fafb", fontWeight: 700, fontSize: "15px" }}>Premium journal history</div>
-            <div style={{ color: "#9ca3af", fontSize: "13px", textAlign: "center", maxWidth: "240px" }}>Free accounts can access the last {FREE_JOURNAL_DAYS} days. Upgrade for full history.</div>
-          </div>
-        )}
         
         {/* Floating rating bar modeled after the calendar strip */}
         <div style={{ 

@@ -915,7 +915,7 @@ export function AnalyticsTab({ habits, todos, goals = [], pausePeriods, isPremiu
       ),
       label: "Shields",
       value: `${shields}/${isPremium ? 5 : 3}`,
-      sub: shields >= (isPremium ? 5 : 3) ? "Max shields held!" : "Buy at the Profile XP Shop"
+      sub: shields >= (isPremium ? 5 : 3) ? "Max shields held!" : "Earned every 5 perfect days"
     },
     {
       icon: (
