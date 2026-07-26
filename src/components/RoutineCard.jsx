@@ -179,7 +179,7 @@ export function RoutineCard({
             Drag habits here to organize
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column" }} onPointerDown={e => e.stopPropagation()}>
+          <div style={{ display: "flex", flexDirection: "column" }}>
             {isDraggingOverlay ? (
               habits.map(h => (
                 <HabitCard 

@@ -150,6 +150,7 @@ export default function HabiTick() {
   const [showRoutineModal, setShowRoutineModal] = useState(false);
   const [editingRoutine, setEditingRoutine] = useState(null);
   const [activeId, setActiveId] = useState(null);
+  const [draggedHabit, setDraggedHabit] = useState(null);
   const [lifetimeBannerDismissed, setLifetimeBannerDismissed] = useState(false);
   const [showShieldPopover, setShowShieldPopover] = useState(false);
   const [profileTab, setProfileTab] = useState("account");
