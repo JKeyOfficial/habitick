@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { supabase } from '../lib/supabase.js';
 import { S } from '../utils/constants.js';
 import { getTodayStr } from '../utils/helpers.js';
+import { generateQrKeyPair, decryptQrPayload, deriveShortCode } from '../utils/qrCrypto.js';
 
 export function AuthScreen() {
   const [mode, setMode] = useState("signin");
@@ -10,6 +12,111 @@ export function AuthScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+
+  // E2EE QR Code Login States
+  const [qrSessionId, setQrSessionId] = useState("");
+  const [qrPublicKeyJwk, setQrPublicKeyJwk] = useState(null);
+  const [qrShortCode, setQrShortCode] = useState("");
+  const [qrTimeLeft, setQrTimeLeft] = useState(90);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrSuccess, setQrSuccess] = useState(false);
+
+  const qrPrivateKeyRef = useRef(null);
+  const qrChannelRef = useRef(null);
+  const qrTimerRef = useRef(null);
+
+  // Initialize E2EE QR Flow
+  const initQrFlow = async () => {
+    setQrLoading(true);
+    setError("");
+    setQrSuccess(false);
+    setQrTimeLeft(90);
+
+    // Clean up existing channel & timers
+    if (qrChannelRef.current) {
+      supabase.removeChannel(qrChannelRef.current);
+      qrChannelRef.current = null;
+    }
+    if (qrTimerRef.current) {
+      clearInterval(qrTimerRef.current);
+      qrTimerRef.current = null;
+    }
+
+    try {
+      const sessionId = crypto.randomUUID();
+      const { privateKey, publicKeyJwk } = await generateQrKeyPair();
+      qrPrivateKeyRef.current = privateKey;
+      
+      const shortCode = deriveShortCode(sessionId);
+      setQrSessionId(sessionId);
+      setQrPublicKeyJwk(publicKeyJwk);
+      setQrShortCode(shortCode);
+
+      // Subscribe to E2EE broadcast channel
+      const channel = supabase.channel(`qr-login-${sessionId}`, {
+        config: { broadcast: { ack: true } }
+      });
+
+      channel.on('broadcast', { event: 'e2ee_auth' }, async ({ payload }) => {
+        try {
+          if (!qrPrivateKeyRef.current) return;
+          const decrypted = await decryptQrPayload(qrPrivateKeyRef.current, payload);
+          if (decrypted && decrypted.access_token && decrypted.refresh_token) {
+            setQrSuccess(true);
+            const { error: sessionErr } = await supabase.auth.setSession({
+              access_token: decrypted.access_token,
+              refresh_token: decrypted.refresh_token
+            });
+            if (sessionErr) throw sessionErr;
+          }
+        } catch (err) {
+          console.error("E2EE QR Auth decrypt error:", err);
+          setError("Decryption or login failed. Please scan again.");
+        }
+      });
+
+      await channel.subscribe();
+      qrChannelRef.current = channel;
+
+      // Start 90s expiration timer
+      qrTimerRef.current = setInterval(() => {
+        setQrTimeLeft(prev => {
+          if (prev <= 1) {
+            clearInterval(qrTimerRef.current);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } catch (e) {
+      console.error("Failed to initialize QR auth:", e);
+      setError("Failed to create secure QR session.");
+    } finally {
+      setQrLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (mode === "qr") {
+      initQrFlow();
+    } else {
+      if (qrChannelRef.current) {
+        supabase.removeChannel(qrChannelRef.current);
+        qrChannelRef.current = null;
+      }
+      if (qrTimerRef.current) {
+        clearInterval(qrTimerRef.current);
+        qrTimerRef.current = null;
+      }
+      qrPrivateKeyRef.current = null;
+    }
+
+    return () => {
+      if (qrChannelRef.current) supabase.removeChannel(qrChannelRef.current);
+      if (qrTimerRef.current) clearInterval(qrTimerRef.current);
+      qrPrivateKeyRef.current = null;
+    };
+  }, [mode]);
 
   const handle = async () => {
     setError(""); setMessage(""); setLoading(true);
@@ -41,12 +148,11 @@ export function AuthScreen() {
   const handleGoogle = () => supabase.auth.signInWithOAuth({
     provider: "google",
     options: { redirectTo: window.location.origin },
-  });
-
-  // Dynamic subtitle text
+  });  // Dynamic subtitle text
   const getSubtitle = () => {
     if (mode === "signup") return "Build better habits. Built for progress.";
     if (mode === "forgot") return "Reset password to get back on track.";
+    if (mode === "qr") return "Scan this code from Settings on an active device.";
     return "Welcome back. Access your daily habits and tasks.";
   };
 
@@ -589,54 +695,182 @@ export function AuthScreen() {
           </div>
 
           <div style={{ position: 'relative', zIndex: 3 }}>
-            {mode !== "forgot" && !isWebView && (
-              <>
-                <button onClick={handleGoogle} className="auth-btn-google">
-                  <svg width="18" height="18" viewBox="0 0 48 48">
-                    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
-                    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
-                    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
-                    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
-                  </svg>
-                  Continue with Google
+            {/* Mode: QR Code Sign-In */}
+            {mode === "qr" ? (
+              <div style={{ textAlign: "center", animation: "fadeIn 0.3s ease" }}>
+                <div style={{
+                  background: "rgba(17, 24, 39, 0.7)",
+                  border: "1px solid rgba(59, 130, 246, 0.25)",
+                  borderRadius: "16px",
+                  padding: "20px",
+                  boxShadow: "0 10px 30px rgba(0,0,0,0.5), 0 0 20px rgba(59,130,246,0.1)",
+                  position: "relative",
+                  marginBottom: "16px"
+                }}>
+                  {qrLoading ? (
+                    <div style={{ padding: "40px 0", color: "#9ca3af", fontSize: "14px" }}>
+                      Creating secure E2EE channel...
+                    </div>
+                  ) : qrTimeLeft <= 0 ? (
+                    <div style={{ padding: "30px 0" }}>
+                      <div style={{ color: "#ef4444", fontWeight: 700, fontSize: "15px", marginBottom: "8px" }}>QR Code Expired</div>
+                      <div style={{ color: "#9ca3af", fontSize: "13px", marginBottom: "16px" }}>For security, codes expire after 90 seconds.</div>
+                      <button onClick={initQrFlow} className="auth-btn-primary" style={{ padding: "10px 20px", fontSize: "13px" }}>
+                        🔄 Generate New QR Code
+                      </button>
+                    </div>
+                  ) : qrSuccess ? (
+                    <div style={{ padding: "30px 0" }}>
+                      <div style={{ fontSize: "36px", marginBottom: "8px" }}>✅</div>
+                      <div style={{ color: "#10b981", fontWeight: 700, fontSize: "16px" }}>Sign-In Authorized!</div>
+                      <div style={{ color: "#9ca3af", fontSize: "13px", marginTop: "4px" }}>Logging into your account...</div>
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{
+                        background: "#ffffff",
+                        padding: "16px",
+                        borderRadius: "12px",
+                        display: "inline-block",
+                        marginBottom: "14px",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.3)"
+                      }}>
+                        {qrPublicKeyJwk && (
+                          <QRCodeSVG
+                            value={JSON.stringify({
+                              v: 1,
+                              id: qrSessionId,
+                              pub: qrPublicKeyJwk,
+                              exp: Date.now() + qrTimeLeft * 1000
+                            })}
+                            size={180}
+                            level="M"
+                          />
+                        )}
+                      </div>
+
+                      {/* 6-Digit Pairing Code Display */}
+                      <div style={{
+                        background: "rgba(31, 41, 55, 0.6)",
+                        border: "1px solid rgba(255, 255, 255, 0.08)",
+                        borderRadius: "10px",
+                        padding: "10px 14px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginBottom: "12px"
+                      }}>
+                        <span style={{ fontSize: "11px", color: "#9ca3af", fontWeight: 700, textTransform: "uppercase" }}>Pairing Code:</span>
+                        <span style={{ fontFamily: "monospace", fontSize: "18px", fontWeight: 800, color: "#60a5fa", letterSpacing: "2px" }}>
+                          {qrShortCode}
+                        </span>
+                      </div>
+
+                      {/* Countdown Timer Bar */}
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+                        <div style={{ flex: 1, height: "4px", background: "rgba(255,255,255,0.08)", borderRadius: "999px", overflow: "hidden" }}>
+                          <div style={{
+                            height: "100%",
+                            background: qrTimeLeft < 20 ? "#ef4444" : "#3b82f6",
+                            width: `${(qrTimeLeft / 90) * 100}%`,
+                            transition: "width 1s linear"
+                          }} />
+                        </div>
+                        <span style={{ fontSize: "12px", color: qrTimeLeft < 20 ? "#ef4444" : "#9ca3af", fontFamily: "monospace", fontWeight: 700 }}>
+                          {qrTimeLeft}s
+                        </span>
+                      </div>
+
+                      {/* Status indicator */}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", fontSize: "12px", color: "#9ca3af", marginTop: "12px" }}>
+                        <div style={{
+                          width: "8px",
+                          height: "8px",
+                          borderRadius: "50%",
+                          background: "#3b82f6",
+                          boxShadow: "0 0 10px #3b82f6",
+                          animation: "pulse-glow 1.5s infinite"
+                        }} />
+                        <span>🔒 Encrypted session waiting for scan...</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => { setMode("signin"); setError(""); setMessage(""); }}
+                  className="auth-link-btn"
+                  style={{ fontWeight: 600, fontSize: "13px" }}
+                >
+                  ← Back to Email Sign In
                 </button>
-                <div className="auth-divider">
-                  <div className="auth-divider-line" />
-                  <span className="auth-divider-text">or</span>
-                  <div className="auth-divider-line" />
+              </div>
+            ) : (
+              <>
+                {mode !== "forgot" && !isWebView && (
+                  <>
+                    <button onClick={handleGoogle} className="auth-btn-google">
+                      <svg width="18" height="18" viewBox="0 0 48 48">
+                        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+                        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+                        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+                        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+                      </svg>
+                      Continue with Google
+                    </button>
+
+                    <button
+                      onClick={() => { setMode("qr"); setError(""); setMessage(""); }}
+                      className="auth-btn-google"
+                      style={{ marginTop: "10px" }}
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="7" height="7" rx="1" />
+                        <rect x="14" y="3" width="7" height="7" rx="1" />
+                        <rect x="14" y="14" width="7" height="7" rx="1" />
+                        <rect x="3" y="14" width="7" height="7" rx="1" />
+                      </svg>
+                      Sign in with QR Code
+                    </button>
+
+                    <div className="auth-divider">
+                      <div className="auth-divider-line" />
+                      <span className="auth-divider-text">or</span>
+                      <div className="auth-divider-line" />
+                    </div>
+                  </>
+                )}
+
+                <label className="auth-label">Email</label>
+                <input value={email} onChange={e => setEmail(e.target.value)} type="email" placeholder="you@example.com"
+                  className="auth-input" style={{ marginBottom: "16px" }} onKeyDown={e => e.key === "Enter" && handle()} />
+
+                {mode !== "forgot" && (
+                  <>
+                    <label className="auth-label">Password</label>
+                    <input value={password} onChange={e => setPassword(e.target.value)} type="password" placeholder="••••••••"
+                      className="auth-input" style={{ marginBottom: mode === "signin" ? "6px" : "20px" }} onKeyDown={e => e.key === "Enter" && handle()} />
+                    {mode === "signin" && (
+                      <div style={{ textAlign: "right", marginBottom: "20px" }}>
+                        <button onClick={() => { setMode("forgot"); setError(""); setMessage(""); }} className="auth-link-btn">Forgot password?</button>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {error && <div style={{ color: "#f87171", fontSize: "13px", marginBottom: "16px", textAlign: "center" }}>{error}</div>}
+                {message && <div style={{ color: "#34d399", fontSize: "13px", marginBottom: "16px", textAlign: "center" }}>{message}</div>}
+
+                <button onClick={handle} disabled={loading} className="auth-btn-primary">
+                  {loading ? "..." : mode === "signup" ? "Create account" : mode === "forgot" ? "Send reset link" : "Sign in"}
+                </button>
+
+                <div style={{ textAlign: "center", marginTop: "20px", fontSize: "13px", color: "#6b7280" }}>
+                  {mode === "signin" && <>No account? <button onClick={() => { setMode("signup"); setError(""); setMessage(""); }} className="auth-link-btn" style={{ fontWeight: 600, fontSize: '13px' }}>Sign up</button></>}
+                  {mode === "signup" && <>Have an account? <button onClick={() => { setMode("signin"); setError(""); setMessage(""); }} className="auth-link-btn" style={{ fontWeight: 600, fontSize: '13px' }}>Sign in</button></>}
                 </div>
               </>
             )}
-
-            <label className="auth-label">Email</label>
-            <input value={email} onChange={e => setEmail(e.target.value)} type="email" placeholder="you@example.com"
-              className="auth-input" style={{ marginBottom: "16px" }} onKeyDown={e => e.key === "Enter" && handle()} />
-
-            {mode !== "forgot" && (
-              <>
-                <label className="auth-label">Password</label>
-                <input value={password} onChange={e => setPassword(e.target.value)} type="password" placeholder="••••••••"
-                  className="auth-input" style={{ marginBottom: mode === "signin" ? "6px" : "20px" }} onKeyDown={e => e.key === "Enter" && handle()} />
-                {mode === "signin" && (
-                  <div style={{ textAlign: "right", marginBottom: "20px" }}>
-                    <button onClick={() => { setMode("forgot"); setError(""); setMessage(""); }} className="auth-link-btn">Forgot password?</button>
-                  </div>
-                )}
-              </>
-            )}
-
-            {error && <div style={{ color: "#f87171", fontSize: "13px", marginBottom: "16px", textAlign: "center" }}>{error}</div>}
-            {message && <div style={{ color: "#34d399", fontSize: "13px", marginBottom: "16px", textAlign: "center" }}>{message}</div>}
-
-            <button onClick={handle} disabled={loading} className="auth-btn-primary">
-              {loading ? "..." : mode === "signup" ? "Create account" : mode === "forgot" ? "Send reset link" : "Sign in"}
-            </button>
-
-            <div style={{ textAlign: "center", marginTop: "20px", fontSize: "13px", color: "#6b7280" }}>
-              {mode === "signin" && <>No account? <button onClick={() => { setMode("signup"); setError(""); setMessage(""); }} className="auth-link-btn" style={{ fontWeight: 600, fontSize: '13px' }}>Sign up</button></>}
-              {mode === "signup" && <>Have an account? <button onClick={() => { setMode("signin"); setError(""); setMessage(""); }} className="auth-link-btn" style={{ fontWeight: 600, fontSize: '13px' }}>Sign in</button></>}
-              {mode === "forgot" && <button onClick={() => { setMode("signin"); setError(""); setMessage(""); }} className="auth-link-btn" style={{ fontWeight: 600, fontSize: '13px' }}>Back to sign in</button>}
-            </div>
           </div>
         </div>
       </div>
