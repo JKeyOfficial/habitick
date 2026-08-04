@@ -48,16 +48,28 @@ export function AuthScreen() {
       qrPrivateKeyRef.current = privateKey;
       
       const shortCode = deriveShortCode(sessionId);
+      const shortCodeClean = shortCode.replace("-", "");
       setQrSessionId(sessionId);
       setQrPublicKeyJwk(publicKeyJwk);
       setQrShortCode(shortCode);
 
-      // Subscribe to E2EE broadcast channel
+      // Subscribe to E2EE broadcast channel by Session ID
       const channel = supabase.channel(`qr-login-${sessionId}`, {
         config: { broadcast: { ack: true } }
       });
 
-      channel.on('broadcast', { event: 'e2ee_auth' }, async ({ payload }) => {
+      // Subscribe to shortcode channel for 6-digit manual pairing fallback
+      const shortChannel = supabase.channel(`qr-shortcode-${shortCodeClean}`, {
+        config: { broadcast: { ack: true } }
+      });
+
+      const handlePubkeyReq = () => {
+        const payload = { publicKeyJwk, sessionId, shortCode };
+        channel.send({ type: 'broadcast', event: 'pubkey_response', payload });
+        shortChannel.send({ type: 'broadcast', event: 'pubkey_response', payload });
+      };
+
+      const handleAuthEvent = async ({ payload }) => {
         try {
           if (!qrPrivateKeyRef.current) return;
           const decrypted = await decryptQrPayload(qrPrivateKeyRef.current, payload);
@@ -73,16 +85,31 @@ export function AuthScreen() {
           console.error("E2EE QR Auth decrypt error:", err);
           setError("Decryption or login failed. Please scan again.");
         }
-      });
+      };
+
+      channel.on('broadcast', { event: 'get_pubkey' }, handlePubkeyReq);
+      shortChannel.on('broadcast', { event: 'get_pubkey' }, handlePubkeyReq);
+
+      channel.on('broadcast', { event: 'e2ee_auth' }, handleAuthEvent);
+      shortChannel.on('broadcast', { event: 'e2ee_auth' }, handleAuthEvent);
 
       await channel.subscribe();
+      await shortChannel.subscribe();
       qrChannelRef.current = channel;
+
+      // Periodically broadcast pubkey for fast scanner pickup
+      const pubKeyBroadcaster = setInterval(() => {
+        if (channel && shortChannel) {
+          handlePubkeyReq();
+        }
+      }, 1200);
 
       // Start 90s expiration timer
       qrTimerRef.current = setInterval(() => {
         setQrTimeLeft(prev => {
           if (prev <= 1) {
             clearInterval(qrTimerRef.current);
+            clearInterval(pubKeyBroadcaster);
             return 0;
           }
           return prev - 1;
@@ -735,16 +762,11 @@ export function AuthScreen() {
                         marginBottom: "14px",
                         boxShadow: "0 4px 12px rgba(0,0,0,0.3)"
                       }}>
-                        {qrPublicKeyJwk && (
+                        {qrSessionId && (
                           <QRCodeSVG
-                            value={JSON.stringify({
-                              v: 1,
-                              id: qrSessionId,
-                              pub: qrPublicKeyJwk,
-                              exp: Date.now() + qrTimeLeft * 1000
-                            })}
-                            size={180}
-                            level="M"
+                            value={`ht:${qrSessionId}`}
+                            size={200}
+                            level="L"
                           />
                         )}
                       </div>

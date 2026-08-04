@@ -4,40 +4,90 @@ import { supabase } from '../lib/supabase.js';
 import { encryptQrPayload, deriveShortCode } from '../utils/qrCrypto.js';
 
 export function QrScannerModal({ onClose, showToast }) {
-  const [mode, setMode] = useState("camera"); // "camera" | "code"
+  const [mode, setMode] = useState("camera"); // "camera" | "photo" | "code"
   const [manualCode, setManualCode] = useState("");
   const [scanning, setScanning] = useState(false);
   const [cameraError, setCameraError] = useState("");
-  const [pendingAuth, setPendingAuth] = useState(null); // { sessionId, publicKeyJwk, exp }
+  const [pendingAuth, setPendingAuth] = useState(null); // { sessionId, publicKeyJwk, shortCode, channelName }
   const [authorizing, setAuthorizing] = useState(false);
-  const [manualCodeErr, setManualCodeErr] = useState("");
+  const [searchingCode, setSearchingCode] = useState(false);
 
   const html5QrCodeRef = useRef(null);
   const fileInputRef = useRef(null);
+  const activeChannelRef = useRef(null);
 
-  // Handle scanned QR payload (from camera or photo upload)
-  const processQrText = (decodedText) => {
+  // Connect to target channel (by sessionId or shortcode) and obtain E2EE Public Key
+  const connectToDeviceChannel = async (channelName, targetSessionId, displayShortCode) => {
     try {
-      const data = JSON.parse(decodedText);
-      if (data && data.id && data.pub) {
-        if (data.exp && Date.now() > data.exp) {
-          showToast("Scanned QR Code has expired. Please refresh the login screen.", "error");
-          return;
+      if (activeChannelRef.current) {
+        supabase.removeChannel(activeChannelRef.current);
+        activeChannelRef.current = null;
+      }
+
+      const channel = supabase.channel(channelName, {
+        config: { broadcast: { ack: true } }
+      });
+
+      channel.on('broadcast', { event: 'pubkey_response' }, ({ payload }) => {
+        if (payload && payload.publicKeyJwk) {
+          setPendingAuth({
+            sessionId: payload.sessionId || targetSessionId,
+            publicKeyJwk: payload.publicKeyJwk,
+            shortCode: payload.shortCode || displayShortCode || "Target Device",
+            channelName
+          });
+          setSearchingCode(false);
+          stopCamera();
         }
-        // Stop scanning and trigger security confirmation dialog
+      });
+
+      await channel.subscribe();
+      activeChannelRef.current = channel;
+
+      // Request target device's public key
+      channel.send({ type: 'broadcast', event: 'get_pubkey' });
+    } catch (err) {
+      console.error("Channel connection error:", err);
+      showToast("Failed to connect to device session", "error");
+      setSearchingCode(false);
+    }
+  };
+
+  // Process decoded QR text from camera or uploaded photo
+  const processQrText = (decodedText) => {
+    let sessionId = "";
+
+    try {
+      if (decodedText.startsWith("ht:")) {
+        sessionId = decodedText.replace("ht:", "").trim();
+      } else if (decodedText.startsWith("{")) {
+        const data = JSON.parse(decodedText);
+        sessionId = data.id || data.sessionId;
+      } else {
+        sessionId = decodedText.trim();
+      }
+
+      if (sessionId) {
         stopCamera();
-        setPendingAuth({
-          sessionId: data.id,
-          publicKeyJwk: data.pub,
-          exp: data.exp,
-          shortCode: deriveShortCode(data.id)
-        });
+        connectToDeviceChannel(`qr-login-${sessionId}`, sessionId, deriveShortCode(sessionId));
       } else {
         showToast("Invalid QR Code format", "error");
       }
     } catch (e) {
       showToast("Invalid HabiTick QR Code", "error");
     }
+  };
+
+  // Handle manual 6-digit code entry
+  const handleManualPairing = () => {
+    const clean = manualCode.replace(/[^0-9]/g, "");
+    if (clean.length < 6) {
+      showToast("Please enter a valid 6-digit code", "error");
+      return;
+    }
+    setSearchingCode(true);
+    const shortCodeFormatted = `${clean.slice(0, 3)}-${clean.slice(3, 6)}`;
+    connectToDeviceChannel(`qr-shortcode-${clean}`, clean, shortCodeFormatted);
   };
 
   // Start live camera scanner
@@ -53,13 +103,11 @@ export function QrScannerModal({ onClose, showToast }) {
 
       await html5QrCode.start(
         { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 200, height: 200 } },
+        { fps: 10, qrbox: { width: 220, height: 220 } },
         (decodedText) => {
           processQrText(decodedText);
         },
-        () => {
-          // Frame scan failures are expected until code is centered
-        }
+        () => {}
       );
     } catch (err) {
       console.warn("Camera start error:", err);
@@ -92,6 +140,9 @@ export function QrScannerModal({ onClose, showToast }) {
     }
     return () => {
       stopCamera();
+      if (activeChannelRef.current) {
+        supabase.removeChannel(activeChannelRef.current);
+      }
     };
   }, [mode, pendingAuth]);
 
@@ -130,9 +181,10 @@ export function QrScannerModal({ onClose, showToast }) {
         timestamp: Date.now()
       });
 
-      // Broadcast payload to channel
-      const targetChannel = supabase.channel(`qr-login-${pendingAuth.sessionId}`);
-      await targetChannel.subscribe();
+      // Broadcast payload to target channel
+      const targetChannel = activeChannelRef.current || supabase.channel(pendingAuth.channelName || `qr-login-${pendingAuth.sessionId}`);
+      if (!activeChannelRef.current) await targetChannel.subscribe();
+      
       await targetChannel.send({
         type: 'broadcast',
         event: 'e2ee_auth',
@@ -277,45 +329,62 @@ export function QrScannerModal({ onClose, showToast }) {
           </div>
         ) : (
           <>
-            {/* Mode Switcher */}
-            <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+            {/* Mode Switcher Tabs */}
+            <div style={{ display: "flex", gap: "6px", marginBottom: "16px" }}>
               <button
                 onClick={() => setMode("camera")}
                 style={{
                   flex: 1,
-                  padding: "8px 12px",
+                  padding: "8px 6px",
                   borderRadius: "8px",
                   border: "1px solid",
                   borderColor: mode === "camera" ? "#2563eb" : "rgba(255,255,255,0.08)",
                   background: mode === "camera" ? "rgba(37, 99, 235, 0.15)" : "transparent",
                   color: mode === "camera" ? "#60a5fa" : "#6b7280",
                   fontWeight: 600,
-                  fontSize: "13px",
+                  fontSize: "12px",
                   cursor: "pointer"
                 }}
               >
-                📷 Live Camera
+                📷 Camera
               </button>
               <button
                 onClick={() => setMode("photo")}
                 style={{
                   flex: 1,
-                  padding: "8px 12px",
+                  padding: "8px 6px",
                   borderRadius: "8px",
                   border: "1px solid",
                   borderColor: mode === "photo" ? "#2563eb" : "rgba(255,255,255,0.08)",
                   background: mode === "photo" ? "rgba(37, 99, 235, 0.15)" : "transparent",
                   color: mode === "photo" ? "#60a5fa" : "#6b7280",
                   fontWeight: 600,
-                  fontSize: "13px",
+                  fontSize: "12px",
                   cursor: "pointer"
                 }}
               >
-                🖼️ Upload Photo
+                🖼️ Upload
+              </button>
+              <button
+                onClick={() => setMode("code")}
+                style={{
+                  flex: 1,
+                  padding: "8px 6px",
+                  borderRadius: "8px",
+                  border: "1px solid",
+                  borderColor: mode === "code" ? "#2563eb" : "rgba(255,255,255,0.08)",
+                  background: mode === "code" ? "rgba(37, 99, 235, 0.15)" : "transparent",
+                  color: mode === "code" ? "#60a5fa" : "#6b7280",
+                  fontWeight: 600,
+                  fontSize: "12px",
+                  cursor: "pointer"
+                }}
+              >
+                🔢 Code
               </button>
             </div>
 
-            {/* Mode Content */}
+            {/* Mode 1: Camera Scan */}
             {mode === "camera" && (
               <div>
                 <div style={{
@@ -360,7 +429,7 @@ export function QrScannerModal({ onClose, showToast }) {
                           cursor: "pointer"
                         }}
                       >
-                        Upload QR Image Instead
+                        Upload Image Instead
                       </button>
                     </div>
                   )}
@@ -384,6 +453,7 @@ export function QrScannerModal({ onClose, showToast }) {
               </div>
             )}
 
+            {/* Mode 2: Photo Upload */}
             {mode === "photo" && (
               <div style={{
                 border: "2px dashed rgba(255, 255, 255, 0.15)",
@@ -421,6 +491,54 @@ export function QrScannerModal({ onClose, showToast }) {
                   onChange={handleFileUpload}
                   style={{ display: "none" }}
                 />
+              </div>
+            )}
+
+            {/* Mode 3: Manual 6-Digit Pairing Code Entry */}
+            {mode === "code" && (
+              <div style={{ padding: "10px 0" }}>
+                <label style={{ display: "block", fontSize: "12px", color: "#9ca3af", fontWeight: 600, marginBottom: "8px", textAlign: "center" }}>
+                  Enter the 6-digit code shown on the sign-in screen
+                </label>
+                <input
+                  value={manualCode}
+                  onChange={(e) => setManualCode(e.target.value)}
+                  placeholder="e.g. 397-944"
+                  maxLength={7}
+                  style={{
+                    width: "100%",
+                    padding: "14px",
+                    borderRadius: "12px",
+                    border: "1px solid rgba(255, 255, 255, 0.15)",
+                    background: "#080b11",
+                    color: "#60a5fa",
+                    fontSize: "22px",
+                    fontWeight: 800,
+                    fontFamily: "monospace",
+                    textAlign: "center",
+                    letterSpacing: "4px",
+                    outline: "none",
+                    marginBottom: "16px"
+                  }}
+                />
+                <button
+                  onClick={handleManualPairing}
+                  disabled={searchingCode || manualCode.replace(/[^0-9]/g, "").length < 6}
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    borderRadius: "10px",
+                    border: "none",
+                    background: "#2563eb",
+                    color: "#fff",
+                    fontWeight: 700,
+                    fontSize: "14px",
+                    cursor: "pointer",
+                    opacity: (searchingCode || manualCode.replace(/[^0-9]/g, "").length < 6) ? 0.6 : 1
+                  }}
+                >
+                  {searchingCode ? "Searching for device..." : "Connect & Pair Device"}
+                </button>
               </div>
             )}
           </>
