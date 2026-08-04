@@ -54,7 +54,7 @@ export function UpgradeModal({ onClose, onUpgrade, reason }) {
         </div>
 
         <div style={{ display: "inline-block", fontSize: "10.5px", fontWeight: 800, color: "#60a5fa", background: "rgba(59, 130, 246, 0.1)", padding: "3px 10px", borderRadius: "999px", border: "1px solid rgba(59, 130, 246, 0.2)", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-          HabiTick Pro
+          HabiTick Premium
         </div>
 
         <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "20px", color: "#f9fafb", margin: "0 0 8px", letterSpacing: "-0.02em", lineHeight: 1.3 }}>

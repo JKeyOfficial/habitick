@@ -69,24 +69,23 @@ export function BillingTab({ profile, session, showToast, onUpgrade }) {
           border: `1px solid ${isLifetime ? "#10b981" : isPremium ? "#2563eb" : "rgba(255, 255, 255, 0.1)"}`,
           color: isLifetime ? "#10b981" : isPremium ? "#60a5fa" : "#9ca3af"
         }}>
-          {isLifetime ? "LIFETIME PREMIUM ✦" : isPremium ? "PRO PLAN ACTIVE" : "FREE PLAN"}
+          {isLifetime ? "LIFETIME PREMIUM ✦" : isPremium ? "PREMIUM PLAN ACTIVE" : "FREE PLAN"}
         </span>
       </div>
 
       {/* Split Comparison Table */}
       <div style={{ background: "#0d1117", border: "1px solid rgba(255, 255, 255, 0.08)", borderRadius: "16px", overflow: "hidden", marginBottom: "20px", boxShadow: "0 8px 32px rgba(0,0,0,0.3)" }}>
-        {tableRow("Feature", "Free", "Pro ✨", true)}
+        {tableRow("Feature", "Free", "Premium ✦", true)}
         {tableRow("Max Habits", `${FREE_HABIT_LIMIT}`, "Unlimited ✦")}
         {tableRow("Max Goals", `${FREE_GOALS_LIMIT}`, "Unlimited ✦")}
-        {tableRow("Streak Shields", "3 Max", "5 Max 🛡️")}
-        {tableRow("AI Summary", "None", "Full Access ✨")}
+        {tableRow("Streak Shields", "3 Max", "5 Max")}
+        {tableRow("AI Summary", "None", "Full Access ✦")}
         {tableRow("Price", "£0", "99p/mo or £12.99", false, true)}
       </div>
 
       {isLifetime && (
         <div style={{ background: "#065f4620", border: "1px solid #10b98130", borderRadius: "10px", padding: "14px", textAlign: "center" }}>
-          <div style={{ fontSize: "20px", marginBottom: "6px" }}>🎉</div>
-          <div style={{ color: "#10b981", fontWeight: 700, fontSize: "13px" }}>You're a founding member</div>
+          <div style={{ color: "#10b981", fontWeight: 700, fontSize: "13px" }}>You're a founding member ✦</div>
           <div style={{ color: "#4b5563", fontSize: "12px", marginTop: "4px" }}>Premium is yours free, forever. No card, no billing, ever.</div>
         </div>
       )}
@@ -108,7 +107,7 @@ export function BillingTab({ profile, session, showToast, onUpgrade }) {
             onClick={() => onUpgrade && onUpgrade("monthly")}
             style={{ width: "100%", padding: "13px", borderRadius: "10px", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "14px", cursor: "pointer", fontFamily: "inherit", boxShadow: "0 4px 16px rgba(37,99,235,0.3)" }}
           >
-            Subscribe Pro — £0.99 / month →
+            Subscribe Premium — £0.99 / month →
           </button>
 
           {/* OR Divider */}

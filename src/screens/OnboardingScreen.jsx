@@ -258,7 +258,7 @@ export function OnboardingScreen({ session, onComplete }) {
           <div className="tip-box">
             <div style={{ fontWeight: 700, color: "#f9fafb", marginBottom: "8px", fontSize: "14px" }}>Quick tips</div>
             <div style={{ color: "#9ca3af", fontSize: "13px", marginBottom: "10px", lineHeight: 1.5 }}><strong>Routine</strong>: Group habits into routines (morning, evening, etc.) to check several items at once and build momentum.</div>
-            <div style={{ color: "#9ca3af", fontSize: "13px", lineHeight: 1.5 }}><strong>Shields</strong>: You start with one shield — each shield protects one missed day so your streak doesn't break. Pro users earn shields faster (every 7 completed days vs 14 for free).</div>
+            <div style={{ color: "#9ca3af", fontSize: "13px", lineHeight: 1.5 }}><strong>Shields</strong>: You start with one shield — each shield protects one missed day so your streak doesn't break. Premium users earn shields faster (every 7 completed days vs 14 for free).</div>
           </div>
 
           <button

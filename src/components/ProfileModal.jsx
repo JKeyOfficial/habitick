@@ -220,7 +220,7 @@ export function ProfileModal({ initialTab = "account", session, profile, habits 
                 gap: "3px",
                 border: profile?.is_lifetime ? "1px solid #60a5fa" : "1px solid #374151"
               }}>
-                {profile?.is_lifetime ? `FOUNDER #${profile?.user_number || "?"} ✦` : "PRO"}
+                {profile?.is_lifetime ? `FOUNDER #${profile?.user_number || "?"} ✦` : "PREMIUM"}
               </span>
             )}
           </div>
@@ -272,48 +272,6 @@ export function ProfileModal({ initialTab = "account", session, profile, habits 
       {/* ── ACCOUNT TAB: Username + Email + Password + QR Pairing ── */}
       {tab === "account" && (
         <div style={{ animation: "fadeUp 0.2s ease-out" }}>
-          {/* Quick Device Linking / QR Login */}
-          <span style={sectionLbl}>Device Pairing</span>
-          <div style={{
-            background: "rgba(37, 99, 235, 0.05)",
-            border: "1px solid rgba(59, 130, 246, 0.15)",
-            borderRadius: "12px",
-            padding: "16px",
-            marginBottom: "16px"
-          }}>
-            <div style={{ fontWeight: 700, fontSize: "14px", color: "#f9fafb", marginBottom: "4px", display: "flex", alignItems: "center", gap: "8px" }}>
-              <span>QR Code Login</span>
-              <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: "rgba(59, 130, 246, 0.2)", color: "#60a5fa", fontWeight: 700 }}>🔒 E2EE Encrypted</span>
-            </div>
-            <div style={{ fontSize: "12px", color: "#9ca3af", lineHeight: 1.4, marginBottom: "12px" }}>
-              Log into Habitick on a laptop or new browser by scanning the QR code shown on their sign-in page.
-            </div>
-            <button
-              onClick={() => setShowQrScanner(true)}
-              style={{
-                width: "100%",
-                padding: "11px",
-                borderRadius: "8px",
-                border: "none",
-                background: "#2563eb",
-                color: "#fff",
-                fontWeight: 700,
-                fontSize: "14px",
-                cursor: "pointer",
-                fontFamily: "inherit",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "8px"
-              }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
-              Scan QR Code to Log In Device
-            </button>
-          </div>
-
-          <div style={divider} />
-
           {/* Username */}
           <span style={sectionLbl}>Username</span>
           <input value={username} onChange={e => setUsername(e.target.value)} style={inp} placeholder="e.g. john_doe" onKeyDown={e => e.key === "Enter" && saveUsername()} />
@@ -396,6 +354,47 @@ export function ProfileModal({ initialTab = "account", session, profile, habits 
           <button onClick={sendResetLink} disabled={resetSent} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "1px solid #1f2937", background: resetSent ? "#064e3b" : "transparent", color: resetSent ? "#6ee7b7" : "#6b7280", fontWeight: 600, fontSize: "13px", cursor: resetSent ? "default" : "pointer", fontFamily: "inherit" }}>
             {resetSent ? "✓ Reset link sent to your email!" : "Send password reset link instead"}
           </button>
+
+          <div style={divider} />
+
+          {/* Quick Device Linking / QR Login */}
+          <span style={sectionLbl}>Device Pairing</span>
+          <div style={{
+            background: "rgba(37, 99, 235, 0.05)",
+            border: "1px solid rgba(59, 130, 246, 0.15)",
+            borderRadius: "12px",
+            padding: "16px"
+          }}>
+            <div style={{ fontWeight: 700, fontSize: "14px", color: "#f9fafb", marginBottom: "4px", display: "flex", alignItems: "center", gap: "8px" }}>
+              <span>QR Code Login</span>
+              <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: "rgba(59, 130, 246, 0.2)", color: "#60a5fa", fontWeight: 700 }}>🔒 E2EE Encrypted</span>
+            </div>
+            <div style={{ fontSize: "12px", color: "#9ca3af", lineHeight: 1.4, marginBottom: "12px" }}>
+              Log into Habitick on a laptop or new browser by scanning the QR code shown on their sign-in page.
+            </div>
+            <button
+              onClick={() => setShowQrScanner(true)}
+              style={{
+                width: "100%",
+                padding: "11px",
+                borderRadius: "8px",
+                border: "none",
+                background: "#2563eb",
+                color: "#fff",
+                fontWeight: 700,
+                fontSize: "14px",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px"
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+              Scan QR Code to Log In Device
+            </button>
+          </div>
         </div>
       )}
 
