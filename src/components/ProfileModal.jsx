@@ -229,27 +229,32 @@ export function ProfileModal({ initialTab = "account", session, profile, habits 
             <span style={{ 
               fontSize: "11px", 
               fontWeight: 700, 
-              color: "#60a5fa", 
-              background: "rgba(59, 130, 246, 0.08)",
-              border: "1px solid rgba(59, 130, 246, 0.2)",
-              padding: "2px 8px", 
-              borderRadius: "6px"
+              color: "#f97316", 
+              background: "rgba(249, 115, 22, 0.08)",
+              border: "1px solid rgba(249, 115, 22, 0.2)",
+              padding: "3px 9px", 
+              borderRadius: "6px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "5px"
             }}>
-              🔥 {currentStreak} Day Streak
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "#f97316", flexShrink: 0 }}><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" /></svg>
+              {currentStreak} Day Streak
             </span>
             <span style={{ 
               fontSize: "11px", 
-              color: "#9ca3af", 
+              color: "#60a5fa", 
               fontWeight: 600, 
-              background: "rgba(255, 255, 255, 0.03)",
-              border: "1px solid rgba(255, 255, 255, 0.06)",
-              padding: "2px 8px", 
+              background: "rgba(59, 130, 246, 0.08)",
+              border: "1px solid rgba(59, 130, 246, 0.2)",
+              padding: "3px 9px", 
               borderRadius: "6px",
               display: "inline-flex", 
               alignItems: "center", 
-              gap: "4px" 
+              gap: "5px" 
             }}>
-              🛡️ {shields} / {maxShields} Shields
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "#60a5fa", flexShrink: 0 }}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+              {shields} / {maxShields} Shields
             </span>
           </div>
           {avatarUrl && <button onClick={removeAvatar} style={{ background: "none", border: "none", color: "#6b7280", fontSize: "12px", cursor: "pointer", padding: 0, textDecoration: "underline" }}>Remove photo</button>}
@@ -277,8 +282,8 @@ export function ProfileModal({ initialTab = "account", session, profile, habits 
             marginBottom: "16px"
           }}>
             <div style={{ fontWeight: 700, fontSize: "14px", color: "#f9fafb", marginBottom: "4px", display: "flex", alignItems: "center", gap: "8px" }}>
-              <span>📱 QR Code Login</span>
-              <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: "rgba(59, 130, 246, 0.2)", color: "#60a5fa", fontWeight: 700 }}>E2EE Encrypted</span>
+              <span>QR Code Login</span>
+              <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: "rgba(59, 130, 246, 0.2)", color: "#60a5fa", fontWeight: 700 }}>🔒 E2EE Encrypted</span>
             </div>
             <div style={{ fontSize: "12px", color: "#9ca3af", lineHeight: 1.4, marginBottom: "12px" }}>
               Log into Habitick on a laptop or new browser by scanning the QR code shown on their sign-in page.
@@ -456,19 +461,19 @@ export function ProfileModal({ initialTab = "account", session, profile, habits 
             fontSize: "13px" 
           }}>
             <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
-              <span style={{ fontSize: "16px", flexShrink: 0 }}>✨</span>
+              <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#60a5fa", marginTop: "6px", flexShrink: 0 }} />
               <div style={{ color: "#9ca3af", lineHeight: 1.4 }}>
                 <strong style={{ color: "#f3f4f6" }}>Automated Rewards:</strong> Complete all scheduled habits on any day (with at least 1 habit scheduled) to earn a perfect day. Every 5 total perfect days awards 1 shield.
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "flex-start", gap: "10px", borderTop: "1px solid rgba(255,255,255,0.03)", paddingTop: "12px" }}>
-              <span style={{ fontSize: "16px", flexShrink: 0 }}>📅</span>
+              <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#60a5fa", marginTop: "6px", flexShrink: 0 }} />
               <div style={{ color: "#9ca3af", lineHeight: 1.4 }}>
                 <strong style={{ color: "#f3f4f6" }}>Non-Consecutive Count:</strong> Perfect days do not need to be in order. Missed days between perfect days won't reset your 5-day counter!
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "flex-start", gap: "10px", borderTop: "1px solid rgba(255,255,255,0.03)", paddingTop: "12px" }}>
-              <span style={{ fontSize: "16px", flexShrink: 0 }}>🛡️</span>
+              <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#60a5fa", marginTop: "6px", flexShrink: 0 }} />
               <div style={{ color: "#9ca3af", lineHeight: 1.4 }}>
                 <strong style={{ color: "#f3f4f6" }}>Automatic Streak Protection:</strong> If you miss a scheduled day, an available shield is automatically used so your streak continues uninterrupted.
               </div>

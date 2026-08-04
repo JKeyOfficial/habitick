@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase.js';
 import { encryptQrPayload, deriveShortCode } from '../utils/qrCrypto.js';
 
 export function QrScannerModal({ onClose, showToast }) {
-  const [mode, setMode] = useState("camera"); // "camera" | "photo" | "code"
+  const [mode, setMode] = useState("camera"); // "camera" | "code"
   const [manualCode, setManualCode] = useState("");
   const [scanning, setScanning] = useState(false);
   const [cameraError, setCameraError] = useState("");
@@ -13,7 +13,6 @@ export function QrScannerModal({ onClose, showToast }) {
   const [searchingCode, setSearchingCode] = useState(false);
 
   const html5QrCodeRef = useRef(null);
-  const fileInputRef = useRef(null);
   const activeChannelRef = useRef(null);
 
   // Connect to target channel (by sessionId or shortcode) and obtain E2EE Public Key
@@ -53,7 +52,7 @@ export function QrScannerModal({ onClose, showToast }) {
     }
   };
 
-  // Process decoded QR text from camera or uploaded photo
+  // Process decoded QR text from camera
   const processQrText = (decodedText) => {
     let sessionId = "";
 
@@ -111,7 +110,7 @@ export function QrScannerModal({ onClose, showToast }) {
       );
     } catch (err) {
       console.warn("Camera start error:", err);
-      setCameraError("Camera permission denied or camera unavailable. Try uploading an image or entering the code manually.");
+      setCameraError("Camera permission denied or unavailable. Use 6-digit code entry below.");
       setScanning(false);
     }
   };
@@ -145,21 +144,6 @@ export function QrScannerModal({ onClose, showToast }) {
       }
     };
   }, [mode, pendingAuth]);
-
-  // Handle Image File Upload Scan
-  const handleFileUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    try {
-      const html5QrCode = new Html5Qrcode("hidden-file-qr-reader");
-      const decodedText = await html5QrCode.scanFile(file, true);
-      processQrText(decodedText);
-      html5QrCode.clear();
-    } catch (err) {
-      showToast("Could not detect a valid QR code in selected photo", "error");
-    }
-  };
 
   // Authorize & Encrypt Auth Tokens for Target Session
   const handleApproveLogin = async () => {
@@ -213,9 +197,6 @@ export function QrScannerModal({ onClose, showToast }) {
       justifyContent: "center",
       padding: "20px"
     }}>
-      {/* Hidden container for file scan */}
-      <div id="hidden-file-qr-reader" style={{ display: "none" }}></div>
-
       <div style={{
         background: "#0d1117",
         border: "1px solid rgba(255, 255, 255, 0.1)",
@@ -265,7 +246,6 @@ export function QrScannerModal({ onClose, showToast }) {
               marginBottom: "20px",
               textAlign: "center"
             }}>
-              <div style={{ fontSize: "32px", marginBottom: "8px" }}>📱 🔐 💻</div>
               <h4 style={{ margin: "0 0 6px", color: "#fff", fontSize: "16px", fontWeight: 700 }}>
                 Authorize New Device?
               </h4>
@@ -323,81 +303,81 @@ export function QrScannerModal({ onClose, showToast }) {
                   opacity: authorizing ? 0.7 : 1
                 }}
               >
-                {authorizing ? "Encrypting..." : "✓ Approve & Authorize"}
+                {authorizing ? "Encrypting..." : "Approve & Authorize"}
               </button>
             </div>
           </div>
         ) : (
           <>
             {/* Mode Switcher Tabs */}
-            <div style={{ display: "flex", gap: "6px", marginBottom: "16px" }}>
+            <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
               <button
                 onClick={() => setMode("camera")}
                 style={{
                   flex: 1,
-                  padding: "8px 6px",
-                  borderRadius: "8px",
+                  padding: "10px 12px",
+                  borderRadius: "10px",
                   border: "1px solid",
                   borderColor: mode === "camera" ? "#2563eb" : "rgba(255,255,255,0.08)",
                   background: mode === "camera" ? "rgba(37, 99, 235, 0.15)" : "transparent",
                   color: mode === "camera" ? "#60a5fa" : "#6b7280",
-                  fontWeight: 600,
-                  fontSize: "12px",
+                  fontWeight: 700,
+                  fontSize: "13px",
                   cursor: "pointer"
                 }}
               >
-                📷 Camera
-              </button>
-              <button
-                onClick={() => setMode("photo")}
-                style={{
-                  flex: 1,
-                  padding: "8px 6px",
-                  borderRadius: "8px",
-                  border: "1px solid",
-                  borderColor: mode === "photo" ? "#2563eb" : "rgba(255,255,255,0.08)",
-                  background: mode === "photo" ? "rgba(37, 99, 235, 0.15)" : "transparent",
-                  color: mode === "photo" ? "#60a5fa" : "#6b7280",
-                  fontWeight: 600,
-                  fontSize: "12px",
-                  cursor: "pointer"
-                }}
-              >
-                🖼️ Upload
+                Live Camera
               </button>
               <button
                 onClick={() => setMode("code")}
                 style={{
                   flex: 1,
-                  padding: "8px 6px",
-                  borderRadius: "8px",
+                  padding: "10px 12px",
+                  borderRadius: "10px",
                   border: "1px solid",
                   borderColor: mode === "code" ? "#2563eb" : "rgba(255,255,255,0.08)",
                   background: mode === "code" ? "rgba(37, 99, 235, 0.15)" : "transparent",
                   color: mode === "code" ? "#60a5fa" : "#6b7280",
-                  fontWeight: 600,
-                  fontSize: "12px",
+                  fontWeight: 700,
+                  fontSize: "13px",
                   cursor: "pointer"
                 }}
               >
-                🔢 Code
+                6-Digit Code
               </button>
             </div>
 
             {/* Mode 1: Camera Scan */}
             {mode === "camera" && (
               <div>
+                <style>{`
+                  #qr-camera-reader video {
+                    object-fit: cover !important;
+                    width: 100% !important;
+                    height: 100% !important;
+                    border-radius: 14px !important;
+                  }
+                  #qr-camera-reader {
+                    border: none !important;
+                  }
+                  #qr-camera-reader img {
+                    display: none !important;
+                  }
+                `}</style>
                 <div style={{
                   position: "relative",
                   width: "100%",
-                  height: "240px",
-                  borderRadius: "14px",
+                  maxWidth: "280px",
+                  aspectRatio: "1 / 1",
+                  margin: "0 auto",
+                  borderRadius: "16px",
                   overflow: "hidden",
                   background: "#000",
-                  border: "1px solid rgba(255, 255, 255, 0.1)",
+                  border: "1px solid rgba(255, 255, 255, 0.12)",
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center"
+                  justifyContent: "center",
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.5)"
                 }}>
                   <div id="qr-camera-reader" style={{ width: "100%", height: "100%" }}></div>
 
@@ -417,7 +397,7 @@ export function QrScannerModal({ onClose, showToast }) {
                         {cameraError}
                       </div>
                       <button
-                        onClick={() => fileInputRef.current?.click()}
+                        onClick={() => setMode("code")}
                         style={{
                           padding: "8px 16px",
                           borderRadius: "8px",
@@ -429,81 +409,24 @@ export function QrScannerModal({ onClose, showToast }) {
                           cursor: "pointer"
                         }}
                       >
-                        Upload Image Instead
+                        Enter 6-Digit Code Instead
                       </button>
                     </div>
                   )}
                 </div>
-
-                <div style={{ textAlign: "center", marginTop: "14px" }}>
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    style={{ background: "none", border: "none", color: "#3b82f6", fontSize: "13px", cursor: "pointer", textDecoration: "underline" }}
-                  >
-                    Select photo from library
-                  </button>
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    accept="image/*"
-                    onChange={handleFileUpload}
-                    style={{ display: "none" }}
-                  />
-                </div>
               </div>
             )}
 
-            {/* Mode 2: Photo Upload */}
-            {mode === "photo" && (
-              <div style={{
-                border: "2px dashed rgba(255, 255, 255, 0.15)",
-                borderRadius: "14px",
-                padding: "36px 20px",
-                textAlign: "center",
-                background: "rgba(255, 255, 255, 0.02)"
-              }}>
-                <div style={{ fontSize: "36px", marginBottom: "12px" }}>📸</div>
-                <div style={{ fontSize: "14px", color: "#f3f4f6", fontWeight: 600, marginBottom: "4px" }}>
-                  Select a screenshot or photo of QR code
-                </div>
-                <div style={{ fontSize: "12px", color: "#6b7280", marginBottom: "16px" }}>
-                  Supports PNG, JPG, WebP
-                </div>
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  style={{
-                    padding: "10px 20px",
-                    borderRadius: "10px",
-                    border: "none",
-                    background: "#2563eb",
-                    color: "#fff",
-                    fontWeight: 700,
-                    fontSize: "14px",
-                    cursor: "pointer"
-                  }}
-                >
-                  Choose Image File
-                </button>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  accept="image/*"
-                  onChange={handleFileUpload}
-                  style={{ display: "none" }}
-                />
-              </div>
-            )}
-
-            {/* Mode 3: Manual 6-Digit Pairing Code Entry */}
+            {/* Mode 2: Manual 6-Digit Pairing Code Entry */}
             {mode === "code" && (
               <div style={{ padding: "10px 0" }}>
-                <label style={{ display: "block", fontSize: "12px", color: "#9ca3af", fontWeight: 600, marginBottom: "8px", textAlign: "center" }}>
-                  Enter the 6-digit code shown on the sign-in screen
+                <label style={{ display: "block", fontSize: "12px", color: "#9ca3af", fontWeight: 600, marginBottom: "10px", textAlign: "center" }}>
+                  Enter the 6-digit pairing code shown on the sign-in screen
                 </label>
                 <input
                   value={manualCode}
                   onChange={(e) => setManualCode(e.target.value)}
-                  placeholder="e.g. 397-944"
+                  placeholder="397-944"
                   maxLength={7}
                   style={{
                     width: "100%",
@@ -512,7 +435,7 @@ export function QrScannerModal({ onClose, showToast }) {
                     border: "1px solid rgba(255, 255, 255, 0.15)",
                     background: "#080b11",
                     color: "#60a5fa",
-                    fontSize: "22px",
+                    fontSize: "24px",
                     fontWeight: 800,
                     fontFamily: "monospace",
                     textAlign: "center",
@@ -537,7 +460,7 @@ export function QrScannerModal({ onClose, showToast }) {
                     opacity: (searchingCode || manualCode.replace(/[^0-9]/g, "").length < 6) ? 0.6 : 1
                   }}
                 >
-                  {searchingCode ? "Searching for device..." : "Connect & Pair Device"}
+                  {searchingCode ? "Connecting..." : "Pair Device"}
                 </button>
               </div>
             )}

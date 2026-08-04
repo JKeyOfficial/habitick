@@ -743,12 +743,16 @@ export function AuthScreen() {
                       <div style={{ color: "#ef4444", fontWeight: 700, fontSize: "15px", marginBottom: "8px" }}>QR Code Expired</div>
                       <div style={{ color: "#9ca3af", fontSize: "13px", marginBottom: "16px" }}>For security, codes expire after 90 seconds.</div>
                       <button onClick={initQrFlow} className="auth-btn-primary" style={{ padding: "10px 20px", fontSize: "13px" }}>
-                        🔄 Generate New QR Code
+                        Generate New QR Code
                       </button>
                     </div>
                   ) : qrSuccess ? (
                     <div style={{ padding: "30px 0" }}>
-                      <div style={{ fontSize: "36px", marginBottom: "8px" }}>✅</div>
+                      <div style={{ display: "flex", justifyContent: "center", marginBottom: "12px" }}>
+                        <div style={{ width: "48px", height: "48px", borderRadius: "50%", background: "rgba(16, 185, 129, 0.15)", border: "1px solid rgba(16, 185, 129, 0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </div>
+                      </div>
                       <div style={{ color: "#10b981", fontWeight: 700, fontSize: "16px" }}>Sign-In Authorized!</div>
                       <div style={{ color: "#9ca3af", fontSize: "13px", marginTop: "4px" }}>Logging into your account...</div>
                     </div>
