@@ -22,11 +22,18 @@ export function JournalTab({ journalEntries, setJournalEntries, session, today, 
   const latestDraft = useRef(draft);
   const latestMood = useRef(mood);
   const latestDate = useRef(currentDate);
+  const hasUnsavedChanges = useRef(false);
 
   const sortedDates = Object.keys(journalEntries).sort();
   const entry = journalEntries[currentDate];
 
   useEffect(() => {
+    // Flush any pending unsaved changes from previous date before switching
+    if (hasUnsavedChanges.current && latestDate.current) {
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+      save(latestDraft.current, latestMood.current, latestDate.current);
+      hasUnsavedChanges.current = false;
+    }
     setDraft(entry?.content || "");
     setMood(entry?.mood || "");
     setSaved(false);
@@ -36,6 +43,16 @@ export function JournalTab({ journalEntries, setJournalEntries, session, today, 
   useEffect(() => { latestMood.current = mood; }, [mood]);
   useEffect(() => { latestDate.current = currentDate; }, [currentDate]);
 
+  // Flush pending save on unmount (e.g. tab navigation)
+  useEffect(() => {
+    return () => {
+      if (hasUnsavedChanges.current && latestDate.current) {
+        if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+        save(latestDraft.current, latestMood.current, latestDate.current);
+      }
+    };
+  }, []);
+
   const save = async (draftVal, moodVal, dateVal) => {
     if (!draftVal.trim() && !moodVal) return;
     setSaving(true);
@@ -43,7 +60,9 @@ export function JournalTab({ journalEntries, setJournalEntries, session, today, 
     const payload = { user_id: session.user.id, entry_date: dateVal, content: encryptedContent, mood: moodVal || null };
     const { data, error } = await supabase.from("journal_entries").upsert(payload, { onConflict: "user_id,entry_date" }).select().single();
     if (!error && data) {
-      setJournalEntries(prev => ({ ...prev, [dateVal]: { ...data, content: draftVal.trim() } }));
+      if (setJournalEntries) {
+        setJournalEntries(prev => ({ ...prev, [dateVal]: { ...data, content: draftVal.trim() } }));
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     }
@@ -54,8 +73,58 @@ export function JournalTab({ journalEntries, setJournalEntries, session, today, 
     if (latestDate.current > today) return;
     if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
     autosaveTimer.current = setTimeout(() => {
+      if (hasUnsavedChanges.current) {
+        save(latestDraft.current, latestMood.current, latestDate.current);
+        hasUnsavedChanges.current = false;
+      }
+    }, 350);
+  };
+
+  const handleDraftChange = (newText) => {
+    if (newText.length > CHAR_LIMIT) return;
+    setDraft(newText);
+    hasUnsavedChanges.current = true;
+
+    // Instantly sync local state in memory (0ms delay)
+    if (setJournalEntries) {
+      setJournalEntries(prev => ({
+        ...prev,
+        [currentDate]: {
+          ...(prev[currentDate] || { entry_date: currentDate, user_id: session?.user?.id }),
+          content: newText,
+          mood: mood
+        }
+      }));
+    }
+
+    scheduleAutosave();
+  };
+
+  const handleMoodChange = (newMoodVal) => {
+    const nextMood = mood === newMoodVal ? "" : newMoodVal;
+    setMood(nextMood);
+    hasUnsavedChanges.current = true;
+
+    if (setJournalEntries) {
+      setJournalEntries(prev => ({
+        ...prev,
+        [currentDate]: {
+          ...(prev[currentDate] || { entry_date: currentDate, user_id: session?.user?.id }),
+          content: draft,
+          mood: nextMood
+        }
+      }));
+    }
+
+    scheduleAutosave();
+  };
+
+  const flushSave = () => {
+    if (hasUnsavedChanges.current && latestDate.current <= today) {
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
       save(latestDraft.current, latestMood.current, latestDate.current);
-    }, 1000);
+      hasUnsavedChanges.current = false;
+    }
   };
 
   const journalCutoff = (() => {
@@ -141,7 +210,7 @@ export function JournalTab({ journalEntries, setJournalEntries, session, today, 
             return (
               <button
                 key={m.value}
-                onClick={() => { setMood(prev => prev === m.value ? "" : m.value); scheduleAutosave(); }}
+                onClick={() => handleMoodChange(m.value)}
                 style={{
                   flex: 1,
                   display: "flex",
@@ -171,7 +240,8 @@ export function JournalTab({ journalEntries, setJournalEntries, session, today, 
         {/* Text area - sleek, no inner double-box */}
         <textarea
           value={draft}
-          onChange={e => { if (e.target.value.length <= CHAR_LIMIT) { setDraft(e.target.value); scheduleAutosave(); } }}
+          onChange={e => handleDraftChange(e.target.value)}
+          onBlur={flushSave}
           placeholder={isFuture ? "" : "Write anything — what happened today, how you feel, what you're grateful for..."}
           disabled={isFuture}
           style={{ 

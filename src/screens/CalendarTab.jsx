@@ -79,12 +79,61 @@ export function CalendarTab({
 
   const scheduleAutosave = () => {
     if (activeDateRef.current > today) return;
-    hasUnsavedChanges.current = true;
     if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
     autosaveTimer.current = setTimeout(() => {
+      if (hasUnsavedChanges.current && activeDateRef.current) {
+        saveJournal(latestDraft.current, latestMood.current, activeDateRef.current);
+        hasUnsavedChanges.current = false;
+      }
+    }, 350);
+  };
+
+  const handleDraftChange = (newText) => {
+    if (newText.length > 2000) return;
+    setDraft(newText);
+    hasUnsavedChanges.current = true;
+
+    if (setJournalEntries && activeDateRef.current) {
+      const dVal = activeDateRef.current;
+      setJournalEntries(prev => ({
+        ...prev,
+        [dVal]: {
+          ...(prev[dVal] || { entry_date: dVal, user_id: session?.user?.id }),
+          content: newText,
+          mood: mood
+        }
+      }));
+    }
+
+    scheduleAutosave();
+  };
+
+  const handleMoodChange = (mVal) => {
+    const nextMood = mood === mVal ? "" : mVal;
+    setMood(nextMood);
+    hasUnsavedChanges.current = true;
+
+    if (setJournalEntries && activeDateRef.current) {
+      const dVal = activeDateRef.current;
+      setJournalEntries(prev => ({
+        ...prev,
+        [dVal]: {
+          ...(prev[dVal] || { entry_date: dVal, user_id: session?.user?.id }),
+          content: draft,
+          mood: nextMood
+        }
+      }));
+    }
+
+    scheduleAutosave();
+  };
+
+  const flushSave = () => {
+    if (hasUnsavedChanges.current && activeDateRef.current && activeDateRef.current <= today) {
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
       saveJournal(latestDraft.current, latestMood.current, activeDateRef.current);
       hasUnsavedChanges.current = false;
-    }, 1000);
+    }
   };
 
   useEffect(() => {
@@ -107,6 +156,9 @@ export function CalendarTab({
     }
     return () => {
       if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+      if (hasUnsavedChanges.current && activeDateRef.current) {
+        saveJournal(latestDraft.current, latestMood.current, activeDateRef.current);
+      }
     };
   }, [selectedDateStr]);
 
@@ -939,10 +991,7 @@ export function CalendarTab({
                               <button
                                 key={m.value}
                                 disabled={isFuture}
-                                onClick={() => {
-                                  setMood(prev => prev === m.value ? "" : m.value);
-                                  scheduleAutosave();
-                                }}
+                                onClick={() => handleMoodChange(m.value)}
                                 className={`mood-btn ${mood === m.value ? 'active' : ''}`}
                                 title={isFuture ? "Cannot set mood for future days" : m.label}
                               >
@@ -961,12 +1010,8 @@ export function CalendarTab({
                         </div>
                         <textarea
                           value={draft}
-                          onChange={e => {
-                            if (e.target.value.length <= 2000) {
-                              setDraft(e.target.value);
-                              scheduleAutosave();
-                            }
-                          }}
+                          onChange={e => handleDraftChange(e.target.value)}
+                          onBlur={flushSave}
                           placeholder={selectedDateStr > today ? "Cannot write journal entries for future days." : "Write anything — what happened today, how you feel, what you're grateful for..."}
                           disabled={selectedDateStr > today}
                           className="journal-textarea"
