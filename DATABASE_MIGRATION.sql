@@ -1,25 +1,31 @@
--- Add order_index column to routines and habits tables for drag-and-drop reordering
+-- Add order_index column to routines table for drag-and-drop reordering
 -- Run this in your Supabase SQL editor
 
--- Add the order_index column if it doesn't exist
+-- Add order_index column if it doesn't exist
 ALTER TABLE routines ADD COLUMN IF NOT EXISTS order_index INTEGER DEFAULT 0;
-ALTER TABLE habits ADD COLUMN IF NOT EXISTS order_index INTEGER DEFAULT 0;
 
--- Set a sensible default ordering for existing routines and habits
+-- Set a sensible default ordering based on creation date for existing routines
 UPDATE routines 
 SET order_index = COALESCE(order_index, 0)
 WHERE order_index IS NULL;
 
-UPDATE habits 
-SET order_index = COALESCE(order_index, 0)
-WHERE order_index IS NULL;
-
--- Create indexes for better query performance
+-- Create an index for better query performance
 CREATE INDEX IF NOT EXISTS idx_routines_user_id_order_index 
 ON routines(user_id, order_index);
 
-CREATE INDEX IF NOT EXISTS idx_habits_user_id_order_index 
+-- Add order_index column to habits table for drag-and-drop reordering
+ALTER TABLE habits ADD COLUMN IF NOT EXISTS order_index INTEGER DEFAULT 0;
+
+UPDATE habits
+SET order_index = COALESCE(order_index, 0)
+WHERE order_index IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_habits_user_id_order_index
 ON habits(user_id, order_index);
+
+-- Add habit_order and routine_order columns to profiles table for fast sync
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS habit_order JSONB;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS routine_order JSONB;
 
 -- Add is_admin column to profiles table for developer access checks
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;
