@@ -219,17 +219,55 @@ export default function HabiTick() {
     loadAll();
   }, [session]);
 
+  const persistHabitOrder = async (orderedHabits) => {
+    const uid = session?.user?.id;
+    if (!uid || !orderedHabits) return;
+    const orderIds = orderedHabits.map(h => h.id);
+
+    // 1. Cache to localStorage for instant local loading on this device
+    localStorage.setItem(`ht_habitOrder_${uid}`, JSON.stringify(orderIds));
+
+    // 2. Save order array to Supabase auth user_metadata for cross-device sync
+    supabase.auth.updateUser({
+      data: { habit_order: orderIds }
+    }).catch(() => {});
+
+    // 3. Batch update order_index and routine_id in DB table for each habit
+    orderedHabits.forEach((h, idx) => {
+      supabase.from("habits").update({ order_index: idx, routine_id: h.routine_id ?? null }).eq("id", h.id).then(() => {});
+    });
+  };
+
+  const persistRoutineOrder = async (orderedRoutines) => {
+    const uid = session?.user?.id;
+    if (!uid || !orderedRoutines) return;
+    const orderIds = orderedRoutines.map(r => r.id);
+
+    // 1. Cache to localStorage for instant local loading on this device
+    localStorage.setItem(`ht_routineOrder_${uid}`, JSON.stringify(orderIds));
+
+    // 2. Save order array to Supabase auth user_metadata for cross-device sync
+    supabase.auth.updateUser({
+      data: { routine_order: orderIds }
+    }).catch(() => {});
+
+    // 3. Update order_index in DB table for each routine
+    orderedRoutines.forEach((r, idx) => {
+      supabase.from("routines").update({ order_index: idx }).eq("id", r.id).then(() => {});
+    });
+  };
+
   const loadAll = async () => {
     setLoading(true);
     const uid = session.user.id;
     const [habitsRes, completionsRes, todosRes, pauseRes, journalRes, profileRes, routinesRes, goalsRes] = await Promise.all([
-      supabase.from("habits").select("*").eq("user_id", uid).order("created_at"),
+      supabase.from("habits").select("*").eq("user_id", uid).order("order_index", { ascending: true }).order("created_at", { ascending: true }),
       supabase.from("habit_completions").select("habit_id, completed_date, completed_at, timezone").eq("user_id", uid),
       supabase.from("todos").select("*").eq("user_id", uid).order("created_at"),
       supabase.from("pause_periods").select("*").eq("user_id", uid).order("created_at"),
       supabase.from("journal_entries").select("*").eq("user_id", uid).order("entry_date"),
       supabase.from("profiles").select("*").eq("id", uid).single(),
-      supabase.from("routines").select("*").eq("user_id", uid).order("created_at"),
+      supabase.from("routines").select("*").eq("user_id", uid).order("order_index", { ascending: true }).order("created_at", { ascending: true }),
       supabase.from("goals").select("*").eq("user_id", uid).order("created_at"),
     ]);
     const completionsByHabit = {};
@@ -258,18 +296,22 @@ export default function HabiTick() {
       });
     }
 
-    // Sort habits based on local storage if available
+    // Sort habits based on local storage or user metadata (cross-device fallback)
     let loadedHabits = decryptedHabits;
     const savedHabitOrder = localStorage.getItem(`ht_habitOrder_${uid}`);
+    let habitOrderIds = null;
     if (savedHabitOrder) {
-      try {
-        const orderIds = JSON.parse(savedHabitOrder);
-        const map = new Map(loadedHabits.map(h => [h.id, h]));
-        const sorted = [];
-        orderIds.forEach(id => { if (map.has(id)) { sorted.push(map.get(id)); map.delete(id); } });
-        map.forEach(h => sorted.push(h));
-        loadedHabits = sorted;
-      } catch (e) { console.error("Failed to parse habit order", e); }
+      try { habitOrderIds = JSON.parse(savedHabitOrder); } catch (e) {}
+    }
+    if (!habitOrderIds && session?.user?.user_metadata?.habit_order) {
+      habitOrderIds = session.user.user_metadata.habit_order;
+    }
+    if (habitOrderIds && Array.isArray(habitOrderIds)) {
+      const map = new Map(loadedHabits.map(h => [h.id, h]));
+      const sorted = [];
+      habitOrderIds.forEach(id => { if (map.has(id)) { sorted.push(map.get(id)); map.delete(id); } });
+      map.forEach(h => sorted.push(h));
+      loadedHabits = sorted;
     }
     setHabits(loadedHabits);
 
@@ -342,20 +384,24 @@ export default function HabiTick() {
       });
     }
 
-    // Sort routines by saved order
+    // Sort routines by saved order (localStorage > user_metadata > DB order_index)
     const routineData = decryptedRoutines;
     const savedOrder = localStorage.getItem(`ht_routineOrder_${uid}`);
+    let routineOrderIds = null;
     if (savedOrder) {
-      try {
-        const orderIds = JSON.parse(savedOrder);
-        const sorted = [];
-        const map = new Map(routineData.map(r => [r.id, r]));
-        orderIds.forEach(id => {
-          if (map.has(id)) { sorted.push(map.get(id)); map.delete(id); }
-        });
-        map.forEach(r => sorted.push(r));
-        setRoutines(sorted);
-      } catch { setRoutines(routineData); }
+      try { routineOrderIds = JSON.parse(savedOrder); } catch (e) {}
+    }
+    if (!routineOrderIds && session?.user?.user_metadata?.routine_order) {
+      routineOrderIds = session.user.user_metadata.routine_order;
+    }
+    if (routineOrderIds && Array.isArray(routineOrderIds)) {
+      const sorted = [];
+      const map = new Map(routineData.map(r => [r.id, r]));
+      routineOrderIds.forEach(id => {
+        if (map.has(id)) { sorted.push(map.get(id)); map.delete(id); }
+      });
+      map.forEach(r => sorted.push(r));
+      setRoutines(sorted);
     } else {
       setRoutines(routineData);
     }
@@ -445,21 +491,16 @@ export default function HabiTick() {
           const oldIndex = items.findIndex(r => String(r.id) === activeId);
           const newIndex = items.findIndex(r => String(r.id) === overId);
           const newRoutines = arrayMove(items, oldIndex, newIndex);
-          localStorage.setItem(`ht_routineOrder_${session?.user?.id}`, JSON.stringify(newRoutines.map(r => r.id)));
+          persistRoutineOrder(newRoutines);
           return newRoutines;
         });
       }
     }
 
-    // Habit persistence (save current state of habits to DB/LocalStorage)
+    // Habit persistence (save current state of habits to DB & user metadata)
     if (active.data.current?.type === 'habit') {
-      const activeId = String(active.id);
       setHabits(currentHabits => {
-        const habit = currentHabits.find(h => String(h.id) === activeId);
-        if (habit) {
-          supabase.from("habits").update({ routine_id: habit.routine_id ?? null }).eq("id", activeId).then(() => { });
-          localStorage.setItem(`ht_habitOrder_${session?.user?.id}`, JSON.stringify(currentHabits.map(h => h.id)));
-        }
+        persistHabitOrder(currentHabits);
         return currentHabits;
       });
     }
@@ -474,22 +515,37 @@ export default function HabiTick() {
       const { data } = await supabase.from("routines").update({ name: encryptedName, emoji }).eq("id", editingRoutine.id).select().single();
       setRoutines(prev => prev.map(r => r.id === editingRoutine.id ? { ...data, name } : r));
     } else {
-      const { data } = await supabase.from("routines").insert({ user_id: session.user.id, name: encryptedName, emoji }).select().single();
-      setRoutines(prev => [...prev, { ...data, name }]);
+      const newOrderIndex = routines.length;
+      const { data } = await supabase.from("routines").insert({ user_id: session.user.id, name: encryptedName, emoji, order_index: newOrderIndex }).select().single();
+      const updatedRoutines = [...routines, { ...data, name }];
+      setRoutines(updatedRoutines);
+      persistRoutineOrder(updatedRoutines);
     }
     setShowRoutineModal(false); setEditingRoutine(null);
   };
 
   const deleteRoutine = async id => {
     await supabase.from("habits").update({ routine_id: null }).eq("routine_id", id);
-    setHabits(prev => prev.map(h => h.routine_id === id ? { ...h, routine_id: null } : h));
+    setHabits(prev => {
+      const updatedHabits = prev.map(h => h.routine_id === id ? { ...h, routine_id: null } : h);
+      persistHabitOrder(updatedHabits);
+      return updatedHabits;
+    });
     await supabase.from("routines").delete().eq("id", id);
-    setRoutines(prev => prev.filter(r => r.id !== id));
+    setRoutines(prev => {
+      const updatedRoutines = prev.filter(r => r.id !== id);
+      persistRoutineOrder(updatedRoutines);
+      return updatedRoutines;
+    });
   };
 
   const moveHabitToRoutine = async (habitId, routineId) => {
     await supabase.from("habits").update({ routine_id: routineId }).eq("id", habitId);
-    setHabits(prev => prev.map(h => h.id === habitId ? { ...h, routine_id: routineId } : h));
+    setHabits(prev => {
+      const updated = prev.map(h => h.id === habitId ? { ...h, routine_id: routineId } : h);
+      persistHabitOrder(updated);
+      return updated;
+    });
   };
 
   const swapHabits = (dragId, targetId) => {
@@ -504,11 +560,7 @@ export default function HabiTick() {
       arr[dragIdx] = { ...arr[dragIdx], routine_id: targetRoutine };
       arr[targetIdx] = { ...arr[targetIdx], routine_id: dragRoutine };
       [arr[dragIdx], arr[targetIdx]] = [arr[targetIdx], arr[dragIdx]];
-      if (dragRoutine !== targetRoutine) {
-        supabase.from("habits").update({ routine_id: targetRoutine ?? null }).eq("id", dragId).then(() => { });
-        supabase.from("habits").update({ routine_id: dragRoutine ?? null }).eq("id", targetId).then(() => { });
-      }
-      localStorage.setItem(`ht_habitOrder_${session?.user?.id}`, JSON.stringify(arr.map(h => h.id)));
+      persistHabitOrder(arr);
       return arr;
     });
   };
@@ -554,10 +606,11 @@ export default function HabiTick() {
       if (!isPremium && habits.length >= FREE_HABIT_LIMIT) {
         setShowHabitModal(false); setShowUpgradeModal("habits"); return;
       }
-      const { data } = await supabase.from("habits").insert({ user_id: session.user.id, name: encryptedName, frequency, days, created_date: today }).select().single();
+      const newOrderIndex = habits.length;
+      const { data } = await supabase.from("habits").insert({ user_id: session.user.id, name: encryptedName, frequency, days, created_date: today, order_index: newOrderIndex }).select().single();
       const newHabits = [...habits, { ...data, name, createdDate: data.created_date, completedDates: [], completionTimes: {} }];
       setHabits(newHabits);
-      localStorage.setItem(`ht_habitOrder_${session?.user?.id}`, JSON.stringify(newHabits.map(h => h.id)));
+      persistHabitOrder(newHabits);
     }
     setShowHabitModal(false); setEditingHabit(null);
   };
@@ -565,7 +618,7 @@ export default function HabiTick() {
   const deleteHabit = async id => {
     setHabits(prev => {
       const newHabits = prev.filter(h => h.id !== id);
-      localStorage.setItem(`ht_habitOrder_${session?.user?.id}`, JSON.stringify(newHabits.map(h => h.id)));
+      persistHabitOrder(newHabits);
       return newHabits;
     });
     await supabase.from("habits").delete().eq("id", id);
@@ -677,6 +730,12 @@ export default function HabiTick() {
     ? habits.filter(h => h.frequency === "daily" || (h.days && h.days.includes(selectedDow)))
     : habits
   ).filter(h => !h.createdDate || h.createdDate <= selectedDate);
+
+  const visibleRoutines = routines.filter(routine => {
+    if (!showTodayOnly) return true;
+    const routineHabits = todayHabits.filter(h => h.routine_id === routine.id);
+    return routineHabits.length > 0;
+  });
 
   const doneOnSelectedDate = habits.filter(h =>
     (!h.createdDate || h.createdDate <= selectedDate) &&
@@ -1489,10 +1548,10 @@ export default function HabiTick() {
                     )}
 
                     {/* Routines & Standalone lists */}
-                    {routines.length > 0 && (
-                      <SortableContext items={routines.map(r => r.id)} strategy={rectSortingStrategy}>
+                    {visibleRoutines.length > 0 && (
+                      <SortableContext items={visibleRoutines.map(r => r.id)} strategy={rectSortingStrategy}>
                         <div style={{ width: "100%" }}>
-                          {routines.map(routine => (
+                          {visibleRoutines.map(routine => (
                             <RoutineSortableItem
                               key={routine.id}
                               routine={routine}
@@ -1525,8 +1584,10 @@ export default function HabiTick() {
                     )}
 
                     <div style={{ width: "100%", marginTop: "8px" }}>
-                      {todayHabits.filter(h => !h.routine_id).length === 0 && routines.length === 0 && (
-                        <div style={{ color: "#4b5563", fontSize: "14px", padding: "20px 0", textAlign: "center" }}>No habits yet. Add your first one!</div>
+                      {todayHabits.filter(h => !h.routine_id).length === 0 && visibleRoutines.length === 0 && (
+                        <div style={{ color: "#4b5563", fontSize: "14px", padding: "20px 0", textAlign: "center" }}>
+                          {showTodayOnly ? "No habits scheduled for today." : "No habits yet. Add your first one!"}
+                        </div>
                       )}
                       <SortableContext items={todayHabits.filter(h => !h.routine_id).map(h => h.id)} strategy={verticalListSortingStrategy}>
                         {todayHabits.filter(h => !h.routine_id).map(h => (
