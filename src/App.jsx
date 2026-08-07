@@ -460,36 +460,48 @@ export default function HabiTick() {
     // Handle container moves and reordering in real-time (LOCAL STATE ONLY)
     setHabits((prev) => {
       const activeIndex = prev.findIndex(h => String(h.id) === activeId);
-      const overIndex = prev.findIndex(h => String(h.id) === overId);
-
       if (activeIndex === -1) return prev;
 
-      let newHabits = [...prev];
-      const activeItem = { ...newHabits[activeIndex] };
+      const activeItem = prev[activeIndex];
 
       // If over a routine card
       if (overData?.type === 'routine') {
         if (activeItem.routine_id !== overId) {
-          activeItem.routine_id = overId;
-          newHabits[activeIndex] = activeItem;
+          const newHabits = [...prev];
+          newHabits[activeIndex] = { ...activeItem, routine_id: overId };
+          return newHabits;
         }
-        return newHabits;
+        return prev;
       }
 
       // If over another habit
-      if (overData?.type === 'habit' && overIndex !== -1) {
+      if (overData?.type === 'habit') {
+        const overIndex = prev.findIndex(h => String(h.id) === overId);
+        if (overIndex === -1) return prev;
+
         const overItem = prev[overIndex];
         const overRoutineId = overItem.routine_id;
 
-        if (activeItem.routine_id !== overRoutineId) {
-          activeItem.routine_id = overRoutineId;
-          newHabits[activeIndex] = activeItem;
+        const routineChanged = activeItem.routine_id !== overRoutineId;
+        const indexChanged = activeIndex !== overIndex;
+
+        if (!routineChanged && !indexChanged) {
+          return prev;
         }
 
-        return arrayMove(newHabits, activeIndex, overIndex);
+        let newHabits = [...prev];
+        if (routineChanged) {
+          newHabits[activeIndex] = { ...activeItem, routine_id: overRoutineId };
+        }
+
+        if (indexChanged) {
+          return arrayMove(newHabits, activeIndex, overIndex);
+        }
+
+        return newHabits;
       }
 
-      return newHabits;
+      return prev;
     });
   };
 
