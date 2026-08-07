@@ -158,9 +158,14 @@ const persistRoutineOrder = (newRoutines, userId) => {
   } catch {}
   
   newRoutines.forEach((r, idx) => {
-    supabase.from("routines").update({ order_index: idx }).eq("id", r.id).then(() => {});
+    supabase.from("routines").update({ order_index: idx }).eq("id", r.id).then(({ error }) => {
+      if (error) console.warn("Supabase routine order update warning:", error.message);
+    }).catch(err => console.warn("Routine order sync error:", err));
   });
-  supabase.from("profiles").update({ routine_order: routineIds }).eq("id", userId).then(() => {});
+
+  supabase.from("profiles").update({ routine_order: routineIds }).eq("id", userId).then(({ error }) => {
+    if (error) console.warn("Supabase profile routine_order update warning:", error.message);
+  }).catch(err => console.warn("Profile routine_order sync error:", err));
 };
 
 const persistHabitOrder = (newHabits, userId) => {
@@ -171,9 +176,21 @@ const persistHabitOrder = (newHabits, userId) => {
   } catch {}
 
   newHabits.forEach((h, idx) => {
-    supabase.from("habits").update({ order_index: idx, routine_id: h.routine_id ?? null }).eq("id", h.id).then(() => {});
+    const validRoutineId = typeof h.routine_id === "string" && h.routine_id.trim() !== "" ? h.routine_id : null;
+    supabase.from("habits").update({ order_index: idx, routine_id: validRoutineId }).eq("id", h.id).then(({ error }) => {
+      if (error) {
+        console.warn("Supabase habit order update warning:", error.message);
+        // Fallback: If routine_id column is missing in DB schema, attempt updating order_index alone
+        if (error.code === "PGRST204" || error.status === 400) {
+          supabase.from("habits").update({ order_index: idx }).eq("id", h.id).catch(() => {});
+        }
+      }
+    }).catch(err => console.warn("Habit order sync error:", err));
   });
-  supabase.from("profiles").update({ habit_order: habitIds }).eq("id", userId).then(() => {});
+
+  supabase.from("profiles").update({ habit_order: habitIds }).eq("id", userId).then(({ error }) => {
+    if (error) console.warn("Supabase profile habit_order update warning:", error.message);
+  }).catch(err => console.warn("Profile habit_order sync error:", err));
 };
 
 export default function HabiTick() {
