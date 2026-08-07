@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDroppable } from '@dnd-kit/core';
 import { HabitSortableItem } from './HabitSortableItem.jsx';
 import { HabitCard } from './HabitCard.jsx';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -223,8 +224,17 @@ export function RoutineCard({
     </>
   );
 
+  const { setNodeRef } = useDroppable({
+    id: String(routine.id),
+    data: {
+      type: 'routine',
+      routine
+    }
+  });
+
   return (
     <div
+      ref={setNodeRef}
       className="ht-routine-card"
       style={{
         border: `1px solid ${allDone ? "rgba(16, 185, 129, 0.2)" : "rgba(255, 255, 255, 0.05)"}`,

@@ -101,7 +101,19 @@ export async function decryptText(encryptedBase64, userId) {
     console.log(`[HabiTick Crypto] Decrypted successfully (Version ${version}).`);
     return dec.decode(decrypted);
   } catch (e) {
-    // If decryption fails, it's plaintext
+    if (encryptedBase64.startsWith("htv2:")) {
+      try {
+        const keyV1 = await getKey(userId, 1);
+        const cleanCiphertext = encryptedBase64.substring(5);
+        const binaryString = atob(cleanCiphertext);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+        const iv = bytes.slice(0, 12);
+        const ciphertext = bytes.slice(12);
+        const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, keyV1, ciphertext);
+        return new TextDecoder().decode(decrypted);
+      } catch (err) {}
+    }
     console.log("[HabiTick Crypto] Decryption failed (treating as plaintext):", e.message);
     return encryptedBase64;
   }

@@ -4,10 +4,15 @@ import {
   DndContext,
   closestCenter,
   closestCorners,
+  pointerWithin,
+  rectIntersection,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
+  useDroppable,
+  DragOverlay,
+  defaultDropAnimationSideEffects
 } from '@dnd-kit/core';
 
 import {
@@ -53,6 +58,27 @@ const restrictToVerticalAxis = ({ transform }) => ({
   ...transform,
   x: 0,
 });
+
+const customCollisionDetection = (args) => {
+  const pointerCollisions = pointerWithin(args);
+  if (pointerCollisions.length > 0) {
+    return pointerCollisions;
+  }
+  return rectIntersection(args);
+};
+
+function StandaloneHabitsContainer({ children }) {
+  const { setNodeRef } = useDroppable({
+    id: "standalone-habits",
+    data: { type: "standalone" }
+  });
+
+  return (
+    <div ref={setNodeRef} style={{ width: "100%", minHeight: "60px", marginTop: "8px" }}>
+      {children}
+    </div>
+  );
+}
 
 const renderTabIcon = (tabKey, isActive, size = 18) => {
   const props = {
@@ -236,6 +262,8 @@ export default function HabiTick() {
   const [editingRoutine, setEditingRoutine] = useState(null);
   const [activeId, setActiveId] = useState(null);
   const [draggedHabit, setDraggedHabit] = useState(null);
+  const [draggedRoutine, setDraggedRoutine] = useState(null);
+  const [draggedItemWidth, setDraggedItemWidth] = useState(null);
   const [lifetimeBannerDismissed, setLifetimeBannerDismissed] = useState(false);
   const [showShieldPopover, setShowShieldPopover] = useState(false);
   const [profileTab, setProfileTab] = useState("account");
@@ -438,8 +466,15 @@ export default function HabiTick() {
   const handleDragStart = (event) => {
     const { active } = event;
     setActiveId(active.id);
+    const rect = active.rect.current.initial || active.rect.current.translated;
+    if (rect?.width) {
+      setDraggedItemWidth(rect.width);
+    }
     if (active.data.current?.type === 'habit') {
       setDraggedHabit(active.data.current.habit);
+    } else if (active.data.current?.type === 'routine') {
+      const routine = routines.find(r => String(r.id) === String(active.id));
+      setDraggedRoutine(routine || null);
     }
   };
 
@@ -457,30 +492,49 @@ export default function HabiTick() {
 
     if (!activeData || activeData.type !== 'habit') return;
 
-    // Handle container moves and reordering in real-time (LOCAL STATE ONLY)
+    // IGNORE drags over non-habit drop targets (like tasks, calendar, background, headers)
+    const isOverHabit = overData?.type === 'habit';
+    const isOverRoutine = overData?.type === 'routine' || routines.some(r => String(r.id) === overId);
+    const isOverStandalone = overId === 'standalone-habits' || overData?.type === 'standalone';
+
+    if (!isOverHabit && !isOverRoutine && !isOverStandalone) {
+      return;
+    }
+
     setHabits((prev) => {
       const activeIndex = prev.findIndex(h => String(h.id) === activeId);
       if (activeIndex === -1) return prev;
 
       const activeItem = prev[activeIndex];
 
-      // If over a routine card
-      if (overData?.type === 'routine') {
-        if (activeItem.routine_id !== overId) {
+      // Dragged over standalone container or area
+      if (overId === 'standalone-habits' || overData?.type === 'standalone') {
+        if (activeItem.routine_id !== null) {
           const newHabits = [...prev];
-          newHabits[activeIndex] = { ...activeItem, routine_id: overId };
+          newHabits[activeIndex] = { ...activeItem, routine_id: null };
           return newHabits;
         }
         return prev;
       }
 
-      // If over another habit
+      // Dragged over a routine container
+      if (overData?.type === 'routine' || routines.some(r => String(r.id) === overId)) {
+        const targetRoutineId = overData?.type === 'routine' ? overId : routines.find(r => String(r.id) === overId)?.id;
+        if (targetRoutineId && activeItem.routine_id !== String(targetRoutineId)) {
+          const newHabits = [...prev];
+          newHabits[activeIndex] = { ...activeItem, routine_id: String(targetRoutineId) };
+          return newHabits;
+        }
+        return prev;
+      }
+
+      // Dragged over another habit
       if (overData?.type === 'habit') {
         const overIndex = prev.findIndex(h => String(h.id) === overId);
         if (overIndex === -1) return prev;
 
         const overItem = prev[overIndex];
-        const overRoutineId = overItem.routine_id;
+        const overRoutineId = overItem.routine_id ?? null;
 
         const routineChanged = activeItem.routine_id !== overRoutineId;
         const indexChanged = activeIndex !== overIndex;
@@ -537,6 +591,8 @@ export default function HabiTick() {
 
     setActiveId(null);
     setDraggedHabit(null);
+    setDraggedRoutine(null);
+    setDraggedItemWidth(null);
   };
 
   const saveRoutine = async ({ name, emoji }) => {
@@ -1376,11 +1432,11 @@ export default function HabiTick() {
         {/* DnD Context Main Wrapper */}
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCorners}
+          collisionDetection={customCollisionDetection}
           onDragStart={handleDragStart}
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
-          autoScroll={{ threshold: { x: 0.1, y: 0.1 }, acceleration: 10 }}
+          autoScroll={{ threshold: { x: 0, y: 0.15 }, acceleration: 10 }}
           modifiers={[restrictToVerticalAxis]}
         >
           <main className="ht-main">
@@ -1612,7 +1668,7 @@ export default function HabiTick() {
                       </SortableContext>
                     )}
 
-                    <div style={{ width: "100%", marginTop: "8px" }}>
+                    <StandaloneHabitsContainer>
                       {todayHabits.filter(h => !isHabitInRoutine(h)).length === 0 && visibleRoutines.length === 0 && (
                         <div style={{ color: "#4b5563", fontSize: "14px", padding: "20px 0", textAlign: "center" }}>
                           {habits.length === 0 ? "No habits yet. Add your first one!" : "No habits scheduled for today."}
@@ -1635,7 +1691,7 @@ export default function HabiTick() {
                           />
                         ))}
                       </SortableContext>
-                    </div>
+                    </StandaloneHabitsContainer>
 
                     {/* Quick Actions Bar */}
                     <div style={{
@@ -1793,6 +1849,65 @@ export default function HabiTick() {
           </main>
 
 
+          <DragOverlay
+            modifiers={[restrictToVerticalAxis]}
+            dropAnimation={{
+              sideEffects: defaultDropAnimationSideEffects({
+                styles: {
+                  active: {
+                    opacity: '0.3',
+                  },
+                },
+              }),
+            }}
+          >
+            {activeId && draggedHabit ? (
+              <div style={{
+                width: draggedItemWidth ? `${draggedItemWidth}px` : "100%",
+                boxSizing: "border-box",
+                pointerEvents: "none",
+                boxShadow: "0 12px 32px rgba(0,0,0,0.6)",
+                borderRadius: "16px"
+              }}>
+                <HabitCard
+                  habit={draggedHabit}
+                  today={today}
+                  activeDate={selectedDate}
+                  onToggle={() => {}}
+                  onDelete={() => {}}
+                  onEdit={() => {}}
+                  isPaused={isPaused}
+                  pausePeriods={pausePeriods}
+                  isPremium={isPremium}
+                  shieldedDates={shieldedDates || []}
+                />
+              </div>
+            ) : activeId && draggedRoutine ? (
+              <div style={{
+                width: draggedItemWidth ? `${draggedItemWidth}px` : "100%",
+                boxSizing: "border-box",
+                pointerEvents: "none",
+                boxShadow: "0 12px 32px rgba(0,0,0,0.6)",
+                borderRadius: "20px"
+              }}>
+                <RoutineCard
+                  routine={draggedRoutine}
+                  habits={todayHabits.filter(h => h.routine_id && String(h.routine_id) === String(draggedRoutine.id))}
+                  today={today}
+                  activeDate={selectedDate}
+                  onToggle={() => {}}
+                  onDelete={() => {}}
+                  onDeleteRoutine={() => {}}
+                  onEdit={() => {}}
+                  isPaused={isPaused}
+                  pausePeriods={pausePeriods}
+                  isPremium={isPremium}
+                  shieldedDates={shieldedDates || []}
+                  isDraggingOverlay
+                />
+              </div>
+            ) : null}
+          </DragOverlay>
         </DndContext>
       </div>
 
