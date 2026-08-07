@@ -223,6 +223,10 @@ export default function HabiTick() {
     const saved = localStorage.getItem("ht_showTodayOnly");
     return saved === null ? false : saved === "true";
   });
+  const [hideEmptyRoutines, setHideEmptyRoutines] = useState(() => {
+    const saved = localStorage.getItem("ht_hideEmptyRoutines");
+    return saved === null ? false : saved === "true";
+  });
   const [journalEntries, setJournalEntries] = useState({}); // keyed by date string
   const [profile, setProfile] = useState(null);
   const [showProfile, setShowProfile] = useState(false);
@@ -746,9 +750,12 @@ export default function HabiTick() {
 
   const isHabitInRoutine = (h) => h.routine_id && routines.some(r => String(r.id) === String(h.routine_id));
 
-  const visibleRoutines = showTodayOnly
-    ? routines.filter(routine => todayHabits.some(h => h.routine_id && String(h.routine_id) === String(routine.id)))
-    : routines;
+  const visibleRoutines = routines.filter(routine => {
+    const routineHabits = todayHabits.filter(h => h.routine_id && String(h.routine_id) === String(routine.id));
+    if (hideEmptyRoutines && routineHabits.length === 0) return false;
+    if (showTodayOnly && routineHabits.length === 0) return false;
+    return true;
+  });
 
   const doneOnSelectedDate = habits.filter(h =>
     (!h.createdDate || h.createdDate <= selectedDate) &&
@@ -1832,11 +1839,10 @@ export default function HabiTick() {
             localStorage.setItem("ht_showTodayOnly", String(val));
             setShowTodayOnly(val);
           }}
-          routines={routines}
-          onOpenRoutineModal={(routine) => {
-            setShowProfile(false);
-            setEditingRoutine(routine || null);
-            setShowRoutineModal(true);
+          hideEmptyRoutines={hideEmptyRoutines}
+          onChangeHideEmptyRoutines={val => {
+            localStorage.setItem("ht_hideEmptyRoutines", String(val));
+            setHideEmptyRoutines(val);
           }}
           onUpdate={setProfile} 
           onClose={() => setShowProfile(false)}
