@@ -1832,6 +1832,12 @@ export default function HabiTick() {
             localStorage.setItem("ht_showTodayOnly", String(val));
             setShowTodayOnly(val);
           }}
+          routines={routines}
+          onOpenRoutineModal={(routine) => {
+            setShowProfile(false);
+            setEditingRoutine(routine || null);
+            setShowRoutineModal(true);
+          }}
           onUpdate={setProfile} 
           onClose={() => setShowProfile(false)}
           onUpgrade={handleUpgrade}

@@ -8,7 +8,7 @@ import { calcXp, calcStats, getLevel, getXpForLevelStart } from '../utils/helper
 import { QrScannerModal } from '../components/QrScannerModal.jsx';
 
 
-export function ProfileModal({ initialTab = "account", session, profile, habits = [], todos = [], goals = [], journalEntries = {}, showTodayOnly, onChangeShowTodayOnly, onUpdate, onClose, onUpgrade }) {
+export function ProfileModal({ initialTab = "account", session, profile, habits = [], todos = [], goals = [], journalEntries = {}, showTodayOnly, onChangeShowTodayOnly, routines = [], onOpenRoutineModal, onUpdate, onClose, onUpgrade }) {
   const [tab, setTab] = useState(initialTab);
   const [username, setUsername] = useState(profile?.username || "");
   const [usernameMsg, setUsernameMsg] = useState("");
@@ -325,6 +325,78 @@ export function ProfileModal({ initialTab = "account", session, profile, habits 
           </div>
           <div style={{ fontSize: "11px", color: "#6b7280", lineHeight: 1.4, marginBottom: "12px" }}>
             Choose whether to display all habits on the dashboard, or filter to show only habits scheduled for today.
+          </div>
+
+          <div style={divider} />
+
+          {/* Routine View & Management */}
+          <span style={sectionLbl}>Routines Management</span>
+          <div style={{
+            background: "rgba(167, 139, 250, 0.05)",
+            border: "1px solid rgba(167, 139, 250, 0.15)",
+            borderRadius: "12px",
+            padding: "16px",
+            marginBottom: "12px"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: "14px", color: "#f9fafb", display: "flex", alignItems: "center", gap: "6px" }}>
+                  <span>⚡ Routines</span>
+                  <span style={{ fontSize: "11px", color: "#a78bfa", background: "rgba(167, 139, 250, 0.15)", padding: "2px 7px", borderRadius: "999px", fontWeight: 700 }}>
+                    {routines.length} {routines.length === 1 ? "routine" : "routines"}
+                  </span>
+                </div>
+                <div style={{ fontSize: "12px", color: "#9ca3af", marginTop: "4px" }}>
+                  Group your habits into morning, workout, or evening routines.
+                </div>
+              </div>
+              <button
+                onClick={() => onOpenRoutineModal?.(null)}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: "8px",
+                  border: "none",
+                  background: "#a78bfa",
+                  color: "#0f172a",
+                  fontWeight: 700,
+                  fontSize: "13px",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  whiteSpace: "nowrap",
+                  flexShrink: 0
+                }}
+              >
+                + New Routine
+              </button>
+            </div>
+
+            {routines.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "14px", borderTop: "1px solid rgba(255, 255, 255, 0.06)", paddingTop: "12px" }}>
+                {routines.map(r => (
+                  <div key={r.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(0, 0, 0, 0.2)", borderRadius: "8px", padding: "10px 12px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <span style={{ fontSize: "16px" }}>{r.emoji || "📋"}</span>
+                      <span style={{ fontWeight: 600, fontSize: "13px", color: "#f3f4f6" }}>{r.name}</span>
+                    </div>
+                    <button
+                      onClick={() => onOpenRoutineModal?.(r)}
+                      style={{
+                        background: "rgba(59, 130, 246, 0.1)",
+                        border: "1px solid rgba(59, 130, 246, 0.25)",
+                        borderRadius: "6px",
+                        color: "#60a5fa",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        padding: "5px 12px"
+                      }}
+                    >
+                      View / Edit
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div style={divider} />
