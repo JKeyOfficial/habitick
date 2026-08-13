@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { getTodayStr } from '../utils/helpers.js';
 
-export function OnboardingScreen({ session, onComplete }) {
+export function OnboardingScreen({ session, profile, onComplete, onClose }) {
   const [step, setStep] = useState(0);
-  const [username, setUsername] = useState("");
+  const [username, setUsername] = useState(profile?.username || "");
   const [usernameErr, setUsernameErr] = useState("");
   const [saving, setSaving] = useState(false);
-  const [avatarUrl, setAvatarUrl] = useState(null);
+  const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const uploadAvatar = async (e) => {
@@ -42,237 +42,435 @@ export function OnboardingScreen({ session, onComplete }) {
     setStep(2);
   };
 
-  const fadeUp = { animation: "fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards" };
-
-  const containerStyle = {
-    minHeight: "100vh",
-    width: "100%",
-    background: "radial-gradient(circle at 10% 20%, rgba(37, 99, 235, 0.08) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(124, 58, 237, 0.06) 0%, transparent 50%), #0d1117",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontFamily: "'DM Sans', system-ui, sans-serif",
-    padding: "24px",
-    position: "relative",
-    overflow: "hidden"
-  };
-
-  const styleBlock = (
-    <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600;700;800&display=swap');
-      
-      html, body, #root {
-        margin: 0;
-        padding: 0;
-        width: 100%;
-        min-height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      
-      @keyframes fadeUp {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-      
-      @keyframes pop {
-        0% { transform: scale(0.6); opacity: 0; }
-        70% { transform: scale(1.05); }
-        100% { transform: scale(1); opacity: 1; }
-      }
-      
-      * { box-sizing: border-box; }
-      input { outline: none; }
-      
-      .onboarding-card {
-        width: 100%;
-        max-width: 440px;
-        background: transparent;
-        padding: 0px;
-        border-radius: 0px;
-        border: none;
-      }
-      
-      @media (min-width: 640px) {
-        .onboarding-card {
-          background: rgba(17, 24, 39, 0.45);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-          border: 1px solid rgba(255, 255, 255, 0.06);
-          padding: 40px;
-          border-radius: 24px;
-          box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+  return (
+    <div className="ob-container">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600;700;800&display=swap');
+        
+        .ob-container {
+          min-height: 100vh;
+          width: 100%;
+          background: #080b11;
+          background-image: 
+            radial-gradient(at 50% 0%, rgba(37, 99, 235, 0.12) 0px, transparent 60%),
+            radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.06) 0px, transparent 50%);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-family: 'DM Sans', system-ui, sans-serif;
+          padding: 24px;
+          position: relative;
+          overflow: hidden;
+          box-sizing: border-box;
         }
-      }
-      
-      .btn-primary {
-        width: 100%;
-        padding: 15px;
-        border-radius: 12px;
-        border: none;
-        background: #2563eb;
-        color: #fff;
-        font-weight: 700;
-        font-size: 16px;
-        cursor: pointer;
-        font-family: inherit;
-        transition: all 0.2s ease;
-      }
-      
-      .btn-primary:hover {
-        background: #1d4ed8;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
-      }
-      
-      .btn-primary:active {
-        transform: translateY(0);
-      }
-      
-      .btn-secondary {
-        width: 100%;
-        margin-top: 10px;
-        padding: 12px;
-        border-radius: 12px;
-        border: none;
-        background: transparent;
-        color: #6b7280;
-        font-weight: 600;
-        font-size: 14px;
-        cursor: pointer;
-        font-family: inherit;
-        transition: all 0.2s ease;
-      }
-      
-      .btn-secondary:hover {
-        color: #9ca3af;
-        background: rgba(255, 255, 255, 0.03);
-      }
-      
-      .tip-box {
-        text-align: left;
-        background: rgba(255, 255, 255, 0.02);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        padding: 16px;
-        border-radius: 14px;
-        margin-bottom: 24px;
-      }
-      
-      .input-field {
-        width: 100%;
-        padding: 14px 16px;
-        border-radius: 12px;
-        background: rgba(31, 41, 55, 0.6);
-        color: #f9fafb;
-        font-size: 15px;
-        font-family: inherit;
-        transition: all 0.2s ease;
-      }
-      
-      .input-field:focus {
-        background: rgba(31, 41, 55, 0.9);
-        box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.4);
-      }
-    `}</style>
-  );
 
-  if (step === 0) return (
-    <div style={containerStyle}>
-      {styleBlock}
-      <div className="onboarding-card" style={fadeUp}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: "64px", marginBottom: "20px", display: "inline-block" }}>⚡</div>
-          <h1 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "36px", color: "#f9fafb", margin: "0 0 14px", letterSpacing: "-0.03em" }}>Welcome to HabiTick</h1>
-          <p style={{ color: "#9ca3af", fontSize: "16px", lineHeight: 1.6, margin: "0 0 40px" }}>The habit tracker that grows with you.<br />Let's get you set up in 30 seconds.</p>
-          <button onClick={() => setStep(1)} className="btn-primary">Let's go →</button>
-        </div>
-      </div>
-    </div>
-  );
+        .ob-ambient-glow {
+          position: absolute;
+          width: 500px;
+          height: 500px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(37, 99, 235, 0.15) 0%, rgba(0,0,0,0) 70%);
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          pointer-events: none;
+          z-index: 1;
+        }
 
-  if (step === 1) return (
-    <div style={containerStyle}>
-      {styleBlock}
-      <div className="onboarding-card" style={fadeUp}>
-        <div style={{ textAlign: "center", marginBottom: "32px" }}>
-          <div style={{ fontSize: "28px", marginBottom: "8px" }}>👤</div>
-          <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "26px", color: "#f9fafb", margin: "0 0 8px", letterSpacing: "-0.02em" }}>Set up your profile</h2>
-          <p style={{ color: "#9ca3af", fontSize: "14px", margin: 0 }}>Choose a username and optionally add a photo</p>
-        </div>
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: "28px" }}>
-          <label style={{ position: "relative", cursor: "pointer" }}>
-            {avatarUrl
-              ? <img src={avatarUrl} alt="avatar" style={{ width: "88px", height: "88px", borderRadius: "50%", objectFit: "cover", border: "3px solid #2563eb" }} />
-              : <div style={{ width: "88px", height: "88px", borderRadius: "50%", background: "rgba(31, 41, 55, 0.6)", border: "2px dashed rgba(255, 255, 255, 0.15)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "4px" }}>
-                <span style={{ fontSize: "24px" }}>{uploadingAvatar ? "⏳" : "📷"}</span>
-                <span style={{ fontSize: "10px", color: "#9ca3af", fontWeight: 600 }}>Add photo</span>
-              </div>
-            }
-            {avatarUrl && (
-              <div style={{ position: "absolute", bottom: 0, right: 0, width: "26px", height: "26px", borderRadius: "50%", background: "#2563eb", border: "2px solid #0d1117", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px" }}>📷</div>
-            )}
-            <input type="file" accept="image/*" onChange={uploadAvatar} style={{ display: "none" }} />
-          </label>
-        </div>
-        <label style={{ color: "#9ca3af", fontSize: "13px", display: "block", marginBottom: "6px", fontWeight: 500 }}>Username <span style={{ color: "#f87171" }}>*</span></label>
-        <input
-          value={username}
-          onChange={e => setUsername(e.target.value)}
-          placeholder="e.g. jacob_h"
-          autoFocus
-          onKeyDown={e => e.key === "Enter" && handleSave()}
-          className="input-field"
-          style={{ border: `1px solid ${usernameErr ? "#f87171" : "rgba(255, 255, 255, 0.12)"}`, marginBottom: "6px" }}
-        />
-        <div style={{ fontSize: "11px", color: "#6b7280", marginBottom: usernameErr ? "6px" : "24px" }}>Letters, numbers and underscores · min 3 chars</div>
-        {usernameErr && <div style={{ color: "#f87171", fontSize: "13px", marginBottom: "16px" }}>{usernameErr}</div>}
+        .ob-card {
+          width: 100%;
+          max-width: 480px;
+          background: rgba(13, 17, 23, 0.85);
+          backdrop-filter: blur(24px);
+          -webkit-backdrop-filter: blur(24px);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 24px;
+          padding: 36px 32px;
+          box-shadow: 0 32px 64px -12px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+          position: relative;
+          z-index: 2;
+          animation: obFadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          box-sizing: border-box;
+        }
 
-        <button
-          onClick={handleSave}
-          disabled={saving || username.trim().length < 3}
-          className="btn-primary"
-          style={{
-            background: username.trim().length >= 3 ? "#2563eb" : "rgba(31, 41, 55, 0.4)",
-            color: username.trim().length >= 3 ? "#fff" : "#4b5563",
-            cursor: username.trim().length >= 3 ? "pointer" : "not-allowed",
-            opacity: saving ? 0.7 : 1
-          }}
-        >
-          {saving ? "Saving..." : "Continue →"}
+        @keyframes obFadeUp {
+          from { opacity: 0; transform: translateY(14px) scale(0.99); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .ob-logo-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          padding: 6px 14px 6px 8px;
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 999px;
+          margin-bottom: 20px;
+        }
+
+        .ob-logo-img {
+          width: 24px;
+          height: 24px;
+          border-radius: 6px;
+          object-fit: contain;
+        }
+
+        .ob-logo-text {
+          font-family: 'Syne', sans-serif;
+          font-weight: 800;
+          font-size: 13px;
+          color: #f3f4f6;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+        }
+
+        .ob-title {
+          font-family: 'Syne', sans-serif;
+          font-weight: 800;
+          font-size: 27px;
+          line-height: 1.25;
+          color: #f9fafb;
+          margin: 0 0 10px;
+          letter-spacing: -0.02em;
+        }
+
+        .ob-subtitle {
+          color: #9ca3af;
+          font-size: 14.5px;
+          line-height: 1.55;
+          margin: 0 0 24px;
+        }
+
+        .ob-features-grid {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          margin-bottom: 26px;
+        }
+
+        .ob-feature-row {
+          display: flex;
+          align-items: flex-start;
+          gap: 14px;
+          padding: 12px 14px;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          border-radius: 14px;
+          text-align: left;
+          transition: background 0.15s, border-color 0.15s;
+        }
+
+        .ob-feature-row:hover {
+          background: rgba(255, 255, 255, 0.04);
+          border-color: rgba(255, 255, 255, 0.08);
+        }
+
+        .ob-feature-icon {
+          width: 34px;
+          height: 34px;
+          border-radius: 9px;
+          background: rgba(37, 99, 235, 0.12);
+          border: 1px solid rgba(59, 130, 246, 0.25);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 15px;
+          flex-shrink: 0;
+          color: #60a5fa;
+        }
+
+        .ob-feature-title {
+          font-size: 13.5px;
+          font-weight: 700;
+          color: #f3f4f6;
+          margin-bottom: 2px;
+        }
+
+        .ob-feature-desc {
+          font-size: 12px;
+          color: #9ca3af;
+          line-height: 1.4;
+        }
+
+        .ob-btn-primary {
+          width: 100%;
+          height: 48px;
+          border-radius: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+          color: #fff;
+          font-weight: 700;
+          font-size: 14.5px;
+          cursor: pointer;
+          font-family: inherit;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
+          transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .ob-btn-primary:hover {
+          background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+          transform: translateY(-1px);
+          box-shadow: 0 6px 20px rgba(37, 99, 235, 0.45);
+        }
+
+        .ob-btn-primary:active {
+          transform: translateY(0);
+        }
+
+        .ob-btn-ghost {
+          width: 100%;
+          height: 40px;
+          margin-top: 8px;
+          border-radius: 10px;
+          border: none;
+          background: transparent;
+          color: #6b7280;
+          font-weight: 600;
+          font-size: 13.5px;
+          cursor: pointer;
+          font-family: inherit;
+          transition: all 0.15s ease;
+        }
+
+        .ob-btn-ghost:hover {
+          color: #9ca3af;
+          background: rgba(255, 255, 255, 0.03);
+        }
+
+        .ob-input {
+          width: 100%;
+          height: 46px;
+          padding: 0 16px;
+          border-radius: 12px;
+          border: 1px solid #1f2937;
+          background: #080b11;
+          color: #f9fafb;
+          font-size: 14.5px;
+          font-family: inherit;
+          box-sizing: border-box;
+          outline: none;
+          transition: all 0.2s ease;
+        }
+
+        .ob-input:focus {
+          border-color: #3b82f6;
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+          background: #0b0f17;
+        }
+
+        .ob-close-btn {
+          position: absolute;
+          top: 20px;
+          right: 20px;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          color: #9ca3af;
+          border-radius: 10px;
+          width: 32px;
+          height: 32px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 13px;
+          transition: all 0.15s ease;
+          z-index: 10;
+        }
+
+        .ob-close-btn:hover {
+          background: rgba(255, 255, 255, 0.1);
+          color: #fff;
+        }
+      `}</style>
+
+      <div className="ob-ambient-glow" />
+
+      {onClose && (
+        <button onClick={onClose} className="ob-close-btn" title="Exit (Esc)">
+          ✕
         </button>
-        <button onClick={() => setStep(0)} className="btn-secondary">← Back</button>
-      </div>
-    </div>
-  );
+      )}
 
-  if (step === 2) return (
-    <div style={containerStyle}>
-      {styleBlock}
-      <div className="onboarding-card" style={fadeUp}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: "72px", marginBottom: "20px", animation: "pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards" }}>🎉</div>
-          <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "30px", color: "#f9fafb", margin: "0 0 10px", letterSpacing: "-0.02em" }}>You're all set, {username}!</h2>
-          <p style={{ color: "#9ca3af", fontSize: "15px", lineHeight: 1.6, margin: "0 0 24px" }}>Time to build your first habit.<br />Start small — one habit changes everything.</p>
+      {/* ── STEP 0: WELCOME & VALUE OVERVIEW ── */}
+      {step === 0 && (
+        <div className="ob-card">
+          <div style={{ textAlign: "center" }}>
+            {/* Flush Logo Badge */}
+            <div className="ob-logo-badge">
+              <img src="/habitick-blue-logo.png" alt="HabiTick" className="ob-logo-img" />
+              <span className="ob-logo-text">HabiTick</span>
+            </div>
 
-          <div className="tip-box">
-            <div style={{ fontWeight: 700, color: "#f9fafb", marginBottom: "8px", fontSize: "14px" }}>Quick tips</div>
-            <div style={{ color: "#9ca3af", fontSize: "13px", marginBottom: "10px", lineHeight: 1.5 }}><strong>Routine</strong>: Group habits into routines (morning, evening, etc.) to check several items at once and build momentum.</div>
-            <div style={{ color: "#9ca3af", fontSize: "13px", lineHeight: 1.5 }}><strong>Shields</strong>: You start with one shield — each shield protects one missed day so your streak doesn't break. Premium users earn shields faster (every 7 completed days vs 14 for free).</div>
+            <h1 className="ob-title">Build habits that stick</h1>
+            <p className="ob-subtitle">
+              The modern habit tracker designed for relentless consistency, smart routines, and zero fluff.
+            </p>
+
+            {/* Feature Highlights */}
+            <div className="ob-features-grid">
+              <div className="ob-feature-row">
+                <div className="ob-feature-icon">⚡</div>
+                <div>
+                  <div className="ob-feature-title">Smart Routines</div>
+                  <div className="ob-feature-desc">Stack habits into structured morning and evening flows for effortless momentum.</div>
+                </div>
+              </div>
+
+              <div className="ob-feature-row">
+                <div className="ob-feature-icon">🛡️</div>
+                <div>
+                  <div className="ob-feature-title">Streak Shields</div>
+                  <div className="ob-feature-desc">Earn auto-protect shields every 5 perfect days so a missed day never breaks your streak.</div>
+                </div>
+              </div>
+
+              <div className="ob-feature-row">
+                <div className="ob-feature-icon">🔒</div>
+                <div>
+                  <div className="ob-feature-title">Encrypted Device Pairing</div>
+                  <div className="ob-feature-desc">Scan a QR code on any computer or mobile browser to pair instantly with zero setup.</div>
+                </div>
+              </div>
+            </div>
+
+            <button onClick={() => setStep(1)} className="ob-btn-primary">
+              Get Started →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── STEP 1: PROFILE SETUP ── */}
+      {step === 1 && (
+        <div className="ob-card">
+          <div style={{ textAlign: "center", marginBottom: "26px" }}>
+            <div className="ob-logo-badge">
+              <img src="/habitick-blue-logo.png" alt="HabiTick" className="ob-logo-img" />
+              <span className="ob-logo-text">Profile Setup</span>
+            </div>
+            <h2 className="ob-title" style={{ fontSize: "24px" }}>Personalise your profile</h2>
+            <p className="ob-subtitle" style={{ margin: "0 0 18px", fontSize: "14px" }}>
+              Pick a unique handle and optionally add a profile picture.
+            </p>
+          </div>
+
+          {/* Avatar Upload */}
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: "24px" }}>
+            <label style={{ position: "relative", cursor: "pointer" }}>
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="avatar" style={{ width: "80px", height: "80px", borderRadius: "50%", objectFit: "cover", border: "2.5px solid #2563eb", boxShadow: "0 8px 24px rgba(37,99,235,0.3)" }} />
+              ) : (
+                <div style={{ width: "80px", height: "80px", borderRadius: "50%", background: "rgba(31, 41, 55, 0.5)", border: "2px dashed rgba(255, 255, 255, 0.16)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "4px", transition: "all 0.2s" }}>
+                  <span style={{ fontSize: "22px" }}>{uploadingAvatar ? "⏳" : "📷"}</span>
+                  <span style={{ fontSize: "10px", color: "#9ca3af", fontWeight: 600 }}>Add Photo</span>
+                </div>
+              )}
+              {avatarUrl && (
+                <div style={{ position: "absolute", bottom: 0, right: 0, width: "24px", height: "24px", borderRadius: "50%", background: "#2563eb", border: "2px solid #0d1117", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", color: "#fff" }}>
+                  📷
+                </div>
+              )}
+              <input type="file" accept="image/*" onChange={uploadAvatar} style={{ display: "none" }} />
+            </label>
+          </div>
+
+          <div style={{ marginBottom: "20px" }}>
+            <label style={{ color: "#9ca3af", fontSize: "12px", display: "block", marginBottom: "6px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              Username <span style={{ color: "#f87171" }}>*</span>
+            </label>
+            <input
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+              placeholder="e.g. alex_rivera"
+              autoFocus
+              onKeyDown={e => e.key === "Enter" && handleSave()}
+              className="ob-input"
+              style={{ borderColor: usernameErr ? "#f87171" : undefined }}
+            />
+            <div style={{ fontSize: "11.5px", color: "#6b7280", marginTop: "6px" }}>Letters, numbers, underscores · min 3 characters</div>
+            {usernameErr && <div style={{ color: "#f87171", fontSize: "12.5px", marginTop: "6px" }}>{usernameErr}</div>}
           </div>
 
           <button
-            onClick={() => {
-              supabase.from("profiles").select("*").eq("id", session.user.id).single().then(({ data }) => onComplete(data));
+            onClick={handleSave}
+            disabled={saving || username.trim().length < 3}
+            className="ob-btn-primary"
+            style={{
+              opacity: (saving || username.trim().length < 3) ? 0.6 : 1,
+              cursor: (saving || username.trim().length < 3) ? "not-allowed" : "pointer"
             }}
-            className="btn-primary"
           >
-            + Add my first habit →
+            {saving ? "Saving..." : "Continue →"}
+          </button>
+          <button onClick={() => setStep(0)} className="ob-btn-ghost">
+            ← Back
           </button>
         </div>
-      </div>
+      )}
+
+      {/* ── STEP 2: ALL SET & QUICK TIPS ── */}
+      {step === 2 && (
+        <div className="ob-card">
+          <div style={{ textAlign: "center" }}>
+            <div style={{
+              width: "56px",
+              height: "56px",
+              borderRadius: "16px",
+              background: "rgba(16, 185, 129, 0.12)",
+              border: "1px solid rgba(16, 185, 129, 0.25)",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "26px",
+              color: "#10b981",
+              marginBottom: "16px"
+            }}>
+              ✓
+            </div>
+
+            <h2 className="ob-title" style={{ fontSize: "25px" }}>You're ready, {username}!</h2>
+            <p className="ob-subtitle" style={{ margin: "0 0 20px" }}>
+              Your account is active with <strong>1 free Streak Shield</strong> loaded into your inventory.
+            </p>
+
+            <div className="ob-features-grid">
+              <div className="ob-feature-row">
+                <div className="ob-feature-icon" style={{ background: "rgba(16, 185, 129, 0.12)", borderColor: "rgba(16, 185, 129, 0.25)", color: "#10b981" }}>
+                  1
+                </div>
+                <div>
+                  <div className="ob-feature-title">Add your core daily habits</div>
+                  <div className="ob-feature-desc">Start with 1 to 3 essential habits to build positive momentum early.</div>
+                </div>
+              </div>
+
+              <div className="ob-feature-row">
+                <div className="ob-feature-icon" style={{ background: "rgba(59, 130, 246, 0.12)", borderColor: "rgba(59, 130, 246, 0.25)", color: "#60a5fa" }}>
+                  2
+                </div>
+                <div>
+                  <div className="ob-feature-title">Lock in perfect days</div>
+                  <div className="ob-feature-desc">Check off all scheduled habits on any given day to progress toward additional shields.</div>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                supabase.from("profiles").select("*").eq("id", session.user.id).single().then(({ data }) => onComplete(data));
+              }}
+              className="ob-btn-primary"
+            >
+              {onClose ? "Return to Dashboard →" : "Open Dashboard →"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
-
-  return null;
 }

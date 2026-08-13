@@ -53,7 +53,7 @@ export function UpgradeModal({ onClose, onUpgrade, reason }) {
           {r.icon}
         </div>
 
-        <div style={{ display: "inline-block", fontSize: "10.5px", fontWeight: 800, color: "#60a5fa", background: "rgba(59, 130, 246, 0.1)", padding: "3px 10px", borderRadius: "999px", border: "1px solid rgba(59, 130, 246, 0.2)", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+        <div style={{ display: "inline-block", fontFamily: "'Syne', sans-serif", fontSize: "10.5px", fontWeight: 800, color: "#60a5fa", background: "rgba(59, 130, 246, 0.1)", padding: "3px 10px", borderRadius: "999px", border: "1px solid rgba(59, 130, 246, 0.2)", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
           HabiTick Premium
         </div>
 

@@ -186,7 +186,7 @@ export function AuthScreen() {
   return (
     <div className="auth-split-wrapper">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500;600;700;800&display=swap');
         
         html, body, #root {
           margin: 0;
@@ -318,10 +318,11 @@ export function AuthScreen() {
         
         .auth-title {
           margin: 0;
+          font-family: 'Syne', sans-serif;
           font-weight: 800;
-          font-size: 26px;
+          font-size: 28px;
           color: #ffffff;
-          letter-spacing: -0.5px;
+          letter-spacing: -0.02em;
         }
         
         .auth-subtitle {
@@ -714,7 +715,7 @@ export function AuthScreen() {
         <div className="auth-ambient-glow"></div>
         <div className="auth-form-container">
           <div className="auth-logo-section">
-            <img src="/vite.svg" alt="HabiTick Logo" className="auth-logo-img" />
+            <img src="/habitick-blue-logo.png" alt="HabiTick Logo" className="auth-logo-img" />
             <h1 className="auth-title">HabiTick</h1>
             <div className="auth-subtitle">
               {getSubtitle()}

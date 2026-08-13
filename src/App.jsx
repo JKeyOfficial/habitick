@@ -256,6 +256,7 @@ export default function HabiTick() {
   const [journalEntries, setJournalEntries] = useState({}); // keyed by date string
   const [profile, setProfile] = useState(null);
   const [showProfile, setShowProfile] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [routines, setRoutines] = useState([]);
   const [showRoutineModal, setShowRoutineModal] = useState(false);
@@ -890,7 +891,20 @@ export default function HabiTick() {
 
   if (session === undefined) return <div style={{ minHeight: "100vh", background: "#080b11", display: "flex", alignItems: "center", justifyContent: "center", color: "#6b7280", fontFamily: "system-ui" }}>Loading...</div>;
   if (!session) return <AuthScreen />;
-  if (!loading && profile && !profile.username) return <OnboardingScreen session={session} onComplete={p => { setProfile(p); setShowHabitModal(true); }} />;
+  if ((!loading && profile && !profile.username) || showOnboarding) {
+    return (
+      <OnboardingScreen
+        session={session}
+        profile={profile}
+        onComplete={p => {
+          if (p) setProfile(p);
+          setShowOnboarding(false);
+          if (!profile?.username) setShowHabitModal(true);
+        }}
+        onClose={profile?.username ? () => setShowOnboarding(false) : undefined}
+      />
+    );
+  }
 
   // Progress Circle Geometry — larger, premium
   const progressRadius = 62;
@@ -987,6 +1001,31 @@ export default function HabiTick() {
           color: #fff;
           background: #2563eb;
           box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+        }
+
+        .ht-sidebar-action-btn:hover {
+          background: rgba(255, 255, 255, 0.04);
+          color: #f9fafb;
+        }
+
+        .ht-sidebar-action-btn:hover .ht-action-plus {
+          color: #9ca3af !important;
+        }
+
+        .ht-sidebar-habit-btn:hover svg {
+          stroke: #60a5fa;
+        }
+
+        .ht-sidebar-routine-btn:hover svg {
+          stroke: #c084fc;
+        }
+
+        .ht-sidebar-pause-btn:hover svg {
+          stroke: #f59e0b;
+        }
+
+        .ht-sidebar-pause-btn.ht-pause-active {
+          border: 1px solid rgba(245, 158, 11, 0.25);
         }
 
         .ht-sidebar-footer {
@@ -1219,6 +1258,67 @@ export default function HabiTick() {
               <span>{label}</span>
             </button>
           ))}
+
+          {/* Line Spacer (Bolder Divider) */}
+          <div style={{ height: "1px", background: "rgba(255, 255, 255, 0.12)", margin: "12px 6px" }} />
+
+          {/* New Habit Link */}
+          <button
+            onClick={() => { setEditingHabit(null); setShowHabitModal(true); }}
+            className="ht-sidebar-link ht-sidebar-action-btn ht-sidebar-habit-btn"
+            disabled={!isPremium && habits.length >= FREE_HABIT_LIMIT}
+            style={{
+              opacity: (!isPremium && habits.length >= FREE_HABIT_LIMIT) ? 0.4 : 1,
+              cursor: (!isPremium && habits.length >= FREE_HABIT_LIMIT) ? "not-allowed" : "pointer",
+              fontWeight: 700,
+              color: "#d1d5db"
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, transition: "stroke 0.15s ease" }}>
+              <circle cx="12" cy="12" r="9" />
+              <line x1="12" y1="8" x2="12" y2="16" />
+              <line x1="8" y1="12" x2="16" y2="12" />
+            </svg>
+            <span style={{ flex: 1, textAlign: "left" }}>New Habit</span>
+            <span className="ht-action-plus" style={{ fontSize: "13px", color: "#9ca3af", fontWeight: 800, transition: "color 0.15s ease" }}>+</span>
+          </button>
+
+          {/* New Routine Link */}
+          <button
+            onClick={() => { setEditingRoutine(null); setShowRoutineModal(true); }}
+            className="ht-sidebar-link ht-sidebar-action-btn ht-sidebar-routine-btn"
+            style={{ fontWeight: 700, color: "#d1d5db" }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, transition: "stroke 0.15s ease" }}>
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+            </svg>
+            <span style={{ flex: 1, textAlign: "left" }}>New Routine</span>
+            <span className="ht-action-plus" style={{ fontSize: "13px", color: "#9ca3af", fontWeight: 800, transition: "color 0.15s ease" }}>+</span>
+          </button>
+
+          {/* Holiday / Pause Mode Link */}
+          <button
+            onClick={togglePause}
+            className={`ht-sidebar-link ht-sidebar-action-btn ht-sidebar-pause-btn ${isPaused ? "ht-pause-active" : ""}`}
+            style={{
+              fontWeight: 700,
+              color: isPaused ? "#fcd34d" : "#d1d5db",
+              background: isPaused ? "rgba(245, 158, 11, 0.08)" : "transparent"
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, transition: "stroke 0.15s ease", color: isPaused ? "#f59e0b" : "inherit" }}>
+              <rect x="6" y="4" width="4" height="16" rx="1" />
+              <rect x="14" y="4" width="4" height="16" rx="1" />
+            </svg>
+            <span style={{ flex: 1, textAlign: "left" }}>
+              {isPaused ? "Holiday Active" : "Holiday Mode"}
+            </span>
+            {isPaused && (
+              <span style={{ fontSize: "10px", background: "rgba(245, 158, 11, 0.15)", border: "1px solid rgba(245, 158, 11, 0.35)", color: "#fcd34d", borderRadius: "999px", padding: "1px 6px", fontWeight: 800 }}>
+                ON
+              </span>
+            )}
+          </button>
         </nav>
 
 
@@ -1693,14 +1793,13 @@ export default function HabiTick() {
                       </SortableContext>
                     </StandaloneHabitsContainer>
 
-                    {/* Quick Actions Bar */}
-                    <div style={{
+                    {/* Quick Actions Bar - Mobile Only */}
+                    <div className="ht-mobile-only" style={{
                       background: "rgba(22, 31, 48, 0.3)",
                       border: "1px solid rgba(255, 255, 255, 0.04)",
                       borderRadius: "20px",
                       padding: "16px",
                       marginTop: "24px",
-                      display: "flex",
                       flexDirection: "column",
                       gap: "10px"
                     }}>
@@ -1971,6 +2070,10 @@ export default function HabiTick() {
           onUpdate={setProfile} 
           onClose={() => setShowProfile(false)}
           onUpgrade={handleUpgrade}
+          onRedoOnboarding={() => {
+            setShowProfile(false);
+            setShowOnboarding(true);
+          }}
         />
       )}
       {showGoalModal && (

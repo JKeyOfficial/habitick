@@ -100,7 +100,7 @@ export function BillingTab({ profile, session, showToast, onUpgrade }) {
         <div style={{ color: "#4b5563", fontSize: "12px", textAlign: "center" }}>No billing information found.</div>
       )}
 
-      {!isPremium && (
+      {!isPremium && !isLifetime && (
         <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
           {/* Monthly Primary CTA */}
           <button
