@@ -1454,14 +1454,28 @@ function HabiTick() {
           {/* Distinct Separator between Habit Tracker actions and Docs App */}
           <div style={{ height: "1px", background: "var(--ht-border-card)", margin: "12px 6px" }} />
 
-          {/* Docs App Link */}
+          {/* Docs App Link with Automatic SSO */}
           <a
-            href={window.location.hostname === "localhost" ? "/?tab=docs" : "https://docs.habitick.app"}
+            href={(() => {
+              const base = window.location.hostname === "localhost" ? "/?tab=docs" : "https://docs.habitick.app";
+              if (session?.access_token && session?.refresh_token) {
+                return `${base}#access_token=${encodeURIComponent(session.access_token)}&refresh_token=${encodeURIComponent(session.refresh_token)}&token_type=bearer`;
+              }
+              return base;
+            })()}
             target="_blank"
             rel="noopener noreferrer"
             className="ht-sidebar-link ht-sidebar-action-btn"
             style={{ fontWeight: 700, color: "var(--ht-accent, #2563eb)", textDecoration: "none" }}
             title="Open HabiTick Docs"
+            onClick={(e) => {
+              if (session?.access_token && session?.refresh_token) {
+                e.preventDefault();
+                const base = window.location.hostname === "localhost" ? "/?tab=docs" : "https://docs.habitick.app";
+                const target = `${base}#access_token=${encodeURIComponent(session.access_token)}&refresh_token=${encodeURIComponent(session.refresh_token)}&token_type=bearer`;
+                window.open(target, "_blank", "noopener,noreferrer");
+              }
+            }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, color: "var(--ht-accent, #2563eb)" }}>
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>

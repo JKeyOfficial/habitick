@@ -230,11 +230,34 @@ export default function App() {
     await supabase.auth.signOut();
   };
 
-  // Supabase Auth listener
+  // Supabase Auth listener & cross-domain SSO receiver
   useEffect(() => {
     let active = true;
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const initAuth = async () => {
+      // 1. Check for cross-domain SSO tokens in hash (#access_token=...&refresh_token=...)
+      try {
+        const hash = window.location.hash.startsWith('#') ? window.location.hash.substring(1) : '';
+        if (hash) {
+          const hashParams = new URLSearchParams(hash);
+          const at = hashParams.get('access_token');
+          const rt = hashParams.get('refresh_token');
+          if (at && rt) {
+            const { data, error } = await supabase.auth.setSession({
+              access_token: at,
+              refresh_token: rt
+            });
+            if (!error && window.history.replaceState) {
+              window.history.replaceState(null, '', window.location.pathname + window.location.search);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Cross-app SSO handoff warning:', err);
+      }
+
+      // 2. Load active session
+      const { data: { session } } = await supabase.auth.getSession();
       if (!active) return;
       setSession(session);
       if (session?.user?.id) {
@@ -249,7 +272,9 @@ export default function App() {
           }
         });
       }
-    });
+    };
+
+    initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active) return;
@@ -716,7 +741,7 @@ export default function App() {
           <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid var(--ht-border-subtle)' }}>
             <div className="ht-stagger-item ht-stagger-1" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
               <a 
-                href={import.meta.env.VITE_HABITICK_APP_URL || 'http://localhost:5173'} 
+                href={import.meta.env.VITE_HABITICK_APP_URL || (typeof window !== 'undefined' && window.location.search.includes('tab=docs') ? '/' : (typeof window !== 'undefined' && window.location.hostname.includes('habitick.app') ? 'https://habitick.app' : 'http://localhost:5173'))} 
                 title="Return to HabiTick Tracker"
                 style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '9px' }}
               >
@@ -1078,7 +1103,7 @@ export default function App() {
 
                   {/* Link back to Habit Tracker */}
                   <a
-                    href={import.meta.env.VITE_HABITICK_APP_URL || 'http://localhost:5173'}
+                    href={import.meta.env.VITE_HABITICK_APP_URL || (typeof window !== 'undefined' && window.location.search.includes('tab=docs') ? '/' : (typeof window !== 'undefined' && window.location.hostname.includes('habitick.app') ? 'https://habitick.app' : 'http://localhost:5173'))}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
