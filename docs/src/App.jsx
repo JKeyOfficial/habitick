@@ -238,37 +238,59 @@ export default function App() {
     let active = true;
 
     const initAuth = async () => {
-      // 1. Check for cross-domain SSO tokens in hash (#access_token=...&refresh_token=...)
-      let tokenFromHash = false;
+      let activeSession = null;
+
+      // 1. Check for cross-domain SSO tokens in hash or search query
       try {
-        const hash = window.location.hash.startsWith('#') ? window.location.hash.substring(1) : '';
-        if (hash) {
-          const hashParams = new URLSearchParams(hash);
-          const at = hashParams.get('access_token');
-          const rt = hashParams.get('refresh_token');
-          if (at && rt) {
-            tokenFromHash = true;
-            const { data, error } = await supabase.auth.setSession({
-              access_token: at,
-              refresh_token: rt
-            });
-            if (!error && data?.session) {
-              setSharedAuthCookie(data.session);
-            }
-            if (!error && window.history.replaceState) {
-              window.history.replaceState(null, '', window.location.pathname + window.location.search);
-            }
+        let at = null;
+        let rt = null;
+
+        if (window.location.hash) {
+          const cleanHash = window.location.hash.startsWith('#') ? window.location.hash.substring(1) : window.location.hash;
+          const hashParams = new URLSearchParams(cleanHash);
+          at = hashParams.get('access_token');
+          rt = hashParams.get('refresh_token');
+        }
+
+        if (!at || !rt) {
+          const searchParams = new URLSearchParams(window.location.search);
+          at = at || searchParams.get('access_token');
+          rt = rt || searchParams.get('refresh_token');
+        }
+
+        if (at && rt) {
+          // Fix potential space corruption of + in URL decoding
+          const cleanAt = at.replace(/ /g, '+');
+          const cleanRt = rt.replace(/ /g, '+');
+
+          const { data, error } = await supabase.auth.setSession({
+            access_token: cleanAt,
+            refresh_token: cleanRt
+          });
+
+          if (!error && data?.session) {
+            activeSession = data.session;
+            setSharedAuthCookie(data.session);
+          } else if (error) {
+            console.warn('SSO token exchange note:', error.message);
+          }
+
+          if (!error && window.history.replaceState) {
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
           }
         }
       } catch (err) {
         console.warn('Cross-app SSO handoff warning:', err);
       }
 
-      // 2. Load active session
-      let { data: { session: activeSession } } = await supabase.auth.getSession();
+      // 2. If not hydrated from hash, check existing local Supabase session
+      if (!activeSession) {
+        const { data } = await supabase.auth.getSession();
+        activeSession = data?.session || null;
+      }
 
-      // 3. If no active session & not already hydrated from hash, check shared cross-domain cookie (.habitick.app)
-      if (!activeSession && !tokenFromHash) {
+      // 3. If still no active session, check shared cross-domain cookie (.habitick.app)
+      if (!activeSession) {
         const sso = getSharedAuthCookie();
         if (sso?.access_token && sso?.refresh_token) {
           try {
