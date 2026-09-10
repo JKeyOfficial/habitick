@@ -707,7 +707,7 @@ export default function App() {
   const lineHeightVal = fontSize === 'large' ? '1.8' : '1.75';
 
   return (
-    <div className="ht-docs-container" data-docs-app data-theme={theme} style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
+    <div className="ht-docs-container" data-docs-app data-theme={theme} style={{ display: 'flex', flexDirection: 'row', height: '100vh', width: '100vw', overflow: 'hidden' }}>
       {/* Mobile Drawer Backdrop */}
       {sidebarOpen && (
         <div 

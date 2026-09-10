@@ -15,11 +15,17 @@
   --ht-accent-subtle: rgba(37, 99, 235, 0.12);
   --ht-canvas-bg: #09090b;
   height: 100%;
+  width: 100%;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   background-color: #09090b;
   color: #f4f4f5;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  box-sizing: border-box;
+}
+
+.ht-docs-container *, [data-docs-app] * {
+  box-sizing: border-box;
 }
 
 .ht-docs-container[data-theme="light"], [data-docs-app][data-theme="light"] {
@@ -209,6 +215,7 @@
 
 .ht-sidebar {
   width: 280px;
+  height: 100%;
   background: var(--ht-bg-sidebar);
   border-right: 1px solid var(--ht-border-card);
   display: flex;
