@@ -38,11 +38,11 @@ export function HabitCard({
     <div
       className="ht-habit-card"
       style={{ 
-        background: isDropTarget ? "var(--ht-bg-card-hover, #1e293b)" : "var(--ht-bg-card, rgba(22, 31, 48, 0.4))", 
-        border: `1px solid ${isDropTarget ? "#3b82f6" : "var(--ht-border-card, rgba(255, 255, 255, 0.05))"}`, 
+        background: isDropTarget ? "#1e293b" : "rgba(22, 31, 48, 0.4)", 
+        border: `1px solid ${isDropTarget ? "#3b82f6" : "rgba(255, 255, 255, 0.05)"}`, 
         borderRadius: "16px", 
         padding: "14px 16px", 
-        boxShadow: "var(--ht-shadow-card, 0 4px 12px rgba(0,0,0,0.1))", 
+        boxShadow: "0 4px 12px rgba(0,0,0,0.1)", 
         transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)", 
         display: "flex", 
         flexDirection: "column",

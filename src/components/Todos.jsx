@@ -17,8 +17,8 @@ export function TodoItem({ todo, onToggle, onDelete, onEdit }) {
   const dueLabel = formatDueDate(todo.due_date, todo.due_time);
 
   return (
-    <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", padding: "14px 16px", background: "var(--ht-bg-card, #111827)", border: `1px solid ${isOverdue ? "#7f1d1d60" : "var(--ht-border-card, #1f2937)"}`, borderRadius: "12px", marginBottom: "8px", boxShadow: "var(--ht-shadow-card, 0 1px 3px rgba(0,0,0,0.2))", transition: "border-color 0.15s" }}>
-      <button onClick={() => onToggle(todo.id)} style={{ width: "20px", height: "20px", borderRadius: "6px", border: "1.5px solid", borderColor: todo.done ? "#10b981" : "var(--ht-border-card, #374151)", background: todo.done ? "#10b981" : "transparent", cursor: "pointer", flexShrink: 0, marginTop: "1px", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "11px", fontWeight: 900, transition: "all 0.15s" }}>{todo.done ? "✓" : ""}</button>
+    <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", padding: "14px 16px", background: "#111827", border: `1px solid ${isOverdue ? "#7f1d1d60" : "#1f2937"}`, borderRadius: "12px", marginBottom: "8px", boxShadow: "0 1px 3px rgba(0,0,0,0.2)", transition: "border-color 0.15s" }}>
+      <button onClick={() => onToggle(todo.id)} style={{ width: "20px", height: "20px", borderRadius: "6px", border: "1.5px solid", borderColor: todo.done ? "#10b981" : "#374151", background: todo.done ? "#10b981" : "transparent", cursor: "pointer", flexShrink: 0, marginTop: "1px", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "11px", fontWeight: 900, transition: "all 0.15s" }}>{todo.done ? "✓" : ""}</button>
       <div style={{ flex: 1, minWidth: 0 }}>
         <span style={{ display: "block", color: todo.done ? "var(--ht-text-muted, #4b5563)" : "var(--ht-text-primary, #e5e7eb)", fontSize: "14px", textDecoration: todo.done ? "line-through" : "none" }}>{todo.text}</span>
         {dueLabel && !todo.done && (

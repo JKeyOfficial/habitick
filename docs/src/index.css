@@ -1,6 +1,6 @@
-/* HabiTick Docs Design System */
+/* HabiTick Docs Design System - Scoped strictly to Docs to avoid affecting main tracker */
 
-:root {
+.ht-docs-container, [data-docs-app] {
   --ht-bg-base: #09090b;
   --ht-bg-sidebar: #0d0d11;
   --ht-bg-card: #18181b;
@@ -14,9 +14,15 @@
   --ht-accent-hover: #1d4ed8;
   --ht-accent-subtle: rgba(37, 99, 235, 0.12);
   --ht-canvas-bg: #09090b;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: #09090b;
+  color: #f4f4f5;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-[data-theme="light"] {
+.ht-docs-container[data-theme="light"], [data-docs-app][data-theme="light"] {
   --ht-bg-base: #f8fafc;
   --ht-bg-sidebar: #f1f5f9;
   --ht-bg-card: #ffffff;
@@ -30,28 +36,8 @@
   --ht-accent-hover: #1d4ed8;
   --ht-accent-subtle: rgba(37, 99, 235, 0.08);
   --ht-canvas-bg: #ffffff;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-html, body {
-  margin: 0;
-  padding: 0;
-  background-color: var(--ht-bg-base);
-  color: var(--ht-text-primary);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  overflow-x: hidden;
-  height: 100%;
-}
-
-#root {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+  background-color: #f8fafc;
+  color: #0f172a;
 }
 
 /* Typography Modes */

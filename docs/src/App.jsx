@@ -14,6 +14,7 @@ import { NOTE_TEMPLATES, DEFAULT_TAGS } from './components/NoteTemplates.js';
 import { AuthModal } from './components/AuthModal.jsx';
 import { FormattingToolbar } from './components/FormattingToolbar.jsx';
 import { FileManagerModal } from './components/FileManagerModal.jsx';
+import './index.css';
 
 function formatInlineStyles(str) {
   return str
@@ -706,7 +707,7 @@ export default function App() {
   const lineHeightVal = fontSize === 'large' ? '1.8' : '1.75';
 
   return (
-    <div style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden', background: 'var(--ht-bg-base)' }}>
+    <div className="ht-docs-container" data-docs-app data-theme={theme} style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
       {/* Mobile Drawer Backdrop */}
       {sidebarOpen && (
         <div 

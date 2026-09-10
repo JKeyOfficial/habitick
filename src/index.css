@@ -16,7 +16,7 @@
   --ht-bg-base: #080b11;
   --ht-bg-sidebar: #111622;
   --ht-bg-header: rgba(8, 11, 17, 0.82);
-  --ht-bg-card: #111827;
+  --ht-bg-card: rgba(22, 31, 48, 0.4);
   --ht-bg-card-subtle: rgba(255, 255, 255, 0.04);
   --ht-bg-card-hover: rgba(255, 255, 255, 0.07);
   --ht-bg-card-elevated: #151c2d;
@@ -24,15 +24,15 @@
   --ht-text-primary: #f9fafb;
   --ht-text-secondary: #9ca3af;
   --ht-text-muted: #6b7280;
-  --ht-border-subtle: rgba(255, 255, 255, 0.06);
-  --ht-border-card: rgba(255, 255, 255, 0.08);
+  --ht-border-subtle: rgba(255, 255, 255, 0.04);
+  --ht-border-card: rgba(255, 255, 255, 0.05);
   --ht-border-hover: rgba(255, 255, 255, 0.16);
   --ht-modal-overlay: rgba(3, 6, 11, 0.88);
   --ht-modal-bg: #0d1117;
   --ht-modal-sidebar: #090d14;
   --ht-accent: #3b82f6;
   --ht-accent-hover: #2563eb;
-  --ht-shadow-card: 0 4px 20px rgba(0, 0, 0, 0.35);
+  --ht-shadow-card: 0 4px 12px rgba(0, 0, 0, 0.1);
   --ht-scrollbar-thumb: #1f293d;
   --ht-bg-routine: linear-gradient(145deg, rgba(22, 31, 48, 0.2) 0%, rgba(13, 17, 23, 0.3) 100%);
   --ht-bg-routine-done: linear-gradient(145deg, rgba(16, 185, 129, 0.03) 0%, rgba(4, 120, 87, 0.05) 100%);

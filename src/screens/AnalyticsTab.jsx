@@ -974,26 +974,26 @@ export function AnalyticsTab({ habits, todos, goals = [], pausePeriods, isPremiu
       <div className="ht-analytics-grid">
         {stats.map((stat, i) => (
           <div key={i} style={{
-            background: "var(--ht-bg-card)",
-            border: "1px solid var(--ht-border-card)",
+            background: "linear-gradient(135deg, rgba(22, 31, 48, 0.4) 0%, rgba(13, 17, 23, 0.5) 100%)",
+            border: "1px solid rgba(255, 255, 255, 0.05)",
             borderRadius: "20px",
             padding: "20px 18px",
-            boxShadow: "var(--ht-shadow-card)"
+            boxShadow: "0 8px 32px rgba(0,0,0,0.3)"
           }}>
             <div style={{ marginBottom: "10px", display: "flex" }}>{stat.icon}</div>
-            <div style={{ color: "var(--ht-text-muted)", fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px" }}>{stat.label}</div>
-            <div style={{ fontFamily: "'Syne', sans-serif", color: "var(--ht-text-primary)", fontWeight: 800, fontSize: "26px" }}>{stat.value}</div>
-            {stat.sub && <div style={{ color: "var(--ht-text-muted)", fontSize: "10px", marginTop: "6px" }}>{stat.sub}</div>}
+            <div style={{ color: "#6b7280", fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px" }}>{stat.label}</div>
+            <div style={{ fontFamily: "'Syne', sans-serif", color: "#f9fafb", fontWeight: 800, fontSize: "26px" }}>{stat.value}</div>
+            {stat.sub && <div style={{ color: "#4b5563", fontSize: "10px", marginTop: "6px" }}>{stat.sub}</div>}
           </div>
         ))}
       </div>
 
       <div style={{
-        background: "var(--ht-bg-card)",
-        border: "1px solid var(--ht-border-card)",
+        background: "linear-gradient(135deg, rgba(22, 31, 48, 0.4) 0%, rgba(13, 17, 23, 0.5) 100%)",
+        border: "1px solid rgba(255, 255, 255, 0.05)",
         borderRadius: "20px",
         padding: "22px",
-        boxShadow: "var(--ht-shadow-card)"
+        boxShadow: "0 8px 32px rgba(0,0,0,0.3)"
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
           <h3 style={{ margin: 0, fontFamily: "'Syne', sans-serif", color: "var(--ht-text-primary)", fontWeight: 800, fontSize: "14px", letterSpacing: "-0.01em" }}>{chartTitle}</h3>

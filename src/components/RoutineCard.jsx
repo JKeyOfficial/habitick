@@ -237,16 +237,16 @@ export function RoutineCard({
       ref={setNodeRef}
       className="ht-routine-card"
       style={{
-        border: `1px solid ${allDone ? "rgba(16, 185, 129, 0.3)" : "var(--ht-border-card, rgba(255, 255, 255, 0.05))"}`,
+        border: `1px solid ${allDone ? "rgba(16, 185, 129, 0.2)" : "rgba(255, 255, 255, 0.05)"}`,
         borderRadius: "20px",
         padding: "16px",
         background: allDone 
-          ? "var(--ht-bg-routine-done, linear-gradient(145deg, rgba(16, 185, 129, 0.03) 0%, rgba(4, 120, 87, 0.05) 100%))" 
-          : "var(--ht-bg-routine, linear-gradient(145deg, rgba(22, 31, 48, 0.2) 0%, rgba(13, 17, 23, 0.3) 100%))",
+          ? "linear-gradient(145deg, rgba(16, 185, 129, 0.03) 0%, rgba(4, 120, 87, 0.05) 100%)" 
+          : "linear-gradient(145deg, rgba(22, 31, 48, 0.2) 0%, rgba(13, 17, 23, 0.3) 100%)",
         transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
         position: "relative",
         boxSizing: "border-box",
-        boxShadow: allDone ? "0 4px 20px rgba(16,185,129,0.05)" : "var(--ht-shadow-card, 0 4px 12px rgba(0,0,0,0.1))",
+        boxShadow: allDone ? "0 4px 20px rgba(16,185,129,0.05)" : "0 4px 12px rgba(0,0,0,0.1)",
         opacity: isDraggingOverlay ? 0.9 : 1,
         userSelect: "none",
         width: "100%",

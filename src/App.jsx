@@ -42,10 +42,7 @@ import { AuthScreen } from "./screens/AuthScreen.jsx";
 import { OnboardingScreen } from "./screens/OnboardingScreen.jsx";
 
 // Docs Companion App (Lazy loaded on docs. subdomain or ?tab=docs)
-const DocsApp = lazy(async () => {
-  await import("../docs/src/index.css");
-  return import("../docs/src/App.jsx");
-});
+const DocsApp = lazy(() => import("../docs/src/App.jsx"));
 
 // Feature Modules
 import { RoutineSortableItem } from "./components/RoutineSortableItem.jsx";
@@ -252,7 +249,6 @@ function HabiTick() {
     // Prefetch Docs app in the background so Service Worker caches it for offline access
     const prefetchTimer = setTimeout(() => {
       import("../docs/src/App.jsx").catch(() => {});
-      import("../docs/src/index.css").catch(() => {});
     }, 2500);
 
     return () => clearTimeout(prefetchTimer);
@@ -1450,6 +1446,43 @@ function HabiTick() {
               </span>
             )}
           </button>
+
+          {/* Distinct Separator between Habit Tracker actions and Docs App */}
+          <div style={{ height: "1px", background: "var(--ht-border-card)", margin: "12px 6px" }} />
+
+          {/* Docs App Link with Automatic SSO */}
+          <a
+            href={(() => {
+              const base = window.location.hostname === "localhost" ? "/?tab=docs" : "https://docs.habitick.app";
+              if (session?.access_token && session?.refresh_token) {
+                return `${base}#access_token=${encodeURIComponent(session.access_token)}&refresh_token=${encodeURIComponent(session.refresh_token)}&token_type=bearer`;
+              }
+              return base;
+            })()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ht-sidebar-link ht-sidebar-action-btn"
+            style={{ fontWeight: 700, color: "var(--ht-accent, #2563eb)", textDecoration: "none" }}
+            title="Open HabiTick Docs"
+            onClick={(e) => {
+              if (session?.access_token && session?.refresh_token) {
+                e.preventDefault();
+                const base = window.location.hostname === "localhost" ? "/?tab=docs" : "https://docs.habitick.app";
+                const target = `${base}#access_token=${encodeURIComponent(session.access_token)}&refresh_token=${encodeURIComponent(session.refresh_token)}&token_type=bearer`;
+                window.open(target, "_blank", "noopener,noreferrer");
+              }
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, color: "var(--ht-accent, #2563eb)" }}>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10 9 9 8 9"/>
+            </svg>
+            <span style={{ flex: 1, textAlign: "left" }}>Docs</span>
+            <span style={{ fontSize: "12px", color: "var(--ht-accent, #2563eb)", fontWeight: 700 }}>↗</span>
+          </a>
         </nav>
 
         <div className="ht-sidebar-footer">
@@ -1675,7 +1708,7 @@ function HabiTick() {
               /* TODAY VIEW LAYOUT */
               <>
                 {/* 1. WEEK CALENDAR STRIP */}
-                <div className="ht-week-calendar-strip" style={{ display: "flex", justifyContent: "space-between", background: "var(--ht-bg-card, rgba(17, 22, 34, 0.6))", border: "1px solid var(--ht-border-card, rgba(255, 255, 255, 0.05))", borderRadius: "16px", padding: "10px", marginBottom: "20px", boxShadow: "var(--ht-shadow-card, 0 4px 12px rgba(0,0,0,0.1))" }}>
+                <div className="ht-week-calendar-strip" style={{ display: "flex", justifyContent: "space-between", background: "rgba(17, 22, 34, 0.6)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: "16px", padding: "10px", marginBottom: "20px" }}>
                   {getWeekDays(today).map((day) => {
                     const isSel = day.dateStr === selectedDate;
                     const isTod = day.dateStr === today;
@@ -1771,15 +1804,14 @@ function HabiTick() {
 
                 {/* 2. DAILY PROGRESS CARD — full-width top card matching mockup */}
                 <div className="ht-progress-card" style={{
-                  background: "var(--ht-bg-card, #111827)",
-                  border: "1px solid var(--ht-border-card, rgba(255, 255, 255, 0.05))",
+                  background: "linear-gradient(135deg, rgba(22, 31, 48, 0.4) 0%, rgba(13, 17, 23, 0.5) 100%)",
+                  border: "1px solid rgba(255, 255, 255, 0.05)",
                   borderRadius: "20px",
                   padding: "20px 24px",
                   marginBottom: "24px",
                   display: "flex",
                   alignItems: "center",
-                  gap: "24px",
-                  boxShadow: "var(--ht-shadow-card, 0 4px 12px rgba(0,0,0,0.1))"
+                  gap: "24px"
                 }}>
                   {/* Circular Progress Ring on Left */}
                   <div style={{ position: "relative", width: "70px", height: "70px", flexShrink: 0 }}>
