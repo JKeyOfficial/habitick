@@ -31,6 +31,7 @@ import { STRIPE_CHECKOUT_URL, FREE_HABIT_LIMIT, FREE_TODO_LIMIT, FREE_GOALS_LIMI
 import { getTodayStr, getDateStr, parseDateLocal, isSameDay, getCalendarDays, isDayComplete, isDatePaused, calcStats, calcXp, getLevel, getXpForLevelStart } from "./utils/helpers.js";
 import { NotificationManager } from "./utils/notifications.js";
 import { decryptText, encryptText } from "./utils/crypto.js";
+import { setSharedAuthCookie, getSharedAuthCookie, clearSharedAuthCookie } from "./utils/sso.js";
 
 
 // Layout & Reusable Core Components
@@ -337,10 +338,58 @@ function HabiTick() {
     return days;
   };
 
-  // ── Auth listener ──────────────────────────────────────────────────────────
+  // ── Auth listener & cross-domain SSO ──────────────────────────────────────────
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session ?? null));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => setSession(s ?? null));
+    const initSession = async () => {
+      let { data: { session: existingSession } } = await supabase.auth.getSession();
+
+      // If no local session in Supabase, check shared SSO cookie (.habitick.app)
+      if (!existingSession) {
+        const sso = getSharedAuthCookie();
+        if (sso?.access_token && sso?.refresh_token) {
+          try {
+            const { data, error } = await supabase.auth.setSession({
+              access_token: sso.access_token,
+              refresh_token: sso.refresh_token
+            });
+            if (!error && data?.session) {
+              existingSession = data.session;
+            } else if (error) {
+              clearSharedAuthCookie();
+            }
+          } catch (e) {
+            console.warn("SSO hydration error in main app:", e);
+          }
+        }
+      }
+
+      setSession(existingSession ?? null);
+      if (existingSession) {
+        setSharedAuthCookie(existingSession);
+      }
+
+      // Handle return_to_docs handoff request if coming from Docs to sync session
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("return_to_docs") === "true" && existingSession?.access_token && existingSession?.refresh_token) {
+        setSharedAuthCookie(existingSession);
+        const docsUrl = window.location.hostname === "localhost" 
+          ? "/?tab=docs" 
+          : `https://docs.habitick.app#access_token=${encodeURIComponent(existingSession.access_token)}&refresh_token=${encodeURIComponent(existingSession.refresh_token)}&token_type=bearer`;
+        window.location.replace(docsUrl);
+        return;
+      }
+    };
+
+    initSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
+      setSession(s ?? null);
+      if (s) {
+        setSharedAuthCookie(s);
+      } else {
+        clearSharedAuthCookie();
+      }
+    });
 
     // Register Service Worker for notifications
     NotificationManager.registerServiceWorker();
@@ -1464,12 +1513,9 @@ function HabiTick() {
             className="ht-sidebar-link ht-sidebar-action-btn"
             style={{ fontWeight: 700, color: "var(--ht-accent, #2563eb)", textDecoration: "none" }}
             title="Open HabiTick Docs"
-            onClick={(e) => {
+            onClick={() => {
               if (session?.access_token && session?.refresh_token) {
-                e.preventDefault();
-                const base = window.location.hostname === "localhost" ? "/?tab=docs" : "https://docs.habitick.app";
-                const target = `${base}#access_token=${encodeURIComponent(session.access_token)}&refresh_token=${encodeURIComponent(session.refresh_token)}&token_type=bearer`;
-                window.open(target, "_blank", "noopener,noreferrer");
+                setSharedAuthCookie(session);
               }
             }}
           >
