@@ -41,6 +41,12 @@ import { ProfileModal } from "./components/ProfileModal.jsx";
 import { AuthScreen } from "./screens/AuthScreen.jsx";
 import { OnboardingScreen } from "./screens/OnboardingScreen.jsx";
 
+// Docs Companion App (Lazy loaded on docs. subdomain or ?tab=docs)
+const DocsApp = lazy(async () => {
+  await import("../docs/src/index.css");
+  return import("../docs/src/App.jsx");
+});
+
 // Feature Modules
 import { RoutineSortableItem } from "./components/RoutineSortableItem.jsx";
 import { RoutineCard } from "./components/RoutineCard.jsx";
@@ -220,7 +226,7 @@ const persistHabitOrder = (newHabits, userId) => {
   }).catch(err => console.warn("Profile habit_order sync error:", err));
 };
 
-export default function HabiTick() {
+function HabiTick() {
   const [session, setSession] = useState(undefined); // undefined=loading, null=signed out
   const [tab, setTab] = useState("today");
   const [selectedDate, setSelectedDate] = useState(() => getTodayStr());
@@ -235,18 +241,21 @@ export default function HabiTick() {
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [editingGoal, setEditingGoal] = useState(null);
 
-  // Handle deep linking from PWA shortcuts or redirect to Docs app
+  // Handle deep linking from PWA shortcuts & background-prefetch Docs for offline use
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const urlTab = params.get("tab");
-    if (urlTab === "docs" || window.location.hostname.startsWith("docs.")) {
-      const docsUrl = window.location.hostname === "localhost" ? "http://localhost:5174" : "https://docs.habitick.app";
-      window.location.href = docsUrl;
-      return;
-    }
     if (urlTab && ["today", "calendar", "tasks", "journal", "goals", "analytics"].includes(urlTab)) {
       setTab(urlTab);
     }
+
+    // Prefetch Docs app in the background so Service Worker caches it for offline access
+    const prefetchTimer = setTimeout(() => {
+      import("../docs/src/App.jsx").catch(() => {});
+      import("../docs/src/index.css").catch(() => {});
+    }, 2500);
+
+    return () => clearTimeout(prefetchTimer);
   }, []);
 
   const [editingTodo, setEditingTodo] = useState(null);
@@ -1447,7 +1456,7 @@ export default function HabiTick() {
 
           {/* Docs App Link */}
           <a
-            href={window.location.hostname === "localhost" ? "http://localhost:5174" : "https://docs.habitick.app"}
+            href={window.location.hostname === "localhost" ? "/?tab=docs" : "https://docs.habitick.app"}
             target="_blank"
             rel="noopener noreferrer"
             className="ht-sidebar-link ht-sidebar-action-btn"
@@ -2230,4 +2239,36 @@ export default function HabiTick() {
       {showUpgradeModal && <UpgradeModal onUpgrade={handleUpgrade} onClose={() => setShowUpgradeModal(false)} reason={showUpgradeModal} />}
     </div>
   );
+}
+
+export default function App() {
+  const isDocs = typeof window !== "undefined" && (
+    window.location.hostname.startsWith("docs.") ||
+    new URLSearchParams(window.location.search).get("tab") === "docs"
+  );
+
+  if (isDocs) {
+    return (
+      <Suspense fallback={
+        <div style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "#09090b",
+          color: "#a1a1aa",
+          fontFamily: "'Inter', system-ui, sans-serif"
+        }}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: "28px", marginBottom: "10px" }}>📝</div>
+            <div style={{ fontSize: "14px", fontWeight: 500 }}>Loading HabiTick Docs...</div>
+          </div>
+        </div>
+      }>
+        <DocsApp />
+      </Suspense>
+    );
+  }
+
+  return <HabiTick />;
 }

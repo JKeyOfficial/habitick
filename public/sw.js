@@ -42,6 +42,11 @@ self.addEventListener('fetch', (event) => {
   // Only handle GET requests
   if (event.request.method !== 'GET') return;
 
+  // Never cache Supabase API calls in Service Worker cache (handled by local sync engine)
+  if (event.request.url.includes('supabase.co')) {
+    return;
+  }
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {
@@ -55,8 +60,13 @@ self.addEventListener('fetch', (event) => {
         return response;
       })
       .catch(() => {
-        // If fetch fails (offline), try the cache
-        return caches.match(event.request);
+        // If fetch fails (offline), try the cache, and fallback to /index.html for SPA routes
+        return caches.match(event.request).then((cached) => {
+          if (cached) return cached;
+          if (event.request.mode === 'navigate') {
+            return caches.match('/index.html');
+          }
+        });
       })
   );
 });
