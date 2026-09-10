@@ -1,0 +1,17 @@
+{
+  "name": "HabiTick Docs",
+  "short_name": "HT Docs",
+  "description": "Distraction-free notes and journaling companion to HabiTick",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/habitick-blue-logo.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png"
+    }
+  ]
+}

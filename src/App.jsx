@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { supabase } from "./lib/supabase.js";
 import {
   DndContext,
@@ -54,6 +54,7 @@ import { JournalTab } from "./screens/JournalTab.jsx";
 import { BillingTab } from "./screens/BillingTab.jsx";
 import { GoalsTab } from "./screens/GoalsTab.jsx";
 import { GoalModal } from "./components/GoalModal.jsx";
+
 const restrictToVerticalAxis = ({ transform }) => ({
   ...transform,
   x: 0,
@@ -234,11 +235,16 @@ export default function HabiTick() {
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [editingGoal, setEditingGoal] = useState(null);
 
-  // Handle deep linking from PWA shortcuts
+  // Handle deep linking from PWA shortcuts or redirect to Docs app
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const urlTab = params.get("tab");
-    if (urlTab && ["today", "calendar", "tasks", "journal", "analytics"].includes(urlTab)) {
+    if (urlTab === "docs" || window.location.hostname.startsWith("docs.")) {
+      const docsUrl = window.location.hostname === "localhost" ? "http://localhost:5174" : "https://docs.habitick.app";
+      window.location.href = docsUrl;
+      return;
+    }
+    if (urlTab && ["today", "calendar", "tasks", "journal", "goals", "analytics"].includes(urlTab)) {
       setTab(urlTab);
     }
   }, []);
@@ -268,6 +274,26 @@ export default function HabiTick() {
   const [lifetimeBannerDismissed, setLifetimeBannerDismissed] = useState(false);
   const [showShieldPopover, setShowShieldPopover] = useState(false);
   const [profileTab, setProfileTab] = useState("account");
+
+  // Theme State (Dark / Light) with cross-device sync
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem("ht_theme") || "dark";
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    document.body.classList.remove("theme-dark", "theme-light");
+    document.body.classList.add(`theme-${theme}`);
+  }, [theme]);
+
+  const handleUpdateTheme = async (newTheme) => {
+    setTheme(newTheme);
+    localStorage.setItem("ht_theme", newTheme);
+    if (session?.user?.id) {
+      setProfile(prev => prev ? ({ ...prev, theme: newTheme }) : prev);
+      await supabase.from("profiles").update({ theme: newTheme }).eq("id", session.user.id);
+    }
+  };
 
 
   const sensors = useSensors(
@@ -336,7 +362,8 @@ export default function HabiTick() {
   const loadAll = async () => {
     setLoading(true);
     const uid = session.user.id;
-    const [habitsRes, completionsRes, todosRes, pauseRes, journalRes, profileRes, routinesRes, goalsRes] = await Promise.all([
+    try {
+      const [habitsRes, completionsRes, todosRes, pauseRes, journalRes, profileRes, routinesRes, goalsRes] = await Promise.all([
       supabase.from("habits").select("*").eq("user_id", uid).order("created_at"),
       supabase.from("habit_completions").select("habit_id, completed_date, completed_at, timezone").eq("user_id", uid),
       supabase.from("todos").select("*").eq("user_id", uid).order("created_at"),
@@ -362,6 +389,10 @@ export default function HabiTick() {
     // Parse profile data first
     const profileData = profileRes.data || null;
     if (profileData) {
+      if (profileData.theme && profileData.theme !== theme) {
+        setTheme(profileData.theme);
+        localStorage.setItem("ht_theme", profileData.theme);
+      }
       if (profileData.ai_persona_encrypted) {
         try {
           const decryptedPersona = await decryptText(profileData.ai_persona_encrypted, uid);
@@ -461,8 +492,75 @@ export default function HabiTick() {
       });
     }
     setGoals(decryptedGoals);
-    setLoading(false);
+
+    // Snapshot state for 0ms offline mobile startup
+    try {
+      localStorage.setItem(`ht_offline_cache_${uid}`, JSON.stringify({
+        habits: loadedHabits,
+        todos: loadedTodos,
+        routines: loadedRoutines,
+        goals: decryptedGoals,
+        profile: profileData,
+        journal: entriesMap
+      }));
+    } catch (cacheSaveErr) {}
+    } catch (err) {
+      console.warn("Failed to load from network (device may be offline). Loading from offline cache...", err);
+      try {
+        const cachedRaw = localStorage.getItem(`ht_offline_cache_${uid}`);
+        if (cachedRaw) {
+          const cached = JSON.parse(cachedRaw);
+          if (cached.habits) setHabits(cached.habits);
+          if (cached.todos) setTodos(cached.todos);
+          if (cached.routines) setRoutines(cached.routines);
+          if (cached.goals) setGoals(cached.goals);
+          if (cached.profile) setProfile(cached.profile);
+          if (cached.journal) setJournalEntries(cached.journal);
+        }
+      } catch (cacheErr) {}
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const flushPendingCompletions = async (uid) => {
+    try {
+      const queueKey = `ht_pending_completions_${uid}`;
+      const raw = localStorage.getItem(queueKey);
+      if (!raw) return;
+      const queue = JSON.parse(raw);
+      if (!Array.isArray(queue) || queue.length === 0) return;
+
+      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      for (const item of queue) {
+        if (item.isDone) {
+          await supabase.from("habit_completions").delete().eq("habit_id", item.habitId).eq("completed_date", item.dateStr);
+        } else {
+          await supabase.from("habit_completions").insert({
+            habit_id: item.habitId,
+            user_id: uid,
+            completed_date: item.dateStr,
+            completed_at: item.timestamp || new Date().toISOString(),
+            timezone: userTimezone
+          });
+        }
+      }
+      localStorage.removeItem(queueKey);
+    } catch (e) {
+      console.warn("Error flushing pending habit completions:", e);
+    }
+  };
+
+  useEffect(() => {
+    const handleOnline = () => {
+      if (session?.user?.id) {
+        flushPendingCompletions(session.user.id);
+        loadAll();
+      }
+    };
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, [session?.user?.id]);
 
   const handleDragStart = (event) => {
     const { active } = event;
@@ -655,7 +753,9 @@ export default function HabiTick() {
     // Can only toggle habits for the current day (today) to prevent continuity/streak manipulation
     if (dateStr !== today) return;
     const habit = habits.find(h => h.id === habitId);
+    if (!habit) return;
     const isDone = habit.completedDates.includes(dateStr);
+    const nowStr = new Date().toISOString();
     setHabits(prev => prev.map(h => {
       if (h.id !== habitId) return h;
       return {
@@ -665,21 +765,40 @@ export default function HabiTick() {
           : [...h.completedDates, dateStr],
         completionTimes: isDone
           ? (() => { const copy = { ...h.completionTimes }; delete copy[dateStr]; return copy; })()
-          : { ...h.completionTimes, [dateStr]: new Date().toISOString() }
+          : { ...h.completionTimes, [dateStr]: nowStr }
       };
     }));
-    if (isDone) {
-      await supabase.from("habit_completions").delete().eq("habit_id", habitId).eq("completed_date", dateStr);
-    } else {
-      const nowStr = new Date().toISOString();
-      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      await supabase.from("habit_completions").insert({ 
-        habit_id: habitId, 
-        user_id: session.user.id, 
-        completed_date: dateStr,
-        completed_at: nowStr,
-        timezone: userTimezone
-      });
+
+    const queueOfflineToggle = () => {
+      try {
+        const queueKey = `ht_pending_completions_${session.user.id}`;
+        const queue = JSON.parse(localStorage.getItem(queueKey) || "[]");
+        queue.push({ habitId, dateStr, isDone, timestamp: nowStr });
+        localStorage.setItem(queueKey, JSON.stringify(queue));
+      } catch (e) {}
+    };
+
+    if (!navigator.onLine) {
+      queueOfflineToggle();
+      return;
+    }
+
+    try {
+      if (isDone) {
+        await supabase.from("habit_completions").delete().eq("habit_id", habitId).eq("completed_date", dateStr);
+      } else {
+        const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        await supabase.from("habit_completions").insert({ 
+          habit_id: habitId, 
+          user_id: session.user.id, 
+          completed_date: dateStr,
+          completed_at: nowStr,
+          timezone: userTimezone
+        });
+      }
+    } catch (err) {
+      console.warn("Failed to push habit completion to Supabase, saving to offline queue:", err);
+      queueOfflineToggle();
     }
   };
 
@@ -869,7 +988,10 @@ export default function HabiTick() {
     try {
       const res = await fetch(STRIPE_CHECKOUT_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { "Authorization": `Bearer ${session.access_token}` } : {})
+        },
         body: JSON.stringify({ userId: session.user.id, userEmail: session.user.email, planType }),
       });
       
@@ -924,15 +1046,15 @@ export default function HabiTick() {
           width: 100%;
           min-height: 100vh;
           min-height: 100dvh;
-          background: #080b11;
-          color: #f9fafb;
+          background: var(--ht-bg-base, #080b11);
+          color: var(--ht-text-primary, #f9fafb);
           font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
           overflow-x: hidden;
         }
         * { box-sizing: border-box; }
         button, input, textarea, select { font-family: inherit; }
         ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: #1f293d; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb { background: var(--ht-scrollbar-thumb, #1f293d); border-radius: 3px; }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
         /* App Container Layout */
@@ -941,7 +1063,7 @@ export default function HabiTick() {
           min-height: 100vh;
           min-height: 100dvh;
           width: 100%;
-          background: #080b11;
+          background: var(--ht-bg-base, #080b11);
           overflow-x: hidden;
           position: relative;
         }
@@ -949,8 +1071,8 @@ export default function HabiTick() {
         /* Responsive Sidebar */
         .ht-sidebar {
           width: 260px;
-          background: #111622;
-          border-right: 1px solid rgba(255, 255, 255, 0.05);
+          background: var(--ht-bg-sidebar, #111622);
+          border-right: 1px solid var(--ht-border-subtle, rgba(255, 255, 255, 0.05));
           display: flex;
           flex-direction: column;
           padding: 24px;
@@ -1259,8 +1381,8 @@ export default function HabiTick() {
             </button>
           ))}
 
-          {/* Line Spacer (Bolder Divider) */}
-          <div style={{ height: "1px", background: "rgba(255, 255, 255, 0.12)", margin: "12px 6px" }} />
+          {/* Line Spacer (Theme-aware Divider) */}
+          <div style={{ height: "1px", background: "var(--ht-border-card)", margin: "12px 6px" }} />
 
           {/* New Habit Link */}
           <button
@@ -1271,7 +1393,7 @@ export default function HabiTick() {
               opacity: (!isPremium && habits.length >= FREE_HABIT_LIMIT) ? 0.4 : 1,
               cursor: (!isPremium && habits.length >= FREE_HABIT_LIMIT) ? "not-allowed" : "pointer",
               fontWeight: 700,
-              color: "#d1d5db"
+              color: "var(--ht-text-secondary)"
             }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, transition: "stroke 0.15s ease" }}>
@@ -1280,20 +1402,20 @@ export default function HabiTick() {
               <line x1="8" y1="12" x2="16" y2="12" />
             </svg>
             <span style={{ flex: 1, textAlign: "left" }}>New Habit</span>
-            <span className="ht-action-plus" style={{ fontSize: "13px", color: "#9ca3af", fontWeight: 800, transition: "color 0.15s ease" }}>+</span>
+            <span className="ht-action-plus" style={{ fontSize: "13px", color: "var(--ht-text-muted)", fontWeight: 800, transition: "color 0.15s ease" }}>+</span>
           </button>
 
           {/* New Routine Link */}
           <button
             onClick={() => { setEditingRoutine(null); setShowRoutineModal(true); }}
             className="ht-sidebar-link ht-sidebar-action-btn ht-sidebar-routine-btn"
-            style={{ fontWeight: 700, color: "#d1d5db" }}
+            style={{ fontWeight: 700, color: "var(--ht-text-secondary)" }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, transition: "stroke 0.15s ease" }}>
               <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
             </svg>
             <span style={{ flex: 1, textAlign: "left" }}>New Routine</span>
-            <span className="ht-action-plus" style={{ fontSize: "13px", color: "#9ca3af", fontWeight: 800, transition: "color 0.15s ease" }}>+</span>
+            <span className="ht-action-plus" style={{ fontSize: "13px", color: "var(--ht-text-muted)", fontWeight: 800, transition: "color 0.15s ease" }}>+</span>
           </button>
 
           {/* Holiday / Pause Mode Link */}
@@ -1302,7 +1424,7 @@ export default function HabiTick() {
             className={`ht-sidebar-link ht-sidebar-action-btn ht-sidebar-pause-btn ${isPaused ? "ht-pause-active" : ""}`}
             style={{
               fontWeight: 700,
-              color: isPaused ? "#fcd34d" : "#d1d5db",
+              color: isPaused ? "#fcd34d" : "var(--ht-text-secondary)",
               background: isPaused ? "rgba(245, 158, 11, 0.08)" : "transparent"
             }}
           >
@@ -1319,24 +1441,45 @@ export default function HabiTick() {
               </span>
             )}
           </button>
+
+          {/* Distinct Separator between Habit Tracker actions and Docs App */}
+          <div style={{ height: "1px", background: "var(--ht-border-card)", margin: "12px 6px" }} />
+
+          {/* Docs App Link */}
+          <a
+            href={window.location.hostname === "localhost" ? "http://localhost:5174" : "https://docs.habitick.app"}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ht-sidebar-link ht-sidebar-action-btn"
+            style={{ fontWeight: 700, color: "var(--ht-accent, #2563eb)", textDecoration: "none" }}
+            title="Open HabiTick Docs"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, color: "var(--ht-accent, #2563eb)" }}>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10 9 9 8 9"/>
+            </svg>
+            <span style={{ flex: 1, textAlign: "left" }}>Docs</span>
+            <span style={{ fontSize: "12px", color: "var(--ht-accent, #2563eb)", fontWeight: 700 }}>↗</span>
+          </a>
         </nav>
 
-
-
         <div className="ht-sidebar-footer">
-          <button onClick={() => { setProfileTab("account"); setShowProfile(true); }} style={{ display: "flex", alignItems: "center", gap: "10px", background: "rgba(255, 255, 255, 0.02)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: "12px", padding: "10px 14px", cursor: "pointer", width: "100%", transition: "all 0.2s" }}>
+          <button onClick={() => { setProfileTab("account"); setShowProfile(true); }} style={{ display: "flex", alignItems: "center", gap: "10px", background: "var(--ht-bg-card-subtle)", border: "1px solid var(--ht-border-card)", borderRadius: "12px", padding: "10px 14px", cursor: "pointer", width: "100%", transition: "all 0.2s" }}>
             {profile?.avatar_url
               ? <img src={profile.avatar_url} alt="avatar" style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover" }} />
               : <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "12px", color: "#fff" }}>
                 {(profile?.username || session.user.email || "?")[0].toUpperCase()}
               </div>
             }
-            <span style={{ color: "#d1d5db", fontSize: "13px", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, textAlign: "left" }}>
+            <span style={{ color: "var(--ht-text-primary)", fontSize: "13px", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, textAlign: "left" }}>
               {profile?.username || "Profile"}
             </span>
-            <span style={{ fontSize: "14px", color: "#6b7280" }}>⚙️</span>
+            <span style={{ fontSize: "14px", color: "var(--ht-text-muted)" }}>⚙️</span>
           </button>
-          <div className="ht-desktop-only" style={{ textAlign: "center", marginTop: "10px", fontSize: "10px", color: "#374151", letterSpacing: "0.02em", userSelect: "none" }}>
+          <div className="ht-desktop-only" style={{ textAlign: "center", marginTop: "10px", fontSize: "10px", color: "var(--ht-text-muted)", letterSpacing: "0.02em", userSelect: "none" }}>
             Made with ❤︎⁠ by JKey
           </div>
         </div>
@@ -1349,7 +1492,7 @@ export default function HabiTick() {
           {/* Logo on Left for Mobile */}
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }} className="ht-mobile-only-flex">
             <img src="/habitick-blue-logo.png" alt="HabiTick" style={{ width: "28px", height: "28px", borderRadius: "6px", objectFit: "contain" }} />
-            <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "16px", color: "#fff" }}>HabiTick</span>
+            <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "16px", color: "var(--ht-text-primary)" }}>HabiTick</span>
           </div>
 
           {/* Dashboard Title on Left for Desktop */}
@@ -1359,7 +1502,7 @@ export default function HabiTick() {
 
           {/* Badges and Profile Button on Right */}
           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-            <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "#111622", border: `1px solid ${isPaused ? "rgba(245,158,11,0.15)" : "rgba(59,130,246,0.15)"}`, borderRadius: "999px", padding: "4px 12px", fontSize: "11px", color: isPaused ? "#fcd34d" : "#60a5fa", fontWeight: 600 }}>
+            <div style={{ display: "flex", gap: "6px", alignItems: "center", background: "var(--ht-bg-card-subtle, #111622)", border: `1px solid ${isPaused ? "rgba(245,158,11,0.25)" : "var(--ht-border-card, rgba(59,130,246,0.15))"}`, borderRadius: "999px", padding: "4px 12px", fontSize: "11px", color: isPaused ? "#fcd34d" : "var(--ht-accent, #60a5fa)", fontWeight: 600 }}>
               {isPaused ? (
                 <>
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}><rect x="6" y="4" width="4" height="16" rx="1" /><rect x="14" y="4" width="4" height="16" rx="1" /></svg>
@@ -1383,12 +1526,12 @@ export default function HabiTick() {
                   display: "flex",
                   gap: "6px",
                   alignItems: "center",
-                  background: showShieldPopover ? "rgba(37, 99, 235, 0.15)" : "#111622",
-                  border: `1px solid ${showShieldPopover ? "#2563eb" : "rgba(59,130,246,0.15)"}`,
+                  background: showShieldPopover ? "rgba(37, 99, 235, 0.15)" : "var(--ht-bg-card-subtle, #111622)",
+                  border: `1px solid ${showShieldPopover ? "#2563eb" : "var(--ht-border-card, rgba(59,130,246,0.15))"}`,
                   borderRadius: "999px",
                   padding: "4px 12px",
                   fontSize: "11px",
-                  color: "#60a5fa",
+                  color: "var(--ht-accent, #60a5fa)",
                   fontWeight: 600,
                   cursor: "pointer",
                   transition: "all 0.2s"
@@ -1546,14 +1689,14 @@ export default function HabiTick() {
               /* TODAY VIEW LAYOUT */
               <>
                 {/* 1. WEEK CALENDAR STRIP */}
-                <div style={{ display: "flex", justifyContent: "space-between", background: "rgba(17, 22, 34, 0.6)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: "16px", padding: "10px", marginBottom: "20px" }}>
+                <div className="ht-week-calendar-strip" style={{ display: "flex", justifyContent: "space-between", background: "var(--ht-bg-card, rgba(17, 22, 34, 0.6))", border: "1px solid var(--ht-border-card, rgba(255, 255, 255, 0.05))", borderRadius: "16px", padding: "10px", marginBottom: "20px", boxShadow: "var(--ht-shadow-card, 0 4px 12px rgba(0,0,0,0.1))" }}>
                   {getWeekDays(today).map((day) => {
                     const isSel = day.dateStr === selectedDate;
                     const isTod = day.dateStr === today;
                     const isPast = day.dateStr < today;
 
                     let bg = "transparent";
-                    let color = "#9ca3af";
+                    let color = "var(--ht-text-secondary, #9ca3af)";
                     let border = "1px solid transparent";
                     let boxShadow = "none";
 
@@ -1562,9 +1705,9 @@ export default function HabiTick() {
                       color = "#fff";
                       boxShadow = "0 4px 12px rgba(37, 99, 235, 0.3)";
                     } else if (isTod) {
-                      bg = "rgba(59, 130, 246, 0.05)";
-                      color = "#3b82f6";
-                      border = "1px solid rgba(59, 130, 246, 0.15)";
+                      bg = "rgba(59, 130, 246, 0.08)";
+                      color = "var(--ht-accent, #3b82f6)";
+                      border = "1px solid rgba(59, 130, 246, 0.25)";
                     } else if (isPast) {
                       const pDateObj = parseDateLocal(day.dateStr);
                       const pDow = pDateObj.getDay();
@@ -1578,21 +1721,19 @@ export default function HabiTick() {
                       const isShielded = (shieldedDates || []).includes(day.dateStr);
 
                       if (isAllDone) {
-                        bg = "rgba(16, 185, 129, 0.06)";
+                        bg = "rgba(16, 185, 129, 0.08)";
                         color = "#10b981";
-                        border = "1px solid rgba(16, 185, 129, 0.12)";
+                        border = "1px solid rgba(16, 185, 129, 0.2)";
                       } else if (isShielded) {
-                        bg = "rgba(59, 130, 246, 0.06)";
-                        color = "#60a5fa";
-                        border = "1px solid rgba(59, 130, 246, 0.15)";
+                        bg = "rgba(59, 130, 246, 0.08)";
+                        color = "var(--ht-accent, #60a5fa)";
+                        border = "1px solid rgba(59, 130, 246, 0.25)";
                       } else if (isAnyMissing) {
-                        bg = "rgba(245, 158, 11, 0.06)";
+                        bg = "rgba(245, 158, 11, 0.08)";
                         color = "#f59e0b";
-                        border = "1px solid rgba(245, 158, 11, 0.12)";
+                        border = "1px solid rgba(245, 158, 11, 0.2)";
                       }
                     }
-
-                    const isShieldedDay = isPast && (shieldedDates || []).includes(day.dateStr);
 
                     return (
                       <button
@@ -1615,10 +1756,10 @@ export default function HabiTick() {
                           position: "relative"
                         }}
                       >
-                        <span style={{ fontSize: "9px", fontWeight: 700, textTransform: "uppercase", marginBottom: "4px", opacity: isSel ? 0.9 : 0.6 }}>
+                        <span style={{ fontSize: "9px", fontWeight: 700, textTransform: "uppercase", marginBottom: "4px", opacity: isSel ? 0.95 : 0.7, color: isSel ? "#fff" : "var(--ht-text-muted, #6b7280)" }}>
                           {day.dayName}
                         </span>
-                        <span style={{ fontSize: "14px", fontWeight: 800 }}>
+                        <span style={{ fontSize: "14px", fontWeight: 800, color: isSel ? "#fff" : color }}>
                           {day.dayNum}
                         </span>
                       </button>
@@ -1643,15 +1784,16 @@ export default function HabiTick() {
                 )}
 
                 {/* 2. DAILY PROGRESS CARD — full-width top card matching mockup */}
-                <div style={{
-                  background: "linear-gradient(135deg, rgba(22, 31, 48, 0.4) 0%, rgba(13, 17, 23, 0.5) 100%)",
-                  border: "1px solid rgba(255, 255, 255, 0.05)",
+                <div className="ht-progress-card" style={{
+                  background: "var(--ht-bg-card, #111827)",
+                  border: "1px solid var(--ht-border-card, rgba(255, 255, 255, 0.05))",
                   borderRadius: "20px",
                   padding: "20px 24px",
                   marginBottom: "24px",
                   display: "flex",
                   alignItems: "center",
-                  gap: "24px"
+                  gap: "24px",
+                  boxShadow: "var(--ht-shadow-card, 0 4px 12px rgba(0,0,0,0.1))"
                 }}>
                   {/* Circular Progress Ring on Left */}
                   <div style={{ position: "relative", width: "70px", height: "70px", flexShrink: 0 }}>
@@ -1663,7 +1805,7 @@ export default function HabiTick() {
                         </linearGradient>
                       </defs>
                       <circle
-                        stroke="rgba(255,255,255,0.04)"
+                        stroke="var(--ht-border-card, rgba(255,255,255,0.06))"
                         fill="transparent"
                         strokeWidth="5"
                         r="30"
@@ -1686,25 +1828,25 @@ export default function HabiTick() {
                       />
                     </svg>
                     <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ fontSize: "14px", fontWeight: 800, fontFamily: "'Syne', sans-serif" }}>{percent}%</span>
+                      <span style={{ fontSize: "14px", fontWeight: 800, fontFamily: "'Syne', sans-serif", color: "var(--ht-text-primary, #fff)" }}>{percent}%</span>
                     </div>
                   </div>
 
                   {/* Stats on Right */}
                   <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "6px" }}>
-                    <div style={{ fontSize: "10px", fontWeight: 700, color: "#4b5563", textTransform: "uppercase", letterSpacing: "0.1em" }}>Daily Progress</div>
+                    <div style={{ fontSize: "10px", fontWeight: 700, color: "var(--ht-text-muted, #4b5563)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Daily Progress</div>
 
                     <div style={{ display: "flex", gap: "24px", alignItems: "center" }}>
                       <div>
-                        <div style={{ fontSize: "10px", color: "#6b7280", fontWeight: 600 }}>Completed</div>
-                        <div style={{ fontSize: "15px", fontWeight: 800, color: "#fff", marginTop: "2px" }}>
-                          {doneOnSelectedDate} <span style={{ fontSize: "11px", color: "#4b5563", fontWeight: 500 }}>/ {totalOnSelectedDate}</span>
+                        <div style={{ fontSize: "10px", color: "var(--ht-text-muted, #6b7280)", fontWeight: 600 }}>Completed</div>
+                        <div style={{ fontSize: "15px", fontWeight: 800, color: "var(--ht-text-primary, #fff)", marginTop: "2px" }}>
+                          {doneOnSelectedDate} <span style={{ fontSize: "11px", color: "var(--ht-text-muted, #4b5563)", fontWeight: 500 }}>/ {totalOnSelectedDate}</span>
                         </div>
                       </div>
-                      <div style={{ width: "1px", background: "rgba(255,255,255,0.06)", alignSelf: "stretch", height: "24px" }} />
+                      <div style={{ width: "1px", background: "var(--ht-border-card, rgba(255,255,255,0.08))", alignSelf: "stretch", height: "24px" }} />
                       <div>
-                        <div style={{ fontSize: "10px", color: "#6b7280", fontWeight: 600 }}>Streak</div>
-                        <div style={{ fontSize: "15px", fontWeight: 800, color: "#3b82f6", marginTop: "2px" }}>
+                        <div style={{ fontSize: "10px", color: "var(--ht-text-muted, #6b7280)", fontWeight: 600 }}>Streak</div>
+                        <div style={{ fontSize: "15px", fontWeight: 800, color: "var(--ht-accent, #3b82f6)", marginTop: "2px" }}>
                           {currentStreak} days
                         </div>
                       </div>
@@ -1719,7 +1861,7 @@ export default function HabiTick() {
 
 
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-                      <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "20px", margin: 0, color: "#fff" }}>Habits</h2>
+                      <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "20px", margin: 0, color: "var(--ht-text-primary, #fff)" }}>Habits</h2>
                     </div>
 
                     {!isPremium && habits.length >= FREE_HABIT_LIMIT && (
@@ -1844,7 +1986,7 @@ export default function HabiTick() {
                       return (
                         <div className="ht-desktop-only" style={{ marginTop: "24px" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                            <h3 style={{ margin: 0, fontSize: "10px", fontWeight: 700, color: "#4b5563", textTransform: "uppercase", letterSpacing: "0.1em", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                            <h3 style={{ margin: 0, fontSize: "10px", fontWeight: 700, color: "var(--ht-text-muted, #4b5563)", textTransform: "uppercase", letterSpacing: "0.1em", display: "inline-flex", alignItems: "center", gap: "6px" }}>
                               <span>{headingText}</span>
                               {overdueCount > 0 && (
                                 <span style={{ fontSize: "9px", background: "rgba(239, 68, 68, 0.1)", color: "#f87171", border: "1px solid rgba(239, 68, 68, 0.2)", borderRadius: "999px", padding: "1px 6px", fontWeight: 700, textTransform: "none", letterSpacing: "normal" }}>
@@ -1854,13 +1996,13 @@ export default function HabiTick() {
                             </h3>
                             <button
                               onClick={() => setShowTodoModal(true)}
-                              style={{ background: "none", border: "none", color: "#3b82f6", cursor: "pointer", fontWeight: 700, fontSize: "11px", padding: "2px 6px", textTransform: "uppercase", letterSpacing: "0.05em" }}
+                              style={{ background: "none", border: "none", color: "var(--ht-accent, #3b82f6)", cursor: "pointer", fontWeight: 700, fontSize: "11px", padding: "2px 6px", textTransform: "uppercase", letterSpacing: "0.05em" }}
                             >
                               Add task +
                             </button>
                           </div>
                           {todayTasks.length === 0 ? (
-                            <div style={{ color: "#4b5563", fontSize: "12px", padding: "12px 0", fontStyle: "italic" }}>No pending tasks — all caught up! 🎉</div>
+                            <div style={{ color: "var(--ht-text-muted, #4b5563)", fontSize: "12px", padding: "12px 0", fontStyle: "italic" }}>No pending tasks — all caught up! 🎉</div>
                           ) : (
                             <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                               {todayTasks.map(t => (
@@ -2067,6 +2209,8 @@ export default function HabiTick() {
             localStorage.setItem("ht_hideEmptyRoutines", String(val));
             setHideEmptyRoutines(val);
           }}
+          theme={theme}
+          onUpdateTheme={handleUpdateTheme}
           onUpdate={setProfile} 
           onClose={() => setShowProfile(false)}
           onUpgrade={handleUpgrade}

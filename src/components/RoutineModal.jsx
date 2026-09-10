@@ -21,7 +21,7 @@ export function RoutineModal({ routine, habitsList, profile, onSave, onDelete, o
     <div style={{ 
       position: "fixed", 
       inset: 0, 
-      background: "rgba(6, 8, 12, 0.8)", 
+      background: "var(--ht-modal-overlay)", 
       backdropFilter: "blur(12px)",
       zIndex: 20000, 
       display: "flex", 
@@ -31,21 +31,21 @@ export function RoutineModal({ routine, habitsList, profile, onSave, onDelete, o
     }}>
       <div 
         style={{ 
-          background: "linear-gradient(135deg, rgba(22, 28, 45, 0.95) 0%, rgba(13, 17, 23, 0.98) 100%)", 
-          border: "1px solid rgba(255, 255, 255, 0.08)", 
+          background: "var(--ht-modal-bg)", 
+          border: "1px solid var(--ht-border-card)", 
           borderRadius: "24px", 
           padding: "28px", 
           width: "100%", 
           maxWidth: "420px", 
           maxHeight: "90vh", 
           overflowY: "auto",
-          boxShadow: "0 20px 50px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.05)",
+          boxShadow: "var(--ht-shadow-card)",
           animation: "scaleUp 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)"
         }}
       >
         <h2 style={{ 
           margin: "0 0 20px", 
-          color: "#f9fafb", 
+          color: "var(--ht-text-primary)", 
           fontSize: "20px", 
           fontFamily: "'Syne', sans-serif", 
           fontWeight: 800,
@@ -76,9 +76,9 @@ export function RoutineModal({ routine, habitsList, profile, onSave, onDelete, o
                   style={{
                     padding: "10px 14px",
                     borderRadius: "12px",
-                    border: "1px solid rgba(255, 255, 255, 0.06)",
-                    background: "rgba(255, 255, 255, 0.015)",
-                    color: "#d1d5db",
+                    border: "1px solid var(--ht-border-card)",
+                    background: "var(--ht-bg-card-subtle)",
+                    color: "var(--ht-text-primary)",
                     fontSize: "12.5px",
                     fontWeight: 700,
                     cursor: "pointer",
@@ -92,19 +92,19 @@ export function RoutineModal({ routine, habitsList, profile, onSave, onDelete, o
                   }}
                   onMouseEnter={e => {
                     e.currentTarget.style.transform = "translateX(4px)";
-                    e.currentTarget.style.background = "rgba(255, 255, 255, 0.04)";
+                    e.currentTarget.style.background = "var(--ht-bg-card-hover)";
                     e.currentTarget.style.borderColor = "rgba(37, 99, 235, 0.3)";
                   }}
                   onMouseLeave={e => {
                     e.currentTarget.style.transform = "none";
-                    e.currentTarget.style.background = "rgba(255, 255, 255, 0.015)";
-                    e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.06)";
+                    e.currentTarget.style.background = "var(--ht-bg-card-subtle)";
+                    e.currentTarget.style.borderColor = "var(--ht-border-card)";
                   }}
                 >
                   <span style={{ fontSize: "20px" }}>{rec.emoji}</span>
                   <div style={{ display: "flex", flexDirection: "column" }}>
-                    <span style={{ color: "#fff" }}>{rec.name}</span>
-                    <span style={{ fontSize: "10.5px", color: "#6b7280", fontWeight: 500 }}>{rec.desc}</span>
+                    <span style={{ color: "var(--ht-text-primary)" }}>{rec.name}</span>
+                    <span style={{ fontSize: "10.5px", color: "var(--ht-text-muted)", fontWeight: 500 }}>{rec.desc}</span>
                   </div>
                 </button>
               ))}
@@ -118,8 +118,8 @@ export function RoutineModal({ routine, habitsList, profile, onSave, onDelete, o
           onChange={e => setName(e.target.value)} 
           style={{ 
             ...S.input, 
-            background: "rgba(0, 0, 0, 0.25)",
-            border: "1px solid rgba(255, 255, 255, 0.08)",
+            background: "var(--ht-bg-input)",
+            border: "1px solid var(--ht-border-card)",
             marginBottom: "18px",
             fontSize: "15px"
           }} 
@@ -138,8 +138,8 @@ export function RoutineModal({ routine, habitsList, profile, onSave, onDelete, o
                 width: "42px", 
                 height: "42px", 
                 borderRadius: "10px", 
-                border: `2px solid ${emoji === e ? "#2563eb" : "rgba(255, 255, 255, 0.06)"}`, 
-                background: emoji === e ? "#1d4ed820" : "rgba(255, 255, 255, 0.02)", 
+                border: `2px solid ${emoji === e ? "#2563eb" : "var(--ht-border-card)"}`, 
+                background: emoji === e ? "rgba(37, 99, 235, 0.15)" : "var(--ht-bg-card-subtle)", 
                 fontSize: "20px", 
                 cursor: "pointer", 
                 display: "flex", 
@@ -164,23 +164,23 @@ export function RoutineModal({ routine, habitsList, profile, onSave, onDelete, o
                     display: "flex", 
                     alignItems: "center", 
                     justifyContent: "space-between", 
-                    background: "rgba(0, 0, 0, 0.2)", 
-                    border: "1px solid rgba(255, 255, 255, 0.06)", 
+                    background: "var(--ht-bg-card-subtle)", 
+                    border: "1px solid var(--ht-border-card)", 
                     borderRadius: "10px", 
                     padding: "10px 12px" 
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                     <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#2563eb" }} />
-                    <span style={{ color: "#e5e7eb", fontSize: "14px", fontWeight: 600 }}>{h.name}</span>
+                    <span style={{ color: "var(--ht-text-primary)", fontSize: "14px", fontWeight: 600 }}>{h.name}</span>
                   </div>
                   <button 
                     onClick={() => onEject(h.id)} 
                     style={{ 
                       background: "none", 
-                      border: "1px solid rgba(255, 255, 255, 0.1)", 
+                      border: "1px solid var(--ht-border-card)", 
                       borderRadius: "6px", 
-                      color: "#9ca3af", 
+                      color: "var(--ht-text-secondary)", 
                       fontSize: "11px", 
                       fontWeight: 600, 
                       cursor: "pointer", 
@@ -207,7 +207,7 @@ export function RoutineModal({ routine, habitsList, profile, onSave, onDelete, o
                 borderRadius: "12px",
                 fontWeight: 700,
                 fontSize: "14px",
-                border: "1px solid rgba(255,255,255,0.08)"
+                border: "1px solid var(--ht-border-card)"
               }}
             >
               Cancel

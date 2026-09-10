@@ -18,6 +18,8 @@ export function ProfileModal({
   onChangeShowTodayOnly, 
   hideEmptyRoutines, 
   onChangeHideEmptyRoutines, 
+  theme = "dark",
+  onUpdateTheme,
   onUpdate, 
   onClose, 
   onUpgrade,
@@ -187,9 +189,12 @@ export function ProfileModal({
       await supabase.from("pause_periods").delete().eq("user_id", uid);
       await supabase.from("journal_entries").delete().eq("user_id", uid);
       await supabase.from("profiles").delete().eq("id", uid);
-      await fetch("https://app.habitick.app/api/delete-account", {
+      await fetch("/api/delete-account", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
         body: JSON.stringify({ userId: uid }),
       });
       await supabase.auth.signOut();
@@ -275,7 +280,7 @@ export function ProfileModal({
         .pm-overlay {
           position: fixed;
           inset: 0;
-          background: rgba(3, 6, 11, 0.88);
+          background: var(--ht-modal-overlay);
           backdrop-filter: blur(16px);
           -webkit-backdrop-filter: blur(16px);
           z-index: 20000;
@@ -292,8 +297,8 @@ export function ProfileModal({
         }
 
         .pm-modal {
-          background: #0d1117;
-          border-top: 1px solid rgba(255, 255, 255, 0.08);
+          background: var(--ht-modal-bg);
+          border-top: 1px solid var(--ht-border-card);
           border-radius: 24px 24px 0 0;
           width: 100%;
           max-width: 560px;
@@ -301,7 +306,7 @@ export function ProfileModal({
           max-height: 90vh;
           display: flex;
           flex-direction: column;
-          box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.7);
+          box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.25);
           overflow: hidden;
           position: relative;
         }
@@ -329,14 +334,14 @@ export function ProfileModal({
           }
 
           .pm-modal {
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            border: 1px solid var(--ht-border-card);
             border-radius: 24px;
             width: 92vw;
             max-width: 1060px;
             height: 720px;
             max-height: 90vh;
             flex-direction: row;
-            box-shadow: 0 28px 70px rgba(0, 0, 0, 0.85), 0 0 1px 1px rgba(255, 255, 255, 0.06);
+            box-shadow: var(--ht-shadow-card, 0 28px 70px rgba(0, 0, 0, 0.4));
           }
         }
 
@@ -351,8 +356,8 @@ export function ProfileModal({
             flex-direction: column;
             width: 260px;
             flex-shrink: 0;
-            background: #090d14;
-            border-right: 1px solid rgba(255, 255, 255, 0.06);
+            background: var(--ht-modal-sidebar);
+            border-right: 1px solid var(--ht-border-card);
             padding: 28px 18px;
             overflow-y: auto;
           }
@@ -363,7 +368,7 @@ export function ProfileModal({
           flex: 1;
           display: flex;
           flex-direction: column;
-          background: #0d1117;
+          background: var(--ht-modal-bg);
           overflow: hidden;
           min-width: 0;
         }
@@ -373,6 +378,7 @@ export function ProfileModal({
           overflow-y: auto;
           padding: 20px;
           -webkit-overflow-scrolling: touch;
+          color: var(--ht-text-primary);
         }
 
         .pm-content-body::-webkit-scrollbar {
@@ -382,11 +388,11 @@ export function ProfileModal({
           background: transparent;
         }
         .pm-content-body::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.12);
+          background: var(--ht-scrollbar-thumb);
           border-radius: 999px;
         }
         .pm-content-body::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.22);
+          background: var(--ht-text-muted);
         }
 
         @media (min-width: 768px) {
@@ -405,7 +411,7 @@ export function ProfileModal({
           border-radius: 12px;
           border: 1px solid transparent;
           background: transparent;
-          color: #9ca3af;
+          color: var(--ht-text-secondary);
           font-family: inherit;
           font-size: 14px;
           font-weight: 600;
@@ -416,14 +422,14 @@ export function ProfileModal({
         }
 
         .pm-nav-btn:hover {
-          background: rgba(255, 255, 255, 0.04);
-          color: #f3f4f6;
+          background: var(--ht-bg-card-subtle);
+          color: var(--ht-text-primary);
         }
 
         .pm-nav-btn.active {
-          background: rgba(37, 99, 235, 0.14);
-          border-color: rgba(59, 130, 246, 0.3);
-          color: #60a5fa;
+          background: rgba(37, 99, 235, 0.12);
+          border-color: rgba(37, 99, 235, 0.3);
+          color: var(--ht-accent);
         }
 
         .pm-nav-icon {
@@ -441,7 +447,7 @@ export function ProfileModal({
           justify-content: space-between;
           align-items: center;
           padding: 18px 20px 14px;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+          border-bottom: 1px solid var(--ht-border-card);
         }
 
         @media (min-width: 768px) {
@@ -456,8 +462,8 @@ export function ProfileModal({
           gap: 6px;
           padding: 10px 18px;
           overflow-x: auto;
-          background: rgba(9, 13, 20, 0.6);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+          background: var(--ht-modal-sidebar);
+          border-bottom: 1px solid var(--ht-border-card);
           scrollbar-width: none;
         }
 
@@ -476,9 +482,9 @@ export function ProfileModal({
           white-space: nowrap;
           padding: 7px 12px;
           border-radius: 999px;
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          border: 1px solid var(--ht-border-card);
           background: transparent;
-          color: #9ca3af;
+          color: var(--ht-text-secondary);
           font-size: 12.5px;
           font-weight: 600;
           cursor: pointer;
@@ -487,8 +493,8 @@ export function ProfileModal({
         }
 
         .pm-mobile-tab-btn.active {
-          background: #2563eb;
-          border-color: #2563eb;
+          background: var(--ht-accent);
+          border-color: var(--ht-accent);
           color: #ffffff;
         }
 
@@ -498,7 +504,7 @@ export function ProfileModal({
           justify-content: space-between;
           align-items: center;
           padding: 24px 36px 18px;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+          border-bottom: 1px solid var(--ht-border-card);
         }
 
         @media (min-width: 768px) {
@@ -509,8 +515,8 @@ export function ProfileModal({
 
         /* Section Cards */
         .pm-card {
-          background: rgba(17, 24, 39, 0.45);
-          border: 1px solid rgba(255, 255, 255, 0.06);
+          background: var(--ht-bg-card-subtle);
+          border: 1px solid var(--ht-border-card);
           border-radius: 16px;
           padding: 20px 22px;
           margin-bottom: 18px;
@@ -518,11 +524,11 @@ export function ProfileModal({
         }
 
         .pm-card:hover {
-          border-color: rgba(255, 255, 255, 0.1);
+          border-color: var(--ht-border-hover);
         }
 
         .pm-label {
-          color: #9ca3af;
+          color: var(--ht-text-secondary);
           font-size: 11.5px;
           font-weight: 700;
           text-transform: uppercase;
@@ -536,9 +542,9 @@ export function ProfileModal({
           height: 42px;
           padding: 0 14px;
           border-radius: 10px;
-          border: 1px solid #1f2937;
-          background: #080b11;
-          color: #f9fafb;
+          border: 1px solid var(--ht-border-card);
+          background: var(--ht-bg-input);
+          color: var(--ht-text-primary);
           font-size: 14px;
           box-sizing: border-box;
           font-family: inherit;
@@ -547,8 +553,8 @@ export function ProfileModal({
         }
 
         .pm-input:focus {
-          border-color: #3b82f6;
-          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+          border-color: var(--ht-accent);
+          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
         }
 
         .pm-btn-primary {
@@ -556,7 +562,7 @@ export function ProfileModal({
           padding: 0 18px;
           border-radius: 10px;
           border: none;
-          background: #2563eb;
+          background: var(--ht-accent);
           color: #fff;
           font-weight: 700;
           font-size: 13.5px;
@@ -570,7 +576,7 @@ export function ProfileModal({
         }
 
         .pm-btn-primary:hover {
-          background: #1d4ed8;
+          background: var(--ht-accent-hover);
         }
 
         .pm-btn-primary:active {
@@ -578,9 +584,9 @@ export function ProfileModal({
         }
 
         .pm-close-btn {
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          color: #9ca3af;
+          background: var(--ht-bg-card-subtle);
+          border: 1px solid var(--ht-border-card);
+          color: var(--ht-text-secondary);
           cursor: pointer;
           font-size: 14px;
           width: 34px;
@@ -593,8 +599,8 @@ export function ProfileModal({
         }
 
         .pm-close-btn:hover {
-          background: rgba(255, 255, 255, 0.1);
-          color: #fff;
+          background: var(--ht-bg-card-hover);
+          color: var(--ht-text-primary);
         }
       `}</style>
 
@@ -634,17 +640,17 @@ export function ProfileModal({
                     {avatarLetter}
                   </div>
                 )}
-                <label style={{ position: "absolute", bottom: "-2px", right: "-2px", width: "19px", height: "19px", background: "#1f2937", border: "1.5px solid #090d14", borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "10px" }} title="Change photo">
+                <label style={{ position: "absolute", bottom: "-2px", right: "-2px", width: "19px", height: "19px", background: "var(--ht-bg-card)", border: "1.5px solid var(--ht-border-card)", borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "10px" }} title="Change photo">
                   {uploadingAvatar ? "⏳" : "📷"}
                   <input type="file" accept="image/*" onChange={uploadAvatar} style={{ display: "none" }} />
                 </label>
               </div>
 
               <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "15.5px", color: "#f9fafb", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "15.5px", color: "var(--ht-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {profile?.username || "Habiticker"}
                 </div>
-                <div style={{ fontSize: "12px", color: "#6b7280", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div style={{ fontSize: "12px", color: "var(--ht-text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {session.user.email}
                 </div>
               </div>
@@ -657,12 +663,12 @@ export function ProfileModal({
                   fontSize: "9px",
                   padding: "2px 7px",
                   borderRadius: "999px",
-                  background: profile?.is_lifetime ? "linear-gradient(90deg, #2563eb 0%, #3b82f6 100%)" : "#1f2937",
-                  color: "#fff",
+                  background: profile?.is_lifetime ? "linear-gradient(90deg, #2563eb 0%, #3b82f6 100%)" : "var(--ht-bg-card-subtle)",
+                  color: profile?.is_lifetime ? "#fff" : "var(--ht-text-secondary)",
                   fontWeight: 800,
                   textTransform: "uppercase",
                   letterSpacing: "0.05em",
-                  border: profile?.is_lifetime ? "1px solid #60a5fa" : "1px solid #374151"
+                  border: profile?.is_lifetime ? "1px solid #60a5fa" : "1px solid var(--ht-border-card)"
                 }}>
                   {profile?.is_lifetime ? `FOUNDER #${profile?.user_number || "?"} ✦` : "PREMIUM"}
                 </span>
@@ -684,7 +690,7 @@ export function ProfileModal({
               </span>
               <span style={{
                 fontSize: "11px",
-                color: "#60a5fa",
+                color: "var(--ht-accent)",
                 fontWeight: 600,
                 background: "rgba(59, 130, 246, 0.08)",
                 border: "1px solid rgba(59, 130, 246, 0.2)",
@@ -694,7 +700,7 @@ export function ProfileModal({
                 alignItems: "center",
                 gap: "4px"
               }}>
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "#60a5fa" }}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--ht-accent)" }}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
                 {shields}/{maxShields}
               </span>
             </div>
@@ -702,7 +708,7 @@ export function ProfileModal({
 
           {/* Navigation Links (Desktop) */}
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: "10.5px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#4b5563", marginBottom: "8px", paddingLeft: "4px" }}>
+            <div style={{ fontSize: "10.5px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ht-text-muted)", marginBottom: "8px", paddingLeft: "4px" }}>
               Settings
             </div>
             {desktopTabsConfig.map((t) => (
@@ -718,16 +724,16 @@ export function ProfileModal({
           </div>
 
           {/* Bottom Actions */}
-          <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.06)", paddingTop: "16px", display: "flex", flexDirection: "column", gap: "6px" }}>
+          <div style={{ borderTop: "1px solid var(--ht-border-card)", paddingTop: "16px", display: "flex", flexDirection: "column", gap: "6px" }}>
             <button
               onClick={() => supabase.auth.signOut()}
               style={{
                 width: "100%",
                 padding: "9px 12px",
                 borderRadius: "8px",
-                border: "1px solid rgba(255, 255, 255, 0.06)",
+                border: "1px solid var(--ht-border-card)",
                 background: "transparent",
-                color: "#9ca3af",
+                color: "var(--ht-text-secondary)",
                 fontWeight: 600,
                 fontSize: "12.5px",
                 cursor: "pointer",
@@ -767,7 +773,7 @@ export function ProfileModal({
         <div className="pm-content-wrapper">
           {/* MOBILE HEADER */}
           <div className="pm-mobile-header">
-            <h2 style={{ margin: 0, fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "18px", color: "#f9fafb" }}>
+            <h2 style={{ margin: 0, fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "18px", color: "var(--ht-text-primary)" }}>
               Settings
             </h2>
             <button onClick={onClose} className="pm-close-btn">✕</button>
@@ -789,10 +795,10 @@ export function ProfileModal({
           {/* DESKTOP CONTENT HEADER */}
           <div className="pm-desktop-header">
             <div>
-              <h2 style={{ margin: 0, fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "21px", color: "#f9fafb", letterSpacing: "-0.01em" }}>
+              <h2 style={{ margin: 0, fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "21px", color: "var(--ht-text-primary)", letterSpacing: "-0.01em" }}>
                 {currentDesktopTabObj.label}
               </h2>
-              <p style={{ margin: "3px 0 0", fontSize: "13px", color: "#6b7280" }}>
+              <p style={{ margin: "3px 0 0", fontSize: "13px", color: "var(--ht-text-muted)" }}>
                 {currentDesktopTabObj.subtitle}
               </p>
             </div>
@@ -811,16 +817,16 @@ export function ProfileModal({
                     {avatarLetter}
                   </div>
                 )}
-                <label style={{ position: "absolute", bottom: "-2px", right: "-2px", width: "20px", height: "20px", background: "#374151", border: "1.5px solid #111827", borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "10px" }}>
+                <label style={{ position: "absolute", bottom: "-2px", right: "-2px", width: "20px", height: "20px", background: "var(--ht-bg-card)", border: "1.5px solid var(--ht-border-card)", borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "10px" }}>
                   {uploadingAvatar ? "⏳" : "📷"}
                   <input type="file" accept="image/*" onChange={uploadAvatar} style={{ display: "none" }} />
                 </label>
               </div>
               <div>
-                <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "16px", color: "#f9fafb" }}>
+                <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "16px", color: "var(--ht-text-primary)" }}>
                   {profile?.username || "No username yet"}
                 </div>
-                <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "2px", marginBottom: "4px" }}>
+                <div style={{ fontSize: "12px", color: "var(--ht-text-muted)", marginTop: "2px", marginBottom: "4px" }}>
                   {session.user.email}
                 </div>
                 {avatarUrl && (
@@ -887,7 +893,7 @@ export function ProfileModal({
                   <span className="pm-label" style={{ marginBottom: "10px" }}>Dashboard Preferences</span>
                   <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
                     <div>
-                      <div style={{ fontSize: "12px", fontWeight: 600, color: "#d1d5db", marginBottom: "6px" }}>Habit View Filter</div>
+                      <div style={{ fontSize: "12px", fontWeight: 600, color: "var(--ht-text-primary)", marginBottom: "6px" }}>Habit View Filter</div>
                       <div style={{ display: "flex", gap: "6px" }}>
                         <button
                           onClick={() => onChangeShowTodayOnly(false)}
@@ -896,9 +902,9 @@ export function ProfileModal({
                             height: "36px",
                             borderRadius: "8px",
                             border: "1px solid",
-                            borderColor: !showTodayOnly ? "#3b82f6" : "#1f2937",
-                            background: !showTodayOnly ? "rgba(59, 130, 246, 0.12)" : "#080b11",
-                            color: !showTodayOnly ? "#60a5fa" : "#6b7280",
+                            borderColor: !showTodayOnly ? "var(--ht-accent)" : "var(--ht-border-card)",
+                            background: !showTodayOnly ? "rgba(37, 99, 235, 0.12)" : "var(--ht-bg-input)",
+                            color: !showTodayOnly ? "var(--ht-accent)" : "var(--ht-text-muted)",
                             fontWeight: 600,
                             fontSize: "12.5px",
                             cursor: "pointer",
@@ -914,9 +920,9 @@ export function ProfileModal({
                             height: "36px",
                             borderRadius: "8px",
                             border: "1px solid",
-                            borderColor: showTodayOnly ? "#3b82f6" : "#1f2937",
-                            background: showTodayOnly ? "rgba(59, 130, 246, 0.12)" : "#080b11",
-                            color: showTodayOnly ? "#60a5fa" : "#6b7280",
+                            borderColor: showTodayOnly ? "var(--ht-accent)" : "var(--ht-border-card)",
+                            background: showTodayOnly ? "rgba(37, 99, 235, 0.12)" : "var(--ht-bg-input)",
+                            color: showTodayOnly ? "var(--ht-accent)" : "var(--ht-text-muted)",
                             fontWeight: 600,
                             fontSize: "12.5px",
                             cursor: "pointer",
@@ -929,7 +935,57 @@ export function ProfileModal({
                     </div>
 
                     <div>
-                      <div style={{ fontSize: "12px", fontWeight: 600, color: "#d1d5db", marginBottom: "6px" }}>Routine View Filter</div>
+                      <div style={{ fontSize: "12px", fontWeight: 600, color: "var(--ht-text-primary)", marginBottom: "6px" }}>App Theme (Cross-Device)</div>
+                      <div style={{ display: "flex", gap: "6px" }}>
+                        <button
+                          onClick={() => onUpdateTheme && onUpdateTheme("dark")}
+                          style={{
+                            flex: 1,
+                            height: "36px",
+                            borderRadius: "8px",
+                            border: "1px solid",
+                            borderColor: theme === "dark" ? "var(--ht-accent)" : "var(--ht-border-card)",
+                            background: theme === "dark" ? "rgba(37, 99, 235, 0.14)" : "var(--ht-bg-input)",
+                            color: theme === "dark" ? "var(--ht-accent)" : "var(--ht-text-muted)",
+                            fontWeight: 600,
+                            fontSize: "12.5px",
+                            cursor: "pointer",
+                            fontFamily: "inherit",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "6px"
+                          }}
+                        >
+                          <span>🌙</span> Dark
+                        </button>
+                        <button
+                          onClick={() => onUpdateTheme && onUpdateTheme("light")}
+                          style={{
+                            flex: 1,
+                            height: "36px",
+                            borderRadius: "8px",
+                            border: "1px solid",
+                            borderColor: theme === "light" ? "var(--ht-accent)" : "var(--ht-border-card)",
+                            background: theme === "light" ? "rgba(37, 99, 235, 0.14)" : "var(--ht-bg-input)",
+                            color: theme === "light" ? "var(--ht-accent)" : "var(--ht-text-muted)",
+                            fontWeight: 600,
+                            fontSize: "12.5px",
+                            cursor: "pointer",
+                            fontFamily: "inherit",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "6px"
+                          }}
+                        >
+                          <span>☀️</span> Light
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: "12px", fontWeight: 600, color: "var(--ht-text-primary)", marginBottom: "6px" }}>Routine View Filter</div>
                       <div style={{ display: "flex", gap: "6px" }}>
                         <button
                           onClick={() => onChangeHideEmptyRoutines(false)}
@@ -938,9 +994,9 @@ export function ProfileModal({
                             height: "36px",
                             borderRadius: "8px",
                             border: "1px solid",
-                            borderColor: !hideEmptyRoutines ? "#3b82f6" : "#1f2937",
-                            background: !hideEmptyRoutines ? "rgba(59, 130, 246, 0.12)" : "#080b11",
-                            color: !hideEmptyRoutines ? "#60a5fa" : "#6b7280",
+                            borderColor: !hideEmptyRoutines ? "var(--ht-accent)" : "var(--ht-border-card)",
+                            background: !hideEmptyRoutines ? "rgba(37, 99, 235, 0.12)" : "var(--ht-bg-input)",
+                            color: !hideEmptyRoutines ? "var(--ht-accent)" : "var(--ht-text-muted)",
                             fontWeight: 600,
                             fontSize: "12.5px",
                             cursor: "pointer",
@@ -956,9 +1012,9 @@ export function ProfileModal({
                             height: "36px",
                             borderRadius: "8px",
                             border: "1px solid",
-                            borderColor: hideEmptyRoutines ? "#3b82f6" : "#1f2937",
-                            background: hideEmptyRoutines ? "rgba(59, 130, 246, 0.12)" : "#080b11",
-                            color: hideEmptyRoutines ? "#60a5fa" : "#6b7280",
+                            borderColor: hideEmptyRoutines ? "var(--ht-accent)" : "var(--ht-border-card)",
+                            background: hideEmptyRoutines ? "rgba(37, 99, 235, 0.12)" : "var(--ht-bg-input)",
+                            color: hideEmptyRoutines ? "var(--ht-accent)" : "var(--ht-text-muted)",
                             fontWeight: 600,
                             fontSize: "12.5px",
                             cursor: "pointer",
@@ -1007,9 +1063,9 @@ export function ProfileModal({
                         height: "42px",
                         padding: "0 16px",
                         borderRadius: "10px",
-                        border: "1px solid #1f2937",
-                        background: resetSent ? "#064e3b" : "transparent",
-                        color: resetSent ? "#6ee7b7" : "#9ca3af",
+                        border: "1px solid var(--ht-border-card)",
+                        background: resetSent ? "#064e3b" : "var(--ht-bg-card-subtle)",
+                        color: resetSent ? "#6ee7b7" : "var(--ht-text-secondary)",
                         fontWeight: 600,
                         fontSize: "13px",
                         cursor: resetSent ? "default" : "pointer",
@@ -1027,12 +1083,12 @@ export function ProfileModal({
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
                     <div style={{ flex: 1, minWidth: "260px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-                        <span style={{ fontWeight: 700, fontSize: "14.5px", color: "#f9fafb" }}>Device Pairing & QR Login</span>
+                        <span style={{ fontWeight: 700, fontSize: "14.5px", color: "var(--ht-text-primary)" }}>Device Pairing & QR Login</span>
                         <span style={{ fontSize: "10px", padding: "2px 7px", borderRadius: "4px", background: "rgba(59, 130, 246, 0.15)", color: "#60a5fa", fontWeight: 700 }}>
                           🔒 E2EE Encrypted
                         </span>
                       </div>
-                      <p style={{ fontSize: "12.5px", color: "#9ca3af", lineHeight: 1.45, margin: 0 }}>
+                      <p style={{ fontSize: "12.5px", color: "var(--ht-text-secondary)", lineHeight: 1.45, margin: 0 }}>
                         Pair and log in immediately on a new browser or computer using a secure QR code.
                       </p>
                     </div>
@@ -1052,9 +1108,9 @@ export function ProfileModal({
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
                     <div style={{ flex: 1, minWidth: "240px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-                        <span style={{ fontWeight: 700, fontSize: "14.5px", color: "#f9fafb" }}>Welcome Onboarding Tour</span>
+                        <span style={{ fontWeight: 700, fontSize: "14.5px", color: "var(--ht-text-primary)" }}>Welcome Onboarding Tour</span>
                       </div>
-                      <p style={{ fontSize: "12.5px", color: "#9ca3af", lineHeight: 1.45, margin: 0 }}>
+                      <p style={{ fontSize: "12.5px", color: "var(--ht-text-secondary)", lineHeight: 1.45, margin: 0 }}>
                         Revisit the introduction walkthrough, routine groupings, and streak shield guide.
                       </p>
                     </div>
@@ -1064,9 +1120,9 @@ export function ProfileModal({
                         height: "42px",
                         padding: "0 18px",
                         borderRadius: "10px",
-                        border: "1px solid rgba(255, 255, 255, 0.12)",
-                        background: "rgba(255, 255, 255, 0.04)",
-                        color: "#f3f4f6",
+                        border: "1px solid var(--ht-border-card)",
+                        background: "var(--ht-bg-card-subtle)",
+                        color: "var(--ht-text-primary)",
                         fontWeight: 600,
                         fontSize: "13px",
                         cursor: "pointer",
@@ -1077,8 +1133,8 @@ export function ProfileModal({
                         gap: "8px",
                         transition: "all 0.15s"
                       }}
-                      onMouseEnter={e => { e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)"; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = "rgba(255, 255, 255, 0.04)"; }}
+                      onMouseEnter={e => { e.currentTarget.style.background = "var(--ht-bg-card-hover)"; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = "var(--ht-bg-card-subtle)"; }}
                     >
                       <span>⚡</span> Redo Onboarding
                     </button>
@@ -1090,18 +1146,86 @@ export function ProfileModal({
             {/* ── VIEW & PREFERENCES TAB (Dedicated for Desktop) ── */}
             {tab === "view" && (
               <div>
+                {/* Theme Selector Card */}
+                <div className="pm-card">
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                    <div>
+                      <span className="pm-label">Appearance</span>
+                      <h3 style={{ margin: 0, fontSize: "16px", color: "var(--ht-text-primary)", fontWeight: 700 }}>Interface Theme</h3>
+                    </div>
+                    <span style={{ fontSize: "11.5px", color: "var(--ht-accent)", fontWeight: 600, background: "rgba(59, 130, 246, 0.1)", padding: "3px 10px", borderRadius: "999px" }}>
+                      {theme === "light" ? "Light Mode Active" : "Dark Mode Active"}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: "13px", color: "var(--ht-text-secondary)", lineHeight: 1.5, margin: "0 0 16px" }}>
+                    Choose your preferred appearance. Your theme syncs seamlessly across all your devices and companions.
+                  </p>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                    <button
+                      onClick={() => onUpdateTheme && onUpdateTheme("dark")}
+                      style={{
+                        padding: "16px",
+                        borderRadius: "12px",
+                        border: "1.5px solid",
+                        borderColor: theme === "dark" ? "var(--ht-accent)" : "var(--ht-border-card)",
+                        background: theme === "dark" ? "rgba(37, 99, 235, 0.12)" : "var(--ht-bg-card)",
+                        color: theme === "dark" ? "var(--ht-text-primary)" : "var(--ht-text-secondary)",
+                        cursor: "pointer",
+                        textAlign: "left",
+                        fontFamily: "inherit",
+                        transition: "all 0.15s ease",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "6px"
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <span style={{ fontSize: "20px" }}>🌙</span>
+                        {theme === "dark" && <span style={{ color: "var(--ht-accent)", fontSize: "12px", fontWeight: 700 }}>✓ Selected</span>}
+                      </div>
+                      <div style={{ fontWeight: 700, fontSize: "14px" }}>Dark Mode</div>
+                      <div style={{ fontSize: "12px", color: "var(--ht-text-muted)" }}>Deep obsidian, easy on the eyes</div>
+                    </button>
+                    <button
+                      onClick={() => onUpdateTheme && onUpdateTheme("light")}
+                      style={{
+                        padding: "16px",
+                        borderRadius: "12px",
+                        border: "1.5px solid",
+                        borderColor: theme === "light" ? "var(--ht-accent)" : "var(--ht-border-card)",
+                        background: theme === "light" ? "rgba(37, 99, 235, 0.12)" : "var(--ht-bg-card)",
+                        color: theme === "light" ? "var(--ht-text-primary)" : "var(--ht-text-secondary)",
+                        cursor: "pointer",
+                        textAlign: "left",
+                        fontFamily: "inherit",
+                        transition: "all 0.15s ease",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "6px"
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <span style={{ fontSize: "20px" }}>☀️</span>
+                        {theme === "light" && <span style={{ color: "var(--ht-accent)", fontSize: "12px", fontWeight: 700 }}>✓ Selected</span>}
+                      </div>
+                      <div style={{ fontWeight: 700, fontSize: "14px" }}>Light Mode</div>
+                      <div style={{ fontSize: "12px", color: "var(--ht-text-muted)" }}>Clean ivory & slate, high daytime contrast</div>
+                    </button>
+                  </div>
+                </div>
+
                 {/* Habit Filter Card */}
                 <div className="pm-card">
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
                     <div>
                       <span className="pm-label">Habit List View</span>
-                      <h3 style={{ margin: 0, fontSize: "16px", color: "#f9fafb", fontWeight: 700 }}>Daily Habit Filter</h3>
+                      <h3 style={{ margin: 0, fontSize: "16px", color: "var(--ht-text-primary)", fontWeight: 700 }}>Daily Habit Filter</h3>
                     </div>
-                    <span style={{ fontSize: "11.5px", color: "#60a5fa", fontWeight: 600, background: "rgba(59, 130, 246, 0.1)", padding: "3px 10px", borderRadius: "999px" }}>
+                    <span style={{ fontSize: "11.5px", color: "var(--ht-accent)", fontWeight: 600, background: "rgba(59, 130, 246, 0.1)", padding: "3px 10px", borderRadius: "999px" }}>
                       {!showTodayOnly ? "Showing All Habits" : "Scheduled Only"}
                     </span>
                   </div>
-                  <p style={{ fontSize: "13px", color: "#9ca3af", lineHeight: 1.5, margin: "0 0 16px" }}>
+                  <p style={{ fontSize: "13px", color: "var(--ht-text-secondary)", lineHeight: 1.5, margin: "0 0 16px" }}>
                     Choose whether to display all active habits on your main dashboard, or filter to exclusively show habits that are scheduled for today.
                   </p>
                   <div style={{ display: "flex", gap: "10px" }}>
@@ -1112,9 +1236,9 @@ export function ProfileModal({
                         height: "42px",
                         borderRadius: "10px",
                         border: "1px solid",
-                        borderColor: !showTodayOnly ? "#3b82f6" : "#1f2937",
-                        background: !showTodayOnly ? "rgba(59, 130, 246, 0.14)" : "#080b11",
-                        color: !showTodayOnly ? "#60a5fa" : "#6b7280",
+                        borderColor: !showTodayOnly ? "var(--ht-accent)" : "var(--ht-border-card)",
+                        background: !showTodayOnly ? "rgba(37, 99, 235, 0.14)" : "var(--ht-bg-card)",
+                        color: !showTodayOnly ? "var(--ht-accent)" : "var(--ht-text-secondary)",
                         fontWeight: 600,
                         fontSize: "13.5px",
                         cursor: "pointer",
@@ -1131,9 +1255,9 @@ export function ProfileModal({
                         height: "42px",
                         borderRadius: "10px",
                         border: "1px solid",
-                        borderColor: showTodayOnly ? "#3b82f6" : "#1f2937",
-                        background: showTodayOnly ? "rgba(59, 130, 246, 0.14)" : "#080b11",
-                        color: showTodayOnly ? "#60a5fa" : "#6b7280",
+                        borderColor: showTodayOnly ? "var(--ht-accent)" : "var(--ht-border-card)",
+                        background: showTodayOnly ? "rgba(37, 99, 235, 0.14)" : "var(--ht-bg-card)",
+                        color: showTodayOnly ? "var(--ht-accent)" : "var(--ht-text-secondary)",
                         fontWeight: 600,
                         fontSize: "13.5px",
                         cursor: "pointer",
@@ -1151,13 +1275,13 @@ export function ProfileModal({
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
                     <div>
                       <span className="pm-label">Routine List View</span>
-                      <h3 style={{ margin: 0, fontSize: "16px", color: "#f9fafb", fontWeight: 700 }}>Empty Routines Visibility</h3>
+                      <h3 style={{ margin: 0, fontSize: "16px", color: "var(--ht-text-primary)", fontWeight: 700 }}>Empty Routines Visibility</h3>
                     </div>
-                    <span style={{ fontSize: "11.5px", color: "#60a5fa", fontWeight: 600, background: "rgba(59, 130, 246, 0.1)", padding: "3px 10px", borderRadius: "999px" }}>
+                    <span style={{ fontSize: "11.5px", color: "var(--ht-accent)", fontWeight: 600, background: "rgba(59, 130, 246, 0.1)", padding: "3px 10px", borderRadius: "999px" }}>
                       {!hideEmptyRoutines ? "Showing All Routines" : "Hiding Empty"}
                     </span>
                   </div>
-                  <p style={{ fontSize: "13px", color: "#9ca3af", lineHeight: 1.5, margin: "0 0 16px" }}>
+                  <p style={{ fontSize: "13px", color: "var(--ht-text-secondary)", lineHeight: 1.5, margin: "0 0 16px" }}>
                     Choose whether to display all routines in your routine group list, or automatically hide empty routine containers that currently have no habits assigned.
                   </p>
                   <div style={{ display: "flex", gap: "10px" }}>
@@ -1168,9 +1292,9 @@ export function ProfileModal({
                         height: "42px",
                         borderRadius: "10px",
                         border: "1px solid",
-                        borderColor: !hideEmptyRoutines ? "#3b82f6" : "#1f2937",
-                        background: !hideEmptyRoutines ? "rgba(59, 130, 246, 0.14)" : "#080b11",
-                        color: !hideEmptyRoutines ? "#60a5fa" : "#6b7280",
+                        borderColor: !hideEmptyRoutines ? "var(--ht-accent)" : "var(--ht-border-card)",
+                        background: !hideEmptyRoutines ? "rgba(37, 99, 235, 0.14)" : "var(--ht-bg-card)",
+                        color: !hideEmptyRoutines ? "var(--ht-accent)" : "var(--ht-text-secondary)",
                         fontWeight: 600,
                         fontSize: "13.5px",
                         cursor: "pointer",
@@ -1187,9 +1311,9 @@ export function ProfileModal({
                         height: "42px",
                         borderRadius: "10px",
                         border: "1px solid",
-                        borderColor: hideEmptyRoutines ? "#3b82f6" : "#1f2937",
-                        background: hideEmptyRoutines ? "rgba(59, 130, 246, 0.14)" : "#080b11",
-                        color: hideEmptyRoutines ? "#60a5fa" : "#6b7280",
+                        borderColor: hideEmptyRoutines ? "var(--ht-accent)" : "var(--ht-border-card)",
+                        background: hideEmptyRoutines ? "rgba(37, 99, 235, 0.14)" : "var(--ht-bg-card)",
+                        color: hideEmptyRoutines ? "var(--ht-accent)" : "var(--ht-text-secondary)",
                         fontWeight: 600,
                         fontSize: "13.5px",
                         cursor: "pointer",
@@ -1208,7 +1332,7 @@ export function ProfileModal({
             {tab === "shields" && (
               <div>
                 {/* Shields Status Card */}
-                <div className="pm-card" style={{ background: "linear-gradient(135deg, rgba(22, 31, 48, 0.5) 0%, rgba(17, 24, 39, 0.4) 100%)", borderColor: "rgba(59, 130, 246, 0.15)" }}>
+                <div className="pm-card" style={{ background: "var(--ht-bg-card)", borderColor: "var(--ht-border-card)" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "16px" }}>
                     <div style={{
                       width: "50px",
@@ -1224,24 +1348,24 @@ export function ProfileModal({
                       <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                     </div>
                     <div>
-                      <h3 style={{ margin: 0, fontSize: "18px", fontWeight: 700, color: "#fff", fontFamily: "'Syne', sans-serif" }}>Streak Shields</h3>
-                      <div style={{ fontSize: "13px", color: "#60a5fa", fontWeight: 600, marginTop: "2px" }}>
+                      <h3 style={{ margin: 0, fontSize: "18px", fontWeight: 700, color: "var(--ht-text-primary)", fontFamily: "'Syne', sans-serif" }}>Streak Shields</h3>
+                      <div style={{ fontSize: "13px", color: "var(--ht-accent)", fontWeight: 600, marginTop: "2px" }}>
                         {shields} / {maxShields} Available {profile?.is_premium ? "(Premium Max 5)" : "(Free Max 3 · Upgrade for 5)"}
                       </div>
                     </div>
                   </div>
 
-                  <p style={{ margin: "0 0 16px", fontSize: "13.5px", color: "#9ca3af", lineHeight: 1.5 }}>
+                  <p style={{ margin: "0 0 16px", fontSize: "13.5px", color: "var(--ht-text-secondary)", lineHeight: 1.5 }}>
                     Streak Shields automatically protect your active habit streak when you miss a day. Shields are automatically awarded every <strong>5 perfect days</strong>.
                   </p>
 
                   {/* Progress bar */}
-                  <div style={{ background: "rgba(0, 0, 0, 0.3)", borderRadius: "12px", padding: "14px 16px", border: "1px solid rgba(255, 255, 255, 0.05)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12.5px", color: "#d1d5db", fontWeight: 600, marginBottom: "8px" }}>
+                  <div style={{ background: "var(--ht-bg-card-subtle)", borderRadius: "12px", padding: "14px 16px", border: "1px solid var(--ht-border-card)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12.5px", color: "var(--ht-text-primary)", fontWeight: 600, marginBottom: "8px" }}>
                       <span>Progress to Next Shield</span>
-                      <span style={{ color: "#60a5fa", fontWeight: 700 }}>{progressToNextShield} / 5 Perfect Days</span>
+                      <span style={{ color: "var(--ht-accent)", fontWeight: 700 }}>{progressToNextShield} / 5 Perfect Days</span>
                     </div>
-                    <div style={{ height: "7px", background: "rgba(255, 255, 255, 0.08)", borderRadius: "999px", overflow: "hidden" }}>
+                    <div style={{ height: "7px", background: "var(--ht-border-card)", borderRadius: "999px", overflow: "hidden" }}>
                       <div style={{ height: "100%", background: "linear-gradient(90deg, #2563eb, #60a5fa)", width: `${(progressToNextShield / 5) * 100}%`, borderRadius: "999px", transition: "width 0.4s ease" }} />
                     </div>
                   </div>
@@ -1251,28 +1375,28 @@ export function ProfileModal({
                 <span className="pm-label">How Shields Work</span>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px" }}>
                   <div className="pm-card" style={{ marginBottom: 0, padding: "16px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#f3f4f6", fontWeight: 700, fontSize: "13.5px", marginBottom: "6px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--ht-text-primary)", fontWeight: 700, fontSize: "13.5px", marginBottom: "6px" }}>
                       <span style={{ color: "#60a5fa" }}>✦</span> Automated Rewards
                     </div>
-                    <div style={{ fontSize: "12.5px", color: "#9ca3af", lineHeight: 1.45 }}>
+                    <div style={{ fontSize: "12.5px", color: "var(--ht-text-secondary)", lineHeight: 1.45 }}>
                       Complete all scheduled habits on any given day. Every 5 total perfect days awards 1 shield.
                     </div>
                   </div>
 
                   <div className="pm-card" style={{ marginBottom: 0, padding: "16px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#f3f4f6", fontWeight: 700, fontSize: "13.5px", marginBottom: "6px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--ht-text-primary)", fontWeight: 700, fontSize: "13.5px", marginBottom: "6px" }}>
                       <span style={{ color: "#60a5fa" }}>✦</span> Non-Consecutive
                     </div>
-                    <div style={{ fontSize: "12.5px", color: "#9ca3af", lineHeight: 1.45 }}>
+                    <div style={{ fontSize: "12.5px", color: "var(--ht-text-secondary)", lineHeight: 1.45 }}>
                       Perfect days do not need to be consecutive. Missed days will never reset your counter.
                     </div>
                   </div>
 
                   <div className="pm-card" style={{ marginBottom: 0, padding: "16px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#f3f4f6", fontWeight: 700, fontSize: "13.5px", marginBottom: "6px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--ht-text-primary)", fontWeight: 700, fontSize: "13.5px", marginBottom: "6px" }}>
                       <span style={{ color: "#60a5fa" }}>✦</span> Auto Protection
                     </div>
-                    <div style={{ fontSize: "12.5px", color: "#9ca3af", lineHeight: 1.45 }}>
+                    <div style={{ fontSize: "12.5px", color: "var(--ht-text-secondary)", lineHeight: 1.45 }}>
                       Shields are consumed automatically when you miss a day, preserving your streak and XP.
                     </div>
                   </div>
@@ -1286,8 +1410,8 @@ export function ProfileModal({
                 <div className="pm-card">
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
                     <div>
-                      <h3 style={{ margin: 0, fontSize: "16px", color: "#f9fafb", fontWeight: 700 }}>Push Notifications</h3>
-                      <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#9ca3af", lineHeight: 1.4 }}>
+                      <h3 style={{ margin: 0, fontSize: "16px", color: "var(--ht-text-primary)", fontWeight: 700 }}>Push Notifications</h3>
+                      <p style={{ margin: "4px 0 0", fontSize: "13px", color: "var(--ht-text-secondary)", lineHeight: 1.4 }}>
                         Receive reminder alerts for scheduled routines and habits directly on your device.
                       </p>
                     </div>
@@ -1298,7 +1422,7 @@ export function ProfileModal({
                         width: "48px",
                         height: "28px",
                         borderRadius: "999px",
-                        background: notificationsEnabled ? "#2563eb" : "#374151",
+                        background: notificationsEnabled ? "var(--ht-accent, #2563eb)" : "var(--ht-border-card, #374151)",
                         position: "relative",
                         cursor: "pointer",
                         border: "none",
@@ -1336,7 +1460,7 @@ export function ProfileModal({
                   )}
                 </div>
 
-                <div className="pm-card" style={{ fontSize: "13px", color: "#6b7280", lineHeight: 1.5 }}>
+                <div className="pm-card" style={{ fontSize: "13px", color: "var(--ht-text-muted)", lineHeight: 1.5 }}>
                   <p style={{ margin: "0 0 6px" }}>• Notifications trigger based on custom scheduled habit reminder times.</p>
                   <p style={{ margin: "0 0 6px" }}>• Works when the web app is closed in supported browsers or PWA mode.</p>
                   <p style={{ margin: 0 }}>• <strong>iOS Note:</strong> Add HabiTick to your iPhone/iPad Home Screen first to enable Apple Web Push.</p>
@@ -1350,8 +1474,8 @@ export function ProfileModal({
             )}
 
             {/* Mobile bottom actions */}
-            <div style={{ borderTop: "1px solid #1f2937", marginTop: "20px", paddingTop: "14px", paddingBottom: "20px", display: "flex", flexDirection: "column", gap: "8px" }} className="pm-mobile-only">
-              <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "1px solid #374151", background: "transparent", color: "#6b7280", fontWeight: 600, fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>
+            <div style={{ borderTop: "1px solid var(--ht-border-card)", marginTop: "20px", paddingTop: "14px", paddingBottom: "20px", display: "flex", flexDirection: "column", gap: "8px" }} className="pm-mobile-only">
+              <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "1px solid var(--ht-border-card)", background: "transparent", color: "var(--ht-text-secondary)", fontWeight: 600, fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>
                 Sign out
               </button>
               <button onClick={() => setShowDeleteConfirm1(true)} style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "1px solid #7f1d1d", background: "transparent", color: "#f87171", fontWeight: 600, fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>
@@ -1364,18 +1488,18 @@ export function ProfileModal({
 
       {/* Delete Confirmation Step 1 */}
       {showDeleteConfirm1 && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 30000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
-          <div style={{ background: "#111827", border: "1px solid #374151", borderRadius: "20px", padding: "28px", width: "100%", maxWidth: "380px", textAlign: "center", boxShadow: "0 20px 50px rgba(0,0,0,0.7)" }}>
+        <div style={{ position: "fixed", inset: 0, background: "var(--ht-modal-overlay)", zIndex: 30000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+          <div style={{ background: "var(--ht-modal-bg)", border: "1px solid var(--ht-border-card)", borderRadius: "20px", padding: "28px", width: "100%", maxWidth: "380px", textAlign: "center", boxShadow: "var(--ht-shadow-card)" }}>
             <div style={{ display: "flex", justifyContent: "center", color: "#ef4444", marginBottom: "16px" }}>
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><line x1="12" x2="12" y1="9" y2="13" /><line x1="12" x2="12" y1="17" y2="17" /></svg>
             </div>
-            <h2 style={{ margin: "0 0 10px", fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "20px", color: "#f9fafb" }}>Delete your account?</h2>
-            <p style={{ color: "#9ca3af", fontSize: "13.5px", lineHeight: 1.6, marginBottom: "24px" }}>This will permanently delete all your habits, routines, journal entries, and progress. <strong style={{ color: "#f87171" }}>This cannot be undone.</strong></p>
+            <h2 style={{ margin: "0 0 10px", fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "20px", color: "var(--ht-text-primary)" }}>Delete your account?</h2>
+            <p style={{ color: "var(--ht-text-secondary)", fontSize: "13.5px", lineHeight: 1.6, marginBottom: "24px" }}>This will permanently delete all your habits, routines, journal entries, and progress. <strong style={{ color: "#f87171" }}>This cannot be undone.</strong></p>
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               <button onClick={() => { setShowDeleteConfirm1(false); setShowDeleteConfirm2(true); }} style={{ width: "100%", padding: "13px", borderRadius: "10px", border: "1px solid #7f1d1d", background: "#7f1d1d30", color: "#f87171", fontWeight: 700, fontSize: "14px", cursor: "pointer", fontFamily: "inherit" }}>
                 Yes, I want to delete my account
               </button>
-              <button onClick={() => setShowDeleteConfirm1(false)} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "1px solid #374151", background: "transparent", color: "#9ca3af", fontWeight: 600, fontSize: "14px", cursor: "pointer", fontFamily: "inherit" }}>
+              <button onClick={() => setShowDeleteConfirm1(false)} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "1px solid var(--ht-border-card)", background: "transparent", color: "var(--ht-text-secondary)", fontWeight: 600, fontSize: "14px", cursor: "pointer", fontFamily: "inherit" }}>
                 Cancel, keep my account
               </button>
             </div>
@@ -1385,28 +1509,28 @@ export function ProfileModal({
 
       {/* Delete Confirmation Step 2 */}
       {showDeleteConfirm2 && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 30000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
-          <div style={{ background: "#111827", border: "1px solid #374151", borderRadius: "20px", padding: "28px", width: "100%", maxWidth: "380px", textAlign: "center", boxShadow: "0 20px 50px rgba(0,0,0,0.7)" }}>
+        <div style={{ position: "fixed", inset: 0, background: "var(--ht-modal-overlay)", zIndex: 30000, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+          <div style={{ background: "var(--ht-modal-bg)", border: "1px solid var(--ht-border-card)", borderRadius: "20px", padding: "28px", width: "100%", maxWidth: "380px", textAlign: "center", boxShadow: "var(--ht-shadow-card)" }}>
             <div style={{ display: "flex", justifyContent: "center", color: "#ef4444", marginBottom: "16px" }}>
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6" /></svg>
             </div>
-            <h2 style={{ margin: "0 0 10px", fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "20px", color: "#f9fafb" }}>Are you absolutely sure?</h2>
-            <p style={{ color: "#9ca3af", fontSize: "13.5px", lineHeight: 1.6, marginBottom: "20px" }}>Type <strong style={{ color: "#f87171" }}>DELETE</strong> below to confirm.</p>
+            <h2 style={{ margin: "0 0 10px", fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "20px", color: "var(--ht-text-primary)" }}>Are you absolutely sure?</h2>
+            <p style={{ color: "var(--ht-text-secondary)", fontSize: "13.5px", lineHeight: 1.6, marginBottom: "20px" }}>Type <strong style={{ color: "#f87171" }}>DELETE</strong> below to confirm.</p>
             <input
               value={deleteConfirmText}
               onChange={e => setDeleteConfirmText(e.target.value)}
               placeholder="Type DELETE here"
-              style={{ width: "100%", padding: "12px", borderRadius: "8px", border: `1px solid ${deleteConfirmText === "DELETE" ? "#f87171" : "#374151"}`, background: "#080b11", color: "#f9fafb", fontSize: "15px", fontFamily: "inherit", textAlign: "center", boxSizing: "border-box", outline: "none", letterSpacing: "0.05em", marginBottom: "16px" }}
+              style={{ width: "100%", padding: "12px", borderRadius: "8px", border: `1px solid ${deleteConfirmText === "DELETE" ? "#f87171" : "var(--ht-border-card)"}`, background: "var(--ht-bg-input)", color: "var(--ht-text-primary)", fontSize: "15px", fontFamily: "inherit", textAlign: "center", boxSizing: "border-box", outline: "none", letterSpacing: "0.05em", marginBottom: "16px" }}
             />
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               <button
                 onClick={handleDeleteAccount}
                 disabled={deleteConfirmText !== "DELETE" || deletingAccount}
-                style={{ width: "100%", padding: "13px", borderRadius: "10px", border: "none", background: deleteConfirmText === "DELETE" ? "#dc2626" : "#374151", color: deleteConfirmText === "DELETE" ? "#fff" : "#6b7280", fontWeight: 700, fontSize: "14px", cursor: deleteConfirmText === "DELETE" ? "pointer" : "default", fontFamily: "inherit", opacity: deletingAccount ? 0.7 : 1 }}
+                style={{ width: "100%", padding: "13px", borderRadius: "10px", border: "none", background: deleteConfirmText === "DELETE" ? "#dc2626" : "var(--ht-bg-card-subtle)", color: deleteConfirmText === "DELETE" ? "#fff" : "var(--ht-text-muted)", fontWeight: 700, fontSize: "14px", cursor: deleteConfirmText === "DELETE" ? "pointer" : "default", fontFamily: "inherit", opacity: deletingAccount ? 0.7 : 1 }}
               >
                 {deletingAccount ? "Deleting..." : "Permanently delete everything"}
               </button>
-              <button onClick={() => { setShowDeleteConfirm2(false); setDeleteConfirmText(""); }} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "1px solid #374151", background: "transparent", color: "#9ca3af", fontWeight: 600, fontSize: "14px", cursor: "pointer", fontFamily: "inherit" }}>
+              <button onClick={() => { setShowDeleteConfirm2(false); setDeleteConfirmText(""); }} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "1px solid var(--ht-border-card)", background: "transparent", color: "var(--ht-text-secondary)", fontWeight: 600, fontSize: "14px", cursor: "pointer", fontFamily: "inherit" }}>
                 Cancel
               </button>
             </div>

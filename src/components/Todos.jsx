@@ -17,12 +17,12 @@ export function TodoItem({ todo, onToggle, onDelete, onEdit }) {
   const dueLabel = formatDueDate(todo.due_date, todo.due_time);
 
   return (
-    <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", padding: "14px 16px", background: "#111827", border: `1px solid ${isOverdue ? "#7f1d1d60" : "#1f2937"}`, borderRadius: "12px", marginBottom: "8px", boxShadow: "0 1px 3px rgba(0,0,0,0.2)", transition: "border-color 0.15s" }}>
-      <button onClick={() => onToggle(todo.id)} style={{ width: "20px", height: "20px", borderRadius: "6px", border: "1.5px solid", borderColor: todo.done ? "#10b981" : "#374151", background: todo.done ? "#10b981" : "transparent", cursor: "pointer", flexShrink: 0, marginTop: "1px", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "11px", fontWeight: 900, transition: "all 0.15s" }}>{todo.done ? "✓" : ""}</button>
+    <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", padding: "14px 16px", background: "var(--ht-bg-card, #111827)", border: `1px solid ${isOverdue ? "#7f1d1d60" : "var(--ht-border-card, #1f2937)"}`, borderRadius: "12px", marginBottom: "8px", boxShadow: "var(--ht-shadow-card, 0 1px 3px rgba(0,0,0,0.2))", transition: "border-color 0.15s" }}>
+      <button onClick={() => onToggle(todo.id)} style={{ width: "20px", height: "20px", borderRadius: "6px", border: "1.5px solid", borderColor: todo.done ? "#10b981" : "var(--ht-border-card, #374151)", background: todo.done ? "#10b981" : "transparent", cursor: "pointer", flexShrink: 0, marginTop: "1px", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "11px", fontWeight: 900, transition: "all 0.15s" }}>{todo.done ? "✓" : ""}</button>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ display: "block", color: todo.done ? "#4b5563" : "#e5e7eb", fontSize: "14px", textDecoration: todo.done ? "line-through" : "none" }}>{todo.text}</span>
+        <span style={{ display: "block", color: todo.done ? "var(--ht-text-muted, #4b5563)" : "var(--ht-text-primary, #e5e7eb)", fontSize: "14px", textDecoration: todo.done ? "line-through" : "none" }}>{todo.text}</span>
         {dueLabel && !todo.done && (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", marginTop: "5px", fontSize: "11px", fontWeight: 600, color: isOverdue ? "#f87171" : isDueToday ? "#fcd34d" : "#6b7280" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", marginTop: "5px", fontSize: "11px", fontWeight: 600, color: isOverdue ? "#f87171" : isDueToday ? "#fcd34d" : "var(--ht-text-muted, #6b7280)" }}>
             {isOverdue ? (
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12" y1="17" y2="17"/></svg>
             ) : (
@@ -34,10 +34,10 @@ export function TodoItem({ todo, onToggle, onDelete, onEdit }) {
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
         {todo.priority && <span style={{ fontSize: "10px", padding: "3px 10px", borderRadius: "999px", fontWeight: 700, border: "1px solid", background: todo.priority === "high" ? "#7f1d1d30" : todo.priority === "med" ? "#78350f30" : "#1c3a2a30", borderColor: todo.priority === "high" ? "#fca5a540" : todo.priority === "med" ? "#fcd34d40" : "#86efac40", color: todo.priority === "high" ? "#fca5a5" : todo.priority === "med" ? "#fcd34d" : "#86efac" }}>{todo.priority}</span>}
-        <button onClick={() => onEdit(todo)} style={{ background: "none", border: "none", cursor: "pointer", color: "#4b5563", padding: "4px", borderRadius: "6px", display: "flex", alignItems: "center" }} title="Edit Task">
+        <button onClick={() => onEdit(todo)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ht-text-muted, #4b5563)", padding: "4px", borderRadius: "6px", display: "flex", alignItems: "center" }} title="Edit Task">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
         </button>
-        <button onClick={() => onDelete(todo.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#374151", padding: "4px", borderRadius: "6px", display: "flex", alignItems: "center" }} title="Delete Task">
+        <button onClick={() => onDelete(todo.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ht-text-muted, #374151)", padding: "4px", borderRadius: "6px", display: "flex", alignItems: "center" }} title="Delete Task">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
         </button>
       </div>

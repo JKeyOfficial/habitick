@@ -72,3 +72,39 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- 5. Cross-device theme preference on profiles (dark/light)
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS theme TEXT DEFAULT 'dark';
+
+-- 6. Standalone Docs / Journaling companion table (docs.habitick.app)
+CREATE TABLE IF NOT EXISTS docs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL DEFAULT '',
+  content TEXT NOT NULL DEFAULT '',
+  tag TEXT DEFAULT 'General',
+  is_pinned BOOLEAN DEFAULT FALSE,
+  is_archived BOOLEAN DEFAULT FALSE,
+  word_count INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE docs ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can manage their own docs' AND tablename = 'docs') THEN
+    CREATE POLICY "Users can manage their own docs" ON docs FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_docs_user_id_updated ON docs(user_id, updated_at DESC);
+
+-- 7. Security Hardening: Prevent client-side privilege escalation on profiles
+-- Revoke direct client update permissions on sensitive billing & role columns.
+-- These columns can only be modified by the Stripe webhook (service_role) or server functions.
+DO $$ BEGIN
+  REVOKE UPDATE (is_premium, is_lifetime, is_admin, stripe_customer_id, stripe_subscription_id) ON profiles FROM authenticated;
+EXCEPTION WHEN OTHERS THEN
+  NULL; -- Ignore if columns or permissions are already constrained
+END $$;
+

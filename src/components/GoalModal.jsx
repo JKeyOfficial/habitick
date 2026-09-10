@@ -19,9 +19,9 @@ export function GoalModal({ goal, onSave, onClose }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#000a", zIndex: 20000, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px", backdropFilter: "blur(4px)" }}>
-      <div style={{ background: "#111827", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "16px", padding: "24px", width: "100%", maxWidth: "420px", boxShadow: "0 20px 40px rgba(0,0,0,0.5)" }}>
-        <h2 style={{ margin: "0 0 20px", color: "#f9fafb", fontSize: "18px", fontFamily: "'Syne', sans-serif", fontWeight: 800 }}>
+    <div style={{ position: "fixed", inset: 0, background: "var(--ht-modal-overlay)", zIndex: 20000, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px", backdropFilter: "blur(4px)" }}>
+      <div style={{ background: "var(--ht-modal-bg)", border: "1px solid var(--ht-border-card)", borderRadius: "16px", padding: "24px", width: "100%", maxWidth: "420px", boxShadow: "var(--ht-shadow-card)" }}>
+        <h2 style={{ margin: "0 0 20px", color: "var(--ht-text-primary)", fontSize: "18px", fontFamily: "'Syne', sans-serif", fontWeight: 800 }}>
           {goal ? "Edit Goal" : "New Goal"}
         </h2>
 
@@ -60,7 +60,7 @@ export function GoalModal({ goal, onSave, onClose }) {
           value={targetDate} 
           onChange={e => setTargetDate(e.target.value)} 
           min={today}
-          style={{ ...S.input, marginBottom: "24px", colorScheme: "dark" }} 
+          style={{ ...S.input, marginBottom: "24px" }} 
         />
 
         {/* Actions */}

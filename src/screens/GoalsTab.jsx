@@ -39,10 +39,10 @@ export function GoalsTab({ goals = [], onAdd, onEdit, onToggle, onDelete }) {
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
         <div>
-          <h1 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "28px", margin: 0, color: "#fff", letterSpacing: "-0.02em" }}>
+          <h1 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "28px", margin: 0, color: "var(--ht-text-primary)", letterSpacing: "-0.02em" }}>
             Goals
           </h1>
-          <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#6b7280" }}>
+          <p style={{ margin: "4px 0 0", fontSize: "13px", color: "var(--ht-text-muted)" }}>
             Focus on your big, long-term milestones
           </p>
         </div>
@@ -70,15 +70,15 @@ export function GoalsTab({ goals = [], onAdd, onEdit, onToggle, onDelete }) {
 
       {/* Active Goals Section */}
       <div style={{ marginBottom: "32px", animation: "fadeUp 0.3s ease-out" }}>
-        <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "16px", color: "#9ca3af", margin: "0 0 14px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+        <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "16px", color: "var(--ht-text-secondary)", margin: "0 0 14px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
           Active Goals ({activeGoals.length})
         </h2>
 
         {activeGoals.length === 0 ? (
-          <div style={{ background: "#111827", border: "1px solid rgba(255,255,255,0.04)", borderRadius: "16px", padding: "40px 20px", textAlign: "center", color: "#4b5563" }}>
+          <div style={{ background: "var(--ht-bg-card)", border: "1px solid var(--ht-border-card)", borderRadius: "16px", padding: "40px 20px", textAlign: "center", color: "var(--ht-text-muted)" }}>
             <div style={{ fontSize: "36px", marginBottom: "12px" }}>🏅</div>
-            <div style={{ fontSize: "14px", fontWeight: 600, color: "#9ca3af" }}>No active goals</div>
-            <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>Set a long-term goal to track your biggest achievements!</div>
+            <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--ht-text-secondary)" }}>No active goals</div>
+            <div style={{ fontSize: "12px", color: "var(--ht-text-muted)", marginTop: "4px" }}>Set a long-term goal to track your biggest achievements!</div>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -88,14 +88,14 @@ export function GoalsTab({ goals = [], onAdd, onEdit, onToggle, onDelete }) {
                 <div
                   key={g.id}
                   style={{
-                    background: "rgba(22, 31, 48, 0.4)",
-                    border: "1px solid rgba(255, 255, 255, 0.05)",
+                    background: "var(--ht-bg-card)",
+                    border: "1px solid var(--ht-border-card)",
                     borderRadius: "16px",
                     padding: "16px 20px",
                     display: "flex",
                     alignItems: "center",
                     gap: "16px",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                    boxShadow: "var(--ht-shadow-card)",
                     transition: "all 0.2s ease"
                   }}
                 >
@@ -106,7 +106,7 @@ export function GoalsTab({ goals = [], onAdd, onEdit, onToggle, onDelete }) {
                       width: "22px",
                       height: "22px",
                       borderRadius: "50%",
-                      border: "2px solid rgba(255, 255, 255, 0.25)",
+                      border: "2px solid var(--ht-border-hover)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -115,22 +115,22 @@ export function GoalsTab({ goals = [], onAdd, onEdit, onToggle, onDelete }) {
                       flexShrink: 0
                     }}
                     onMouseEnter={e => e.currentTarget.style.borderColor = "#3b82f6"}
-                    onMouseLeave={e => e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.25)"}
+                    onMouseLeave={e => e.currentTarget.style.borderColor = "var(--ht-border-hover)"}
                   />
 
                   {/* Details */}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "15px", color: "#f9fafb", lineHeight: 1.3 }}>
+                    <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "15px", color: "var(--ht-text-primary)", lineHeight: 1.3 }}>
                       {g.title}
                     </div>
                     {g.description && (
-                      <div style={{ fontSize: "12px", color: "#9ca3af", marginTop: "4px", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <div style={{ fontSize: "12px", color: "var(--ht-text-secondary)", marginTop: "4px", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis" }}>
                         {g.description}
                       </div>
                     )}
                     {g.target_date && (
                       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "8px" }}>
-                        <span style={{ fontSize: "10.5px", color: "#6b7280", fontWeight: 500 }}>
+                        <span style={{ fontSize: "10.5px", color: "var(--ht-text-muted)", fontWeight: 500 }}>
                           Target: {formatDate(g.target_date)}
                         </span>
                         {status && (
@@ -158,7 +158,7 @@ export function GoalsTab({ goals = [], onAdd, onEdit, onToggle, onDelete }) {
                         background: "none",
                         border: "none",
                         cursor: "pointer",
-                        color: "#9ca3af",
+                        color: "var(--ht-text-secondary)",
                         padding: "6px",
                         borderRadius: "8px",
                         display: "flex",
@@ -174,7 +174,7 @@ export function GoalsTab({ goals = [], onAdd, onEdit, onToggle, onDelete }) {
                         background: "none",
                         border: "none",
                         cursor: "pointer",
-                        color: "#6b7280",
+                        color: "var(--ht-text-muted)",
                         padding: "6px",
                         borderRadius: "8px",
                         display: "flex",
@@ -182,7 +182,7 @@ export function GoalsTab({ goals = [], onAdd, onEdit, onToggle, onDelete }) {
                       }}
                       title="Delete Goal"
                       onMouseEnter={e => e.currentTarget.style.color = "#ef4444"}
-                      onMouseLeave={e => e.currentTarget.style.color = "#6b7280"}
+                      onMouseLeave={e => e.currentTarget.style.color = "var(--ht-text-muted)"}
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
                     </button>
@@ -196,12 +196,12 @@ export function GoalsTab({ goals = [], onAdd, onEdit, onToggle, onDelete }) {
 
       {/* Completed Goals Section */}
       <div style={{ animation: "fadeUp 0.4s ease-out" }}>
-        <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "16px", color: "#6b7280", margin: "0 0 14px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+        <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "16px", color: "var(--ht-text-muted)", margin: "0 0 14px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
           Completed Goals ({completedGoals.length})
         </h2>
 
         {completedGoals.length === 0 ? (
-          <div style={{ border: "1px dashed rgba(255,255,255,0.03)", borderRadius: "16px", padding: "20px", textAlign: "center", color: "#4b5563", fontSize: "12px" }}>
+          <div style={{ border: "1px dashed var(--ht-border-card)", borderRadius: "16px", padding: "20px", textAlign: "center", color: "var(--ht-text-muted)", fontSize: "12px" }}>
             Completed goals will be listed here.
           </div>
         ) : (
@@ -210,14 +210,14 @@ export function GoalsTab({ goals = [], onAdd, onEdit, onToggle, onDelete }) {
               <div
                 key={g.id}
                 style={{
-                  background: "rgba(22, 31, 48, 0.2)",
-                  border: "1px solid rgba(255, 255, 255, 0.02)",
+                  background: "var(--ht-bg-card-subtle)",
+                  border: "1px solid var(--ht-border-card)",
                   borderRadius: "16px",
                   padding: "14px 20px",
                   display: "flex",
                   alignItems: "center",
                   gap: "16px",
-                  opacity: 0.6
+                  opacity: 0.75
                 }}
               >
                 {/* Completed Checkbox */}
@@ -243,16 +243,16 @@ export function GoalsTab({ goals = [], onAdd, onEdit, onToggle, onDelete }) {
 
                 {/* Details */}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "15px", color: "#9ca3af", textDecoration: "line-through", lineHeight: 1.3 }}>
+                  <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "15px", color: "var(--ht-text-muted)", textDecoration: "line-through", lineHeight: 1.3 }}>
                     {g.title}
                   </div>
                   {g.description && (
-                    <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px", lineHeight: 1.4, textDecoration: "line-through" }}>
+                    <div style={{ fontSize: "12px", color: "var(--ht-text-muted)", marginTop: "4px", lineHeight: 1.4, textDecoration: "line-through" }}>
                       {g.description}
                     </div>
                   )}
                   {g.completed_at && (
-                    <div style={{ fontSize: "10px", color: "#4b5563", fontWeight: 500, marginTop: "6px" }}>
+                    <div style={{ fontSize: "10px", color: "var(--ht-text-muted)", fontWeight: 500, marginTop: "6px" }}>
                       Completed on {new Date(g.completed_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
                     </div>
                   )}
@@ -266,7 +266,7 @@ export function GoalsTab({ goals = [], onAdd, onEdit, onToggle, onDelete }) {
                       background: "none",
                       border: "none",
                       cursor: "pointer",
-                      color: "#4b5563",
+                      color: "var(--ht-text-muted)",
                       padding: "6px",
                       borderRadius: "8px",
                       display: "flex",
@@ -274,7 +274,7 @@ export function GoalsTab({ goals = [], onAdd, onEdit, onToggle, onDelete }) {
                     }}
                     title="Delete Goal"
                     onMouseEnter={e => e.currentTarget.style.color = "#ef4444"}
-                    onMouseLeave={e => e.currentTarget.style.color = "#4b5563"}
+                    onMouseLeave={e => e.currentTarget.style.color = "var(--ht-text-muted)"}
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
                   </button>

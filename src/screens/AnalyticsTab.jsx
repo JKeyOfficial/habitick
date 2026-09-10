@@ -53,31 +53,31 @@ function MoodInsights({ journalEntries, today }) {
 
   return (
     <div style={{
-      background: "linear-gradient(135deg, rgba(22, 31, 48, 0.4) 0%, rgba(13, 17, 23, 0.5) 100%)",
-      border: "1px solid rgba(255, 255, 255, 0.05)",
+      background: "var(--ht-bg-card)",
+      border: "1px solid var(--ht-border-card)",
       borderRadius: "20px",
       padding: "22px",
       marginTop: "20px",
-      boxShadow: "0 8px 32px rgba(0,0,0,0.3)"
+      boxShadow: "var(--ht-shadow-card)"
     }}>
       <div style={{ display: "flex", alignItems: "center", justifyItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
-        <h3 style={{ margin: 0, fontFamily: "'Syne', sans-serif", color: "#f9fafb", fontWeight: 800, fontSize: "15px", letterSpacing: "-0.01em" }}>Mood Insights</h3>
+        <h3 style={{ margin: 0, fontFamily: "'Syne', sans-serif", color: "var(--ht-text-primary)", fontWeight: 800, fontSize: "15px", letterSpacing: "-0.01em" }}>Mood Insights</h3>
         <span style={{ fontSize: "10px", padding: "3px 10px", borderRadius: "999px", background: "rgba(59, 130, 246, 0.15)", border: "1px solid rgba(59, 130, 246, 0.25)", color: "#60a5fa", fontWeight: 700 }}>Premium</span>
       </div>
       <div style={{ display: "flex", gap: "8px", marginBottom: "20px" }}>
         {Object.entries({ great: "🌟", good: "😊", okay: "😐", bad: "😔" }).map(([mood, emoji]) => (
-          <div key={mood} style={{ flex: 1, background: "rgba(255,255,255,0.02)", borderRadius: "12px", padding: "12px 8px", textAlign: "center", border: "1px solid rgba(255, 255, 255, 0.04)" }}>
+          <div key={mood} style={{ flex: 1, background: "var(--ht-bg-card-subtle)", borderRadius: "12px", padding: "12px 8px", textAlign: "center", border: "1px solid var(--ht-border-card)" }}>
             <div style={{ fontSize: "18px", marginBottom: "4px" }}>{emoji}</div>
-            <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "20px", color: weekCounts[mood] > 0 ? "#f9fafb" : "#374151" }}>{weekCounts[mood]}</div>
-            <div style={{ fontSize: "10px", color: "#4b5563", marginTop: "2px", textTransform: "capitalize" }}>{mood}</div>
+            <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "20px", color: weekCounts[mood] > 0 ? "var(--ht-text-primary)" : "var(--ht-text-muted)" }}>{weekCounts[mood]}</div>
+            <div style={{ fontSize: "10px", color: "var(--ht-text-muted)", marginTop: "2px", textTransform: "capitalize" }}>{mood}</div>
           </div>
         ))}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
         {insights.map((ins, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: "10px", background: "rgba(255,255,255,0.01)", borderRadius: "10px", padding: "12px 14px", border: "1px solid rgba(255,255,255,0.03)" }}>
+          <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: "10px", background: "var(--ht-bg-card-subtle)", borderRadius: "10px", padding: "12px 14px", border: "1px solid var(--ht-border-card)" }}>
             <span style={{ fontSize: "16px", flexShrink: 0 }}>{ins.emoji}</span>
-            <span style={{ fontSize: "13px", color: "#9ca3af", lineHeight: 1.5 }}>{ins.text}</span>
+            <span style={{ fontSize: "13px", color: "var(--ht-text-secondary)", lineHeight: 1.5 }}>{ins.text}</span>
           </div>
         ))}
       </div>
@@ -87,7 +87,7 @@ function MoodInsights({ journalEntries, today }) {
 
 function parseBold(text) {
   const parts = text.split(/\*\*(.*?)\*\*/g);
-  return parts.map((part, i) => i % 2 === 1 ? <strong key={i} style={{ color: "#fff", fontWeight: 700 }}>{part}</strong> : part);
+  return parts.map((part, i) => i % 2 === 1 ? <strong key={i} style={{ color: "var(--ht-text-primary)", fontWeight: 700 }}>{part}</strong> : part);
 }
 
 function renderMarkdown(text) {
@@ -97,7 +97,7 @@ function renderMarkdown(text) {
     if (!clean) return <div key={idx} style={{ height: "8px" }} />;
 
     if (clean.startsWith("### ")) {
-      return <h5 key={idx} style={{ margin: "14px 0 6px", color: "#fff", fontSize: "13px", fontWeight: 700 }}>{clean.substring(4)}</h5>;
+      return <h5 key={idx} style={{ margin: "14px 0 6px", color: "var(--ht-text-primary)", fontSize: "13px", fontWeight: 700 }}>{clean.substring(4)}</h5>;
     }
     if (clean.startsWith("## ") || clean.startsWith("# ")) {
       const val = clean.startsWith("## ") ? clean.substring(3) : clean.substring(2);
@@ -109,12 +109,12 @@ function renderMarkdown(text) {
       return (
         <div key={idx} style={{ display: "flex", gap: "8px", alignItems: "flex-start", margin: "4px 0 4px 8px" }}>
           <span style={{ color: "#a78bfa", fontSize: "12px", marginTop: "2px" }}>•</span>
-          <span style={{ fontSize: "13px", color: "#9ca3af", lineHeight: 1.4 }}>{parseBold(val)}</span>
+          <span style={{ fontSize: "13px", color: "var(--ht-text-secondary)", lineHeight: 1.4 }}>{parseBold(val)}</span>
         </div>
       );
     }
 
-    return <p key={idx} style={{ margin: "0 0 8px", fontSize: "13px", color: "#d1d5db", lineHeight: 1.5 }}>{parseBold(clean)}</p>;
+    return <p key={idx} style={{ margin: "0 0 8px", fontSize: "13px", color: "var(--ht-text-primary)", lineHeight: 1.5 }}>{parseBold(clean)}</p>;
   });
 }
 
@@ -525,25 +525,25 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
   if (!isPremium) {
     return (
       <div style={{
-        background: "linear-gradient(135deg, rgba(167, 139, 250, 0.02) 0%, rgba(13, 17, 23, 0.4) 100%)",
-        border: "1px solid rgba(255, 255, 255, 0.05)",
+        background: "var(--ht-bg-card)",
+        border: "1px solid var(--ht-border-card)",
         borderRadius: "20px",
         padding: "24px",
         marginTop: "20px",
-        boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
+        boxShadow: "var(--ht-shadow-card)",
         position: "relative",
         overflow: "hidden"
       }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <span style={{ fontSize: "20px" }}>✨</span>
-            <h3 style={{ margin: 0, fontFamily: "'Syne', sans-serif", color: "#fff", fontWeight: 800, fontSize: "15px", letterSpacing: "-0.01em" }}>AI Performance Coach</h3>
+            <h3 style={{ margin: 0, fontFamily: "'Syne', sans-serif", color: "var(--ht-text-primary)", fontWeight: 800, fontSize: "15px", letterSpacing: "-0.01em" }}>AI Performance Coach</h3>
           </div>
           <span style={{ fontSize: "10px", padding: "3px 10px", borderRadius: "999px", background: "rgba(167, 139, 250, 0.15)", border: "1px solid rgba(167, 139, 250, 0.25)", color: "#c084fc", fontWeight: 700 }}>Premium</span>
         </div>
         <div style={{ padding: "20px 10px", display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", textAlign: "center" }}>
           <span style={{ fontSize: "32px" }}>🔒</span>
-          <p style={{ color: "#9ca3af", fontSize: "13px", margin: "0 auto", lineHeight: 1.5, maxWidth: "340px" }}>
+          <p style={{ color: "var(--ht-text-secondary)", fontSize: "13px", margin: "0 auto", lineHeight: 1.5, maxWidth: "340px" }}>
             Unlock warm, personalized weekly and monthly coaching summaries powered by Gemini AI. Upgrade to Premium for full access.
           </p>
         </div>
@@ -553,26 +553,26 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
 
   return (
     <div style={{
-      background: "linear-gradient(135deg, rgba(167, 139, 250, 0.05) 0%, rgba(13, 17, 23, 0.4) 100%)",
-      border: "1px solid rgba(167, 139, 250, 0.15)",
+      background: "var(--ht-bg-card)",
+      border: "1px solid var(--ht-border-card)",
       borderRadius: "20px",
       padding: "24px",
       marginTop: "20px",
-      boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
+      boxShadow: "var(--ht-shadow-card)",
       position: "relative",
       overflow: "hidden"
     }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <span style={{ fontSize: "20px" }}>✨</span>
-          <h3 style={{ margin: 0, fontFamily: "'Syne', sans-serif", color: "#fff", fontWeight: 800, fontSize: "15px", letterSpacing: "-0.01em" }}>AI Performance Coach</h3>
+          <h3 style={{ margin: 0, fontFamily: "'Syne', sans-serif", color: "var(--ht-text-primary)", fontWeight: 800, fontSize: "15px", letterSpacing: "-0.01em" }}>AI Performance Coach</h3>
         </div>
         <span style={{ fontSize: "10px", padding: "3px 10px", borderRadius: "999px", background: "rgba(167, 139, 250, 0.15)", border: "1px solid rgba(167, 139, 250, 0.25)", color: "#c084fc", fontWeight: 700 }}>Premium</span>
       </div>
 
       {loadingStep === 0 && (
         <div style={{ textAlign: "center", padding: "20px 10px" }}>
-          <p style={{ color: "#9ca3af", fontSize: "13px", margin: "0 0 16px", lineHeight: 1.5 }}>
+          <p style={{ color: "var(--ht-text-secondary)", fontSize: "13px", margin: "0 0 16px", lineHeight: 1.5 }}>
             Generate a personalized weekly or monthly AI Coaching Review based on your logged habits, completed tasks, and journal entries.
           </p>
           <button
@@ -616,14 +616,14 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
 
       {loadingStep === 4 && summary && (
         <div style={{ display: "flex", flexDirection: "column", gap: "16px", animation: "fadeUp 0.3s ease-out" }}>
-          <div style={{ fontSize: "13.5px", color: "#d1d5db", lineHeight: 1.6 }}>
+          <div style={{ fontSize: "13.5px", color: "var(--ht-text-primary)", lineHeight: 1.6 }}>
             {renderMarkdown(summary.text)}
           </div>
 
           {/* Feedback Loop */}
           <div style={{
-            background: "rgba(255, 255, 255, 0.02)",
-            border: "1px solid rgba(255, 255, 255, 0.04)",
+            background: "var(--ht-bg-card-subtle)",
+            border: "1px solid var(--ht-border-card)",
             borderRadius: "12px",
             padding: "12px 14px",
             marginTop: "8px"
@@ -631,7 +631,7 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
             {!feedbackSubmitted ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: "12px", color: "#9ca3af" }}>Was this coaching summary helpful?</span>
+                  <span style={{ fontSize: "12px", color: "var(--ht-text-secondary)" }}>Was this coaching summary helpful?</span>
                   <div style={{ display: "flex", gap: "8px" }}>
                     <button
                       onClick={() => {
@@ -640,10 +640,10 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
                         saveFeedback("up", "");
                       }}
                       style={{
-                        background: feedbackRating === "up" ? "rgba(34, 197, 94, 0.2)" : "rgba(255, 255, 255, 0.05)",
-                        border: `1px solid ${feedbackRating === "up" ? "#22c55e" : "rgba(255, 255, 255, 0.1)"}`,
+                        background: feedbackRating === "up" ? "rgba(34, 197, 94, 0.2)" : "var(--ht-bg-card)",
+                        border: `1px solid ${feedbackRating === "up" ? "#22c55e" : "var(--ht-border-card)"}`,
                         borderRadius: "8px",
-                        color: feedbackRating === "up" ? "#4ade80" : "#d1d5db",
+                        color: feedbackRating === "up" ? "#4ade80" : "var(--ht-text-primary)",
                         padding: "5px 10px",
                         fontSize: "12px",
                         fontWeight: 600,
@@ -655,10 +655,10 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
                     <button
                       onClick={() => setFeedbackRating("down")}
                       style={{
-                        background: feedbackRating === "down" ? "rgba(239, 68, 68, 0.2)" : "rgba(255, 255, 255, 0.05)",
-                        border: `1px solid ${feedbackRating === "down" ? "#ef4444" : "rgba(255, 255, 255, 0.1)"}`,
+                        background: feedbackRating === "down" ? "rgba(239, 68, 68, 0.2)" : "var(--ht-bg-card)",
+                        border: `1px solid ${feedbackRating === "down" ? "#ef4444" : "var(--ht-border-card)"}`,
                         borderRadius: "8px",
-                        color: feedbackRating === "down" ? "#f87171" : "#d1d5db",
+                        color: feedbackRating === "down" ? "#f87171" : "var(--ht-text-primary)",
                         padding: "5px 10px",
                         fontSize: "12px",
                         fontWeight: 600,
@@ -679,10 +679,10 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
                       style={{
                         width: "100%",
                         minHeight: "60px",
-                        background: "rgba(0, 0, 0, 0.2)",
-                        border: "1px solid rgba(255, 255, 255, 0.1)",
+                        background: "var(--ht-bg-input)",
+                        border: "1px solid var(--ht-border-card)",
                         borderRadius: "8px",
-                        color: "#fff",
+                        color: "var(--ht-text-primary)",
                         padding: "8px",
                         fontSize: "12px",
                         fontFamily: "inherit",
@@ -721,7 +721,7 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
 
           {/* Smart Suggestions Cards */}
           {suggestions && Array.isArray(suggestions) && suggestions.length > 0 && (
-            <div style={{ marginTop: "16px", borderTop: "1px solid rgba(255, 255, 255, 0.05)", paddingTop: "16px" }}>
+            <div style={{ marginTop: "16px", borderTop: "1px solid var(--ht-border-card)", paddingTop: "16px" }}>
               <h4 style={{ margin: "0 0 12px 0", fontFamily: "'Syne', sans-serif", fontSize: "13px", fontWeight: 800, color: "#a78bfa" }}>Smart Suggestions</h4>
               <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                 {suggestions.map((s, idx) => {
@@ -746,8 +746,8 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
 
                   return (
                     <div key={idx} style={{
-                      background: "rgba(255, 255, 255, 0.015)",
-                      border: "1px solid rgba(255, 255, 255, 0.03)",
+                      background: "var(--ht-bg-card-subtle)",
+                      border: "1px solid var(--ht-border-card)",
                       borderRadius: "12px",
                       padding: "12px 14px",
                       display: "flex",
@@ -755,15 +755,15 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
                       gap: "8px"
                     }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "12.5px", color: "#fff" }}>{s.title}</span>
+                        <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "12.5px", color: "var(--ht-text-primary)" }}>{s.title}</span>
                         <span style={{ fontSize: "9px", padding: "1px 6px", borderRadius: "999px", background: badgeBg, border: `1px solid ${borderCol}`, color: badgeColor, fontWeight: 700 }}>
                           {badgeText}
                         </span>
                       </div>
 
                       <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                        <p style={{ margin: 0, fontSize: "11.5px", color: "#6b7280", lineHeight: 1.4 }}>{s.insight}</p>
-                        <p style={{ margin: 0, fontSize: "12px", color: "#d1d5db", fontWeight: 600, lineHeight: 1.4 }}>💡 {s.actionable}</p>
+                        <p style={{ margin: 0, fontSize: "11.5px", color: "var(--ht-text-muted)", lineHeight: 1.4 }}>{s.insight}</p>
+                        <p style={{ margin: 0, fontSize: "12px", color: "var(--ht-text-secondary)", fontWeight: 600, lineHeight: 1.4 }}>💡 {s.actionable}</p>
                       </div>
 
                       {isHabitCreator && onRecommendHabit && (
@@ -793,8 +793,8 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
             </div>
           )}
 
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255, 255, 255, 0.05)", paddingTop: "14px", marginTop: "8px" }}>
-            <span style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--ht-border-card)", paddingTop: "14px", marginTop: "8px" }}>
+            <span style={{ fontSize: "11px", color: "var(--ht-text-muted)", fontWeight: 600 }}>
               {hasCooldownActive && !profile?.is_admin ? `Cached (Refreshes in ${getCooldownRemainingStr()})` : "Ready to regenerate"}
             </span>
             {(!hasCooldownActive || profile?.is_admin) && (
@@ -803,9 +803,9 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
                 disabled={hasCooldownActive && !profile?.is_admin}
                 style={{
                   background: (hasCooldownActive && !profile?.is_admin) ? "none" : "rgba(167, 139, 250, 0.08)",
-                  border: (hasCooldownActive && !profile?.is_admin) ? "1px solid rgba(255,255,255,0.05)" : "1px solid rgba(167, 139, 250, 0.2)",
+                  border: (hasCooldownActive && !profile?.is_admin) ? "1px solid var(--ht-border-card)" : "1px solid rgba(167, 139, 250, 0.2)",
                   borderRadius: "8px",
-                  color: (hasCooldownActive && !profile?.is_admin) ? "#4b5563" : "#a78bfa",
+                  color: (hasCooldownActive && !profile?.is_admin) ? "var(--ht-text-muted)" : "#a78bfa",
                   fontSize: "11px",
                   fontWeight: 600,
                   padding: "6px 12px",
@@ -946,7 +946,7 @@ export function AnalyticsTab({ habits, todos, goals = [], pausePeriods, isPremiu
 
   return (
     <div style={{ maxWidth: "1000px", margin: "0 auto", padding: "10px 0" }}>
-      <h1 style={{ fontFamily: "'Syne', sans-serif", textAlign: "center", color: "#f9fafb", fontWeight: 800, fontSize: "28px", marginBottom: "24px", letterSpacing: "-0.02em" }}>Your Analytics</h1>
+      <h1 style={{ fontFamily: "'Syne', sans-serif", textAlign: "center", color: "var(--ht-text-primary)", fontWeight: 800, fontSize: "28px", marginBottom: "24px", letterSpacing: "-0.02em" }}>Your Analytics</h1>
 
       <div style={{ display: "flex", gap: "8px", justifyContent: "center", marginBottom: "28px" }}>
         {[["7days", "7 Days"], ["30days", "30 Days"], ["year", "Year"], ["all", "All Time"]].map(([val, label]) => (
@@ -956,9 +956,9 @@ export function AnalyticsTab({ habits, todos, goals = [], pausePeriods, isPremiu
             style={{
               padding: "7px 18px",
               borderRadius: "999px",
-              border: range === val ? "1px solid #2563eb" : "1px solid rgba(255,255,255,0.08)",
-              background: range === val ? "rgba(37,99,235,0.15)" : "rgba(255,255,255,0.02)",
-              color: range === val ? "#60a5fa" : "#9ca3af",
+              border: range === val ? "1px solid #2563eb" : "1px solid var(--ht-border-card)",
+              background: range === val ? "rgba(37,99,235,0.15)" : "var(--ht-bg-card-subtle)",
+              color: range === val ? "var(--ht-accent)" : "var(--ht-text-secondary)",
               cursor: "pointer",
               fontWeight: 700,
               fontSize: "12.5px",
@@ -974,30 +974,30 @@ export function AnalyticsTab({ habits, todos, goals = [], pausePeriods, isPremiu
       <div className="ht-analytics-grid">
         {stats.map((stat, i) => (
           <div key={i} style={{
-            background: "linear-gradient(135deg, rgba(22, 31, 48, 0.4) 0%, rgba(13, 17, 23, 0.5) 100%)",
-            border: "1px solid rgba(255, 255, 255, 0.05)",
+            background: "var(--ht-bg-card)",
+            border: "1px solid var(--ht-border-card)",
             borderRadius: "20px",
             padding: "20px 18px",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.3)"
+            boxShadow: "var(--ht-shadow-card)"
           }}>
             <div style={{ marginBottom: "10px", display: "flex" }}>{stat.icon}</div>
-            <div style={{ color: "#6b7280", fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px" }}>{stat.label}</div>
-            <div style={{ fontFamily: "'Syne', sans-serif", color: "#f9fafb", fontWeight: 800, fontSize: "26px" }}>{stat.value}</div>
-            {stat.sub && <div style={{ color: "#4b5563", fontSize: "10px", marginTop: "6px" }}>{stat.sub}</div>}
+            <div style={{ color: "var(--ht-text-muted)", fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px" }}>{stat.label}</div>
+            <div style={{ fontFamily: "'Syne', sans-serif", color: "var(--ht-text-primary)", fontWeight: 800, fontSize: "26px" }}>{stat.value}</div>
+            {stat.sub && <div style={{ color: "var(--ht-text-muted)", fontSize: "10px", marginTop: "6px" }}>{stat.sub}</div>}
           </div>
         ))}
       </div>
 
       <div style={{
-        background: "linear-gradient(135deg, rgba(22, 31, 48, 0.4) 0%, rgba(13, 17, 23, 0.5) 100%)",
-        border: "1px solid rgba(255, 255, 255, 0.05)",
+        background: "var(--ht-bg-card)",
+        border: "1px solid var(--ht-border-card)",
         borderRadius: "20px",
         padding: "22px",
-        boxShadow: "0 8px 32px rgba(0,0,0,0.3)"
+        boxShadow: "var(--ht-shadow-card)"
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-          <h3 style={{ margin: 0, fontFamily: "'Syne', sans-serif", color: "#f9fafb", fontWeight: 800, fontSize: "14px", letterSpacing: "-0.01em" }}>{chartTitle}</h3>
-          <div style={{ display: "flex", gap: "16px", fontSize: "11px", color: "#9ca3af" }}>
+          <h3 style={{ margin: 0, fontFamily: "'Syne', sans-serif", color: "var(--ht-text-primary)", fontWeight: 800, fontSize: "14px", letterSpacing: "-0.01em" }}>{chartTitle}</h3>
+          <div style={{ display: "flex", gap: "16px", fontSize: "11px", color: "var(--ht-text-secondary)" }}>
             <span><span style={{ display: "inline-block", width: "10px", height: "10px", background: "#3b82f6", borderRadius: "3px", marginRight: "6px" }} />Habits</span>
             <span><span style={{ display: "inline-block", width: "10px", height: "10px", background: "#22c55e", borderRadius: "3px", marginRight: "6px" }} />Tasks</span>
           </div>
@@ -1021,7 +1021,7 @@ export function AnalyticsTab({ habits, todos, goals = [], pausePeriods, isPremiu
                   boxShadow: d.tasks > 0 ? "0 0 8px rgba(34, 197, 94, 0.4)" : "none"
                 }} />
               </div>
-              {finalChartData.length <= 30 && <div style={{ color: "#6b7280", fontSize: "9px", marginTop: "6px", whiteSpace: "nowrap" }}>{d.label}</div>}
+              {finalChartData.length <= 30 && <div style={{ color: "var(--ht-text-muted)", fontSize: "9px", marginTop: "6px", whiteSpace: "nowrap" }}>{d.label}</div>}
             </div>
           ))}
         </div>
@@ -1042,14 +1042,14 @@ export function AnalyticsTab({ habits, todos, goals = [], pausePeriods, isPremiu
         />
       ) : (
         <div style={{
-          background: "linear-gradient(135deg, rgba(167, 139, 250, 0.03) 0%, rgba(13, 17, 23, 0.4) 100%)",
-          border: "1px solid rgba(167, 139, 250, 0.08)",
+          background: "var(--ht-bg-card-subtle)",
+          border: "1px solid var(--ht-border-card)",
           borderRadius: "20px",
           padding: "20px 24px",
           marginTop: "20px",
           textAlign: "center"
         }}>
-          <p style={{ color: "#6b7280", fontSize: "13px", margin: 0 }}>
+          <p style={{ color: "var(--ht-text-muted)", fontSize: "13px", margin: 0 }}>
             AI Coaching Summaries are optimized for **7 Days** and **30 Days** viewframes. Select one of those ranges to check your report.
           </p>
         </div>

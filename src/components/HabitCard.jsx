@@ -38,11 +38,11 @@ export function HabitCard({
     <div
       className="ht-habit-card"
       style={{ 
-        background: isDropTarget ? "#1e293b" : "rgba(22, 31, 48, 0.4)", 
-        border: `1px solid ${isDropTarget ? "#3b82f6" : "rgba(255, 255, 255, 0.05)"}`, 
+        background: isDropTarget ? "var(--ht-bg-card-hover, #1e293b)" : "var(--ht-bg-card, rgba(22, 31, 48, 0.4))", 
+        border: `1px solid ${isDropTarget ? "#3b82f6" : "var(--ht-border-card, rgba(255, 255, 255, 0.05))"}`, 
         borderRadius: "16px", 
         padding: "14px 16px", 
-        boxShadow: "0 4px 12px rgba(0,0,0,0.1)", 
+        boxShadow: "var(--ht-shadow-card, 0 4px 12px rgba(0,0,0,0.1))", 
         transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)", 
         display: "flex", 
         flexDirection: "column",
@@ -72,7 +72,7 @@ export function HabitCard({
             <div 
               {...dragHandleProps}
               style={{ 
-                color: "#4b5563", 
+                color: "var(--ht-text-muted, #4b5563)", 
                 fontSize: "16px", 
                 padding: "4px", 
                 cursor: "grab", 
@@ -94,7 +94,7 @@ export function HabitCard({
               fontFamily: "'Syne', sans-serif", 
               fontWeight: 700, 
               fontSize: "15px", 
-              color: doneOnActiveDate ? "#9ca3af" : "#f9fafb", 
+              color: doneOnActiveDate ? "var(--ht-text-muted, #9ca3af)" : "var(--ht-text-primary, #f9fafb)", 
               textDecoration: doneOnActiveDate ? "line-through" : "none",
               letterSpacing: "-0.01em", 
               lineHeight: 1.2,
@@ -103,17 +103,17 @@ export function HabitCard({
               {habit.name}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "4px" }}>
-              <span style={{ fontSize: "11px", color: "#6b7280", fontWeight: 500, display: "flex", alignItems: "center", gap: "3px" }}>
+              <span style={{ fontSize: "11px", color: "var(--ht-text-secondary, #6b7280)", fontWeight: 500, display: "flex", alignItems: "center", gap: "3px" }}>
                 {streak} day streak
               </span>
-              <span style={{ color: "#374151", fontSize: "10px" }}>|</span>
+              <span style={{ color: "var(--ht-border-card, #374151)", fontSize: "10px" }}>|</span>
               {habit.frequency === "weekly" && habit.days && (
-                <span style={{ fontSize: "10px", color: "#6b7280" }}>
+                <span style={{ fontSize: "10px", color: "var(--ht-text-secondary, #6b7280)" }}>
                   {habit.days.map(d => DAYS_SHORT[d]).join(", ")}
                 </span>
               )}
               {habit.frequency === "daily" && (
-                <span style={{ fontSize: "10px", color: "#6b7280" }}>Daily</span>
+                <span style={{ fontSize: "10px", color: "var(--ht-text-secondary, #6b7280)" }}>Daily</span>
               )}
             </div>
           </div>

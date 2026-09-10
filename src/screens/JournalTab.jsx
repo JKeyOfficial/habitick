@@ -170,37 +170,37 @@ export function JournalTab({ journalEntries, setJournalEntries, session, today, 
       {/* Date nav */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "28px" }}>
         <div style={{ display: "flex", gap: "6px" }}>
-          <button onClick={jumpPrevWritten} disabled={!hasPrevWritten} title="Previous entry" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #374151", background: "#111827", color: hasPrevWritten ? "#9ca3af" : "#2d3748", cursor: hasPrevWritten ? "pointer" : "default", fontSize: "16px", fontWeight: 700 }}>«</button>
-          <button onClick={goBack} title="Previous day" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #374151", background: "#111827", color: "#9ca3af", cursor: "pointer", fontSize: "16px", fontWeight: 700 }}>‹</button>
+          <button onClick={jumpPrevWritten} disabled={!hasPrevWritten} title="Previous entry" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--ht-border-card)", background: "var(--ht-bg-card)", color: hasPrevWritten ? "var(--ht-text-primary)" : "var(--ht-text-muted)", cursor: hasPrevWritten ? "pointer" : "default", fontSize: "16px", fontWeight: 700, opacity: hasPrevWritten ? 1 : 0.4 }}>«</button>
+          <button onClick={goBack} title="Previous day" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--ht-border-card)", background: "var(--ht-bg-card)", color: "var(--ht-text-primary)", cursor: "pointer", fontSize: "16px", fontWeight: 700 }}>‹</button>
         </div>
         <div style={{ textAlign: "center" }}>
-          <div style={{ color: "#f9fafb", fontWeight: 700, fontSize: "16px" }}>
+          <div style={{ color: "var(--ht-text-primary)", fontWeight: 700, fontSize: "16px" }}>
             {isToday ? "Today" : formatDisplayDate(currentDate)}
           </div>
-          {isToday && <div style={{ color: "#6b7280", fontSize: "12px", marginTop: "2px" }}>{formatDisplayDate(currentDate)}</div>}
+          {isToday && <div style={{ color: "var(--ht-text-muted)", fontSize: "12px", marginTop: "2px" }}>{formatDisplayDate(currentDate)}</div>}
           {entry && <div style={{ color: "#22c55e", fontSize: "11px", marginTop: "4px" }}>● Entry saved</div>}
         </div>
         <div style={{ display: "flex", gap: "6px" }}>
-          <button onClick={goForward} disabled={isToday} title="Next day" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #374151", background: "#111827", color: isToday ? "#2d3748" : "#9ca3af", cursor: isToday ? "default" : "pointer", fontSize: "16px", fontWeight: 700 }}>›</button>
-          <button onClick={jumpNextWritten} disabled={!hasNextWritten} title="Next entry" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #374151", background: "#111827", color: hasNextWritten ? "#9ca3af" : "#2d3748", cursor: hasNextWritten ? "pointer" : "default", fontSize: "16px", fontWeight: 700 }}>»</button>
+          <button onClick={goForward} disabled={isToday} title="Next day" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--ht-border-card)", background: "var(--ht-bg-card)", color: isToday ? "var(--ht-text-muted)" : "var(--ht-text-primary)", cursor: isToday ? "default" : "pointer", fontSize: "16px", fontWeight: 700, opacity: isToday ? 0.4 : 1 }}>›</button>
+          <button onClick={jumpNextWritten} disabled={!hasNextWritten} title="Next entry" style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--ht-border-card)", background: "var(--ht-bg-card)", color: hasNextWritten ? "var(--ht-text-primary)" : "var(--ht-text-muted)", cursor: hasNextWritten ? "pointer" : "default", fontSize: "16px", fontWeight: 700, opacity: hasNextWritten ? 1 : 0.4 }}>»</button>
         </div>
       </div>
 
       {/* Page */}
       <div style={{ 
-        background: "#111827", 
-        border: "1px solid rgba(255, 255, 255, 0.05)", 
+        background: "var(--ht-bg-card)", 
+        border: "1px solid var(--ht-border-card)", 
         borderRadius: "16px", 
         padding: "24px", 
         position: "relative",
-        boxShadow: "0 8px 32px rgba(0, 0, 0, 0.2)"
+        boxShadow: "var(--ht-shadow-card)"
       }}>
         
         {/* Floating rating bar modeled after the calendar strip */}
         <div style={{ 
           display: "flex", 
-          background: "rgba(17, 22, 34, 0.6)", 
-          border: "1px solid rgba(255, 255, 255, 0.05)", 
+          background: "var(--ht-bg-card-subtle)", 
+          border: "1px solid var(--ht-border-card)", 
           borderRadius: "16px", 
           padding: "6px", 
           marginBottom: "20px" 
@@ -221,7 +221,7 @@ export function JournalTab({ journalEntries, setJournalEntries, session, today, 
                   border: "none",
                   borderRadius: "12px",
                   padding: "10px 4px",
-                  color: isSel ? "#fff" : "#9ca3af",
+                  color: isSel ? "#fff" : "var(--ht-text-secondary)",
                   cursor: "pointer",
                   transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
                   boxShadow: isSel ? "0 4px 12px rgba(37,99,235,0.3)" : "none",
@@ -250,7 +250,7 @@ export function JournalTab({ journalEntries, setJournalEntries, session, today, 
             padding: "8px 0", 
             background: "transparent", 
             border: "none", 
-            color: "#e5e7eb", 
+            color: "var(--ht-text-primary)", 
             fontSize: "15px", 
             fontFamily: "inherit", 
             lineHeight: 1.7, 
@@ -260,14 +260,14 @@ export function JournalTab({ journalEntries, setJournalEntries, session, today, 
             cursor: isFuture ? "default" : "text" 
           }}
         />
-        <div style={{ display: "flex", justifyContent: "space-between", marginTop: "12px", borderTop: "1px solid rgba(255, 255, 255, 0.03)", paddingTop: "12px" }}>
-          <span style={{ fontSize: "11px", color: charsLeft < 100 ? "#f87171" : "#4b5563" }}>{charsLeft} characters remaining</span>
-          <span style={{ fontSize: "11px", color: saving ? "#6b7280" : "#22c55e", fontWeight: 600, minWidth: "60px", textAlign: "right" }}>{saving ? "Saving..." : saved ? "✓ Saved" : ""}</span>
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: "12px", borderTop: "1px solid var(--ht-border-card)", paddingTop: "12px" }}>
+          <span style={{ fontSize: "11px", color: charsLeft < 100 ? "#f87171" : "var(--ht-text-muted)" }}>{charsLeft} characters remaining</span>
+          <span style={{ fontSize: "11px", color: saving ? "var(--ht-text-muted)" : "#22c55e", fontWeight: 600, minWidth: "60px", textAlign: "right" }}>{saving ? "Saving..." : saved ? "✓ Saved" : ""}</span>
         </div>
       </div>
 
       {sortedDates.length > 0 && (
-        <div style={{ textAlign: "center", marginTop: "16px", color: "#4b5563", fontSize: "12px" }}>
+        <div style={{ textAlign: "center", marginTop: "16px", color: "var(--ht-text-muted)", fontSize: "12px" }}>
           {sortedDates.length} {sortedDates.length === 1 ? "entry" : "entries"} written
         </div>
       )}

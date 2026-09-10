@@ -75,7 +75,7 @@ export function HabitModal({ habit, profile, habits = [], onSave, onClose }) {
     <div style={{
       position: "fixed",
       inset: 0,
-      background: "rgba(6, 8, 12, 0.8)",
+      background: "var(--ht-modal-overlay)",
       backdropFilter: "blur(12px)",
       zIndex: 20000,
       display: "flex",
@@ -85,20 +85,20 @@ export function HabitModal({ habit, profile, habits = [], onSave, onClose }) {
     }}>
       <div
         style={{
-          background: "linear-gradient(135deg, rgba(22, 28, 45, 0.95) 0%, rgba(13, 17, 23, 0.98) 100%)",
-          border: "1px solid rgba(255, 255, 255, 0.08)",
+          background: "var(--ht-modal-bg)",
+          border: "1px solid var(--ht-border-card)",
           borderRadius: "24px",
           padding: "28px",
           width: "100%",
           maxWidth: "420px",
-          boxShadow: "0 20px 50px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.05)",
+          boxShadow: "var(--ht-shadow-card)",
           animation: "scaleUp 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)"
         }}
       >
         <h2 style={{
           margin: "0 0 20px",
           fontFamily: "'Syne', sans-serif",
-          color: "#f9fafb",
+          color: "var(--ht-text-primary)",
           fontWeight: 800,
           fontSize: "20px",
           letterSpacing: "-0.02em"
@@ -128,9 +128,9 @@ export function HabitModal({ habit, profile, habits = [], onSave, onClose }) {
                   style={{
                     padding: "6px 12px",
                     borderRadius: "999px",
-                    border: rec.isAI ? "1px solid rgba(167, 139, 250, 0.3)" : "1px solid rgba(255, 255, 255, 0.08)",
-                    background: rec.isAI ? "rgba(167, 139, 250, 0.08)" : "rgba(255, 255, 255, 0.02)",
-                    color: rec.isAI ? "#c084fc" : "#d1d5db",
+                    border: rec.isAI ? "1px solid rgba(167, 139, 250, 0.3)" : "1px solid var(--ht-border-card)",
+                    background: rec.isAI ? "rgba(167, 139, 250, 0.08)" : "var(--ht-bg-card-subtle)",
+                    color: rec.isAI ? "#c084fc" : "var(--ht-text-secondary)",
                     fontSize: "11.5px",
                     fontWeight: 700,
                     cursor: "pointer",
@@ -143,11 +143,11 @@ export function HabitModal({ habit, profile, habits = [], onSave, onClose }) {
                   className="ht-rec-btn"
                   onMouseEnter={e => {
                     e.currentTarget.style.transform = "scale(1.04)";
-                    e.currentTarget.style.background = rec.isAI ? "rgba(167, 139, 250, 0.15)" : "rgba(255, 255, 255, 0.06)";
+                    e.currentTarget.style.background = rec.isAI ? "rgba(167, 139, 250, 0.15)" : "var(--ht-bg-card-hover)";
                   }}
                   onMouseLeave={e => {
                     e.currentTarget.style.transform = "none";
-                    e.currentTarget.style.background = rec.isAI ? "rgba(167, 139, 250, 0.08)" : "rgba(255, 255, 255, 0.02)";
+                    e.currentTarget.style.background = rec.isAI ? "rgba(167, 139, 250, 0.08)" : "var(--ht-bg-card-subtle)";
                   }}
                 >
                   <span>{rec.emoji}</span>
@@ -164,8 +164,8 @@ export function HabitModal({ habit, profile, habits = [], onSave, onClose }) {
           onChange={e => setName(e.target.value)}
           style={{
             ...S.input,
-            background: "rgba(0, 0, 0, 0.25)",
-            border: "1px solid rgba(255, 255, 255, 0.08)",
+            background: "var(--ht-bg-input)",
+            border: "1px solid var(--ht-border-card)",
             marginBottom: "16px",
             fontSize: "15px"
           }}
@@ -184,9 +184,9 @@ export function HabitModal({ habit, profile, habits = [], onSave, onClose }) {
                 padding: "10px",
                 borderRadius: "10px",
                 border: "1px solid",
-                borderColor: frequency === f ? "#2563eb" : "rgba(255, 255, 255, 0.08)",
-                background: frequency === f ? "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)" : "rgba(255, 255, 255, 0.02)",
-                color: frequency === f ? "#fff" : "#9ca3af",
+                borderColor: frequency === f ? "#2563eb" : "var(--ht-border-card)",
+                background: frequency === f ? "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)" : "var(--ht-bg-card-subtle)",
+                color: frequency === f ? "#fff" : "var(--ht-text-secondary)",
                 cursor: "pointer",
                 fontWeight: 700,
                 fontSize: "13px",
@@ -213,9 +213,9 @@ export function HabitModal({ habit, profile, habits = [], onSave, onClose }) {
                     height: "36px",
                     borderRadius: "50%",
                     border: "1px solid",
-                    borderColor: days.includes(i) ? "#2563eb" : "rgba(255, 255, 255, 0.08)",
-                    background: days.includes(i) ? "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)" : "rgba(255, 255, 255, 0.02)",
-                    color: days.includes(i) ? "#fff" : "#9ca3af",
+                    borderColor: days.includes(i) ? "#2563eb" : "var(--ht-border-card)",
+                    background: days.includes(i) ? "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)" : "var(--ht-bg-card-subtle)",
+                    color: days.includes(i) ? "#fff" : "var(--ht-text-secondary)",
                     cursor: "pointer",
                     fontSize: "12px",
                     fontWeight: 700,
@@ -241,9 +241,8 @@ export function HabitModal({ habit, profile, habits = [], onSave, onClose }) {
             onChange={e => setReminderTime(e.target.value)}
             style={{
               ...S.input,
-              background: "rgba(0, 0, 0, 0.25)",
-              border: "1px solid rgba(255, 255, 255, 0.08)",
-              colorScheme: "dark",
+              background: "var(--ht-bg-input)",
+              border: "1px solid var(--ht-border-card)",
               fontSize: "15px"
             }}
           />
@@ -259,7 +258,7 @@ export function HabitModal({ habit, profile, habits = [], onSave, onClose }) {
               borderRadius: "12px",
               fontWeight: 700,
               fontSize: "14px",
-              border: "1px solid rgba(255,255,255,0.08)"
+              border: "1px solid var(--ht-border-card)"
             }}
           >
             Cancel
