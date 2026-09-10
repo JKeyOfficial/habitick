@@ -1502,7 +1502,7 @@ function HabiTick() {
           {/* Docs App Link with Automatic SSO */}
           <a
             href={(() => {
-              const base = window.location.hostname === "localhost" ? "/?tab=docs" : "https://docs.habitick.app";
+              const base = "/?tab=docs";
               if (session?.access_token && session?.refresh_token) {
                 return `${base}#access_token=${encodeURIComponent(session.access_token)}&refresh_token=${encodeURIComponent(session.refresh_token)}&token_type=bearer`;
               }
