@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase.js';
-import { setSharedAuthCookie } from '../lib/sso.js';
+import { setSharedAuthCookie, getSharedAuthCookie } from '../lib/sso.js';
 
 export function AuthModal({ isOpen, onClose, onAuthSuccess }) {
   const [mode, setMode] = useState('signin'); // 'signin' | 'signup' | 'forgot'
@@ -103,10 +103,123 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess }) {
   };
 
   // 4. Quick Cross-App Handoff (if user is active on app.habitick.app)
-  const handleSyncFromMainApp = () => {
+  const handleSyncFromMainApp = async () => {
+    setLoading(true);
+    setError(null);
+
+    // 1. Try reading shared cookie first right now
+    const cookieSso = getSharedAuthCookie();
+    if (cookieSso?.refresh_token) {
+      try {
+        let res = null;
+        if (cookieSso.access_token) {
+          res = await supabase.auth.setSession({
+            access_token: cookieSso.access_token,
+            refresh_token: cookieSso.refresh_token
+          });
+        }
+        if (!res?.data?.session) {
+          res = await supabase.auth.refreshSession({
+            refresh_token: cookieSso.refresh_token
+          });
+        }
+        if (res?.data?.session) {
+          setSharedAuthCookie(res.data.session);
+          if (onAuthSuccess) onAuthSuccess(res.data.session);
+          onClose();
+          return;
+        }
+      } catch (e) {
+        console.warn('Cookie SSO direct attempt warning:', e);
+      }
+    }
+
     const mainAppBase = window.location.hostname === 'localhost' 
       ? 'http://localhost:5173' 
       : 'https://app.habitick.app';
+
+    // 2. Try fast popup SSO (doesn't navigate away, instantaneous 100ms sync)
+    const popupUrl = `${mainAppBase}/?sso_popup=true`;
+    let popup = null;
+    try {
+      popup = window.open(popupUrl, 'ht_sso_sync', 'width=460,height=560,menubar=no,toolbar=no,location=no');
+    } catch (e) {
+      popup = null;
+    }
+
+    if (popup) {
+      let resolved = false;
+      const handleMessage = async (event) => {
+        if (event.data?.type === 'HT_SSO_SESSION' && event.data.refresh_token) {
+          resolved = true;
+          window.removeEventListener('message', handleMessage);
+          try {
+            let res = null;
+            if (event.data.access_token) {
+              res = await supabase.auth.setSession({
+                access_token: event.data.access_token,
+                refresh_token: event.data.refresh_token
+              });
+            }
+            if (!res?.data?.session) {
+              res = await supabase.auth.refreshSession({
+                refresh_token: event.data.refresh_token
+              });
+            }
+            if (res?.data?.session) {
+              setSharedAuthCookie(res.data.session);
+              if (onAuthSuccess) onAuthSuccess(res.data.session);
+              onClose();
+            } else {
+              setError('Failed to establish session from HabiTick.');
+            }
+          } catch (err) {
+            setError('Failed to establish session from HabiTick.');
+          } finally {
+            setLoading(false);
+          }
+        }
+      };
+      window.addEventListener('message', handleMessage);
+
+      // Check if popup was closed by user
+      const checkClosed = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(checkClosed);
+          window.removeEventListener('message', handleMessage);
+          if (!resolved) {
+            // Check cookie one last time in case popup wrote the cookie
+            const lateCookie = getSharedAuthCookie();
+            if (lateCookie?.refresh_token) {
+              supabase.auth.refreshSession({ refresh_token: lateCookie.refresh_token }).then(({ data }) => {
+                if (data?.session) {
+                  setSharedAuthCookie(data.session);
+                  if (onAuthSuccess) onAuthSuccess(data.session);
+                  onClose();
+                } else {
+                  setLoading(false);
+                }
+              }).catch(() => setLoading(false));
+            } else {
+              setLoading(false);
+            }
+          }
+        }
+      }, 300);
+
+      // Safety fallback: if popup doesn't finish within 4 seconds, fallback to full-page redirect
+      setTimeout(() => {
+        if (!resolved && !popup.closed) {
+          popup.close();
+          window.removeEventListener('message', handleMessage);
+          window.location.href = `${mainAppBase}/?return_to_docs=true`;
+        }
+      }, 4000);
+
+      return;
+    }
+
+    // 3. Fallback if popup blocked by browser
     window.location.href = `${mainAppBase}/?return_to_docs=true`;
   };
 

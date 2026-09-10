@@ -10,78 +10,90 @@ export function getSharedCookieDomain() {
   return null;
 }
 
-const SSO_COOKIE_NAME = 'ht_sso_session';
+const COOKIE_RT = 'ht_sso_rt';
+const COOKIE_AT = 'ht_sso_at';
 
 /**
- * Saves current Supabase session credentials to cross-subdomain cookie.
+ * Saves Supabase session credentials to cross-subdomain cookies.
+ * Splits into dedicated tokens to strictly stay below the 4096-byte browser limit.
  */
 export function setSharedAuthCookie(session) {
   if (typeof document === 'undefined') return;
   const domain = getSharedCookieDomain();
   const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
 
-  if (!session?.access_token || !session?.refresh_token) {
-    clearSharedAuthCookie();
+  if (!session?.refresh_token) {
     return;
   }
 
   try {
-    const payload = JSON.stringify({
-      access_token: session.access_token,
-      refresh_token: session.refresh_token,
-      user_id: session.user?.id || null,
-      email: session.user?.email || null,
-      expires_at: session.expires_at || null
-    });
-
-    const encoded = encodeURIComponent(payload);
     const maxAge = 60 * 60 * 24 * 30; // 30 days
     const secureFlag = isHttps ? '; Secure' : '';
     const sameSite = '; SameSite=Lax';
 
+    const rt = session.refresh_token;
+    const at = session.access_token || '';
+
+    // Refresh token is tiny (~60 bytes) - 100% reliable across all browsers
+    const rtBase = `${COOKIE_RT}=${encodeURIComponent(rt)}; Path=/; Max-Age=${maxAge}${sameSite}${secureFlag}`;
+    const atBase = `${COOKIE_AT}=${encodeURIComponent(at)}; Path=/; Max-Age=${maxAge}${sameSite}${secureFlag}`;
+
     if (domain) {
-      document.cookie = `${SSO_COOKIE_NAME}=${encoded}; Domain=${domain}; Path=/; Max-Age=${maxAge}${sameSite}${secureFlag}`;
+      document.cookie = `${rtBase}; Domain=${domain}`;
+      document.cookie = `${atBase}; Domain=${domain}`;
+    } else {
+      document.cookie = rtBase;
+      document.cookie = atBase;
     }
-    // Also set locally on current host/port for localhost or explicit scoping
-    document.cookie = `${SSO_COOKIE_NAME}=${encoded}; Path=/; Max-Age=${maxAge}${sameSite}${secureFlag}`;
   } catch (err) {
     console.warn('Could not write shared auth cookie:', err);
   }
 }
 
 /**
- * Reads shared auth cookie from *.habitick.app (or local host).
+ * Reads shared auth tokens from *.habitick.app (or local host).
  */
 export function getSharedAuthCookie() {
   if (typeof document === 'undefined') return null;
-  const nameEQ = SSO_COOKIE_NAME + '=';
-  const ca = document.cookie.split(';');
-  for (let i = 0; i < ca.length; i++) {
-    let c = ca[i].trim();
-    if (c.indexOf(nameEQ) === 0) {
-      try {
-        const jsonStr = decodeURIComponent(c.substring(nameEQ.length));
-        const data = JSON.parse(jsonStr);
-        if (data && data.access_token && data.refresh_token) {
-          return data;
-        }
-      } catch (e) {
-        console.warn('Failed to parse SSO cookie:', e);
-      }
+  const cookies = document.cookie.split(';');
+  let rt = null;
+  let at = null;
+
+  for (let i = 0; i < cookies.length; i++) {
+    const c = cookies[i].trim();
+    if (c.startsWith(COOKIE_RT + '=')) {
+      rt = decodeURIComponent(c.substring(COOKIE_RT.length + 1));
+    } else if (c.startsWith(COOKIE_AT + '=')) {
+      at = decodeURIComponent(c.substring(COOKIE_AT.length + 1));
     }
+  }
+
+  if (rt) {
+    return {
+      refresh_token: rt,
+      access_token: at || ''
+    };
   }
   return null;
 }
 
 /**
- * Clears shared auth cookie across domain and local host.
+ * Clears shared auth cookies across domain and local host.
  */
 export function clearSharedAuthCookie() {
   if (typeof document === 'undefined') return;
   const domain = getSharedCookieDomain();
   const past = 'Expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0; Path=/; SameSite=Lax';
+
   if (domain) {
-    document.cookie = `${SSO_COOKIE_NAME}=; Domain=${domain}; ${past}`;
+    document.cookie = `${COOKIE_RT}=; Domain=${domain}; ${past}`;
+    document.cookie = `${COOKIE_AT}=; Domain=${domain}; ${past}`;
+    document.cookie = `${COOKIE_RT}=; Domain=habitick.app; ${past}`;
+    document.cookie = `${COOKIE_AT}=; Domain=habitick.app; ${past}`;
+    document.cookie = `ht_sso_session=; Domain=${domain}; ${past}`;
+    document.cookie = `ht_sso_session=; Domain=habitick.app; ${past}`;
   }
-  document.cookie = `${SSO_COOKIE_NAME}=; ${past}`;
+  document.cookie = `${COOKIE_RT}=; ${past}`;
+  document.cookie = `${COOKIE_AT}=; ${past}`;
+  document.cookie = `ht_sso_session=; ${past}`;
 }

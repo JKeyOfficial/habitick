@@ -258,24 +258,32 @@ export default function App() {
           rt = rt || searchParams.get('refresh_token');
         }
 
-        if (at && rt) {
+        if (rt) {
           // Fix potential space corruption of + in URL decoding
-          const cleanAt = at.replace(/ /g, '+');
+          const cleanAt = at ? at.replace(/ /g, '+') : null;
           const cleanRt = rt.replace(/ /g, '+');
 
-          const { data, error } = await supabase.auth.setSession({
-            access_token: cleanAt,
-            refresh_token: cleanRt
-          });
-
-          if (!error && data?.session) {
-            activeSession = data.session;
-            setSharedAuthCookie(data.session);
-          } else if (error) {
-            console.warn('SSO token exchange note:', error.message);
+          let res = null;
+          if (cleanAt) {
+            res = await supabase.auth.setSession({
+              access_token: cleanAt,
+              refresh_token: cleanRt
+            });
+          }
+          if (!res?.data?.session) {
+            res = await supabase.auth.refreshSession({
+              refresh_token: cleanRt
+            });
           }
 
-          if (!error && window.history.replaceState) {
+          if (res?.data?.session) {
+            activeSession = res.data.session;
+            setSharedAuthCookie(res.data.session);
+          } else if (res?.error) {
+            console.warn('SSO token exchange note:', res.error.message);
+          }
+
+          if (window.history.replaceState) {
             window.history.replaceState(null, '', window.location.pathname + window.location.search);
           }
         }
@@ -292,16 +300,23 @@ export default function App() {
       // 3. If still no active session, check shared cross-domain cookie (.habitick.app)
       if (!activeSession) {
         const sso = getSharedAuthCookie();
-        if (sso?.access_token && sso?.refresh_token) {
+        if (sso?.refresh_token) {
           try {
-            const { data, error } = await supabase.auth.setSession({
-              access_token: sso.access_token,
-              refresh_token: sso.refresh_token
-            });
-            if (!error && data?.session) {
-              activeSession = data.session;
-            } else if (error) {
-              clearSharedAuthCookie();
+            let res = null;
+            if (sso.access_token) {
+              res = await supabase.auth.setSession({
+                access_token: sso.access_token,
+                refresh_token: sso.refresh_token
+              });
+            }
+            if (!res?.data?.session) {
+              res = await supabase.auth.refreshSession({
+                refresh_token: sso.refresh_token
+              });
+            }
+            if (res?.data?.session) {
+              activeSession = res.data.session;
+              setSharedAuthCookie(res.data.session);
             }
           } catch (cookieErr) {
             console.warn('Cross-app SSO cookie hydration warning:', cookieErr);
@@ -312,6 +327,7 @@ export default function App() {
       if (!active) return;
       setSession(activeSession ?? null);
       if (activeSession?.user?.id) {
+        setIsAuthModalOpen(false);
         setSharedAuthCookie(activeSession);
         fetchUserProfile(activeSession.user.id);
         syncWithSupabase(activeSession.user.id, setSyncStatus).then(mergedDocs => {
@@ -328,10 +344,15 @@ export default function App() {
 
     initAuth();
 
+    // Re-run initAuth on URL hash changes or returning from browser back/forward cache
+    window.addEventListener('hashchange', initAuth);
+    window.addEventListener('pageshow', initAuth);
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active) return;
       setSession(session);
       if (session?.user?.id) {
+        setIsAuthModalOpen(false);
         setSharedAuthCookie(session);
         fetchUserProfile(session.user.id);
         syncWithSupabase(session.user.id, setSyncStatus).then(mergedDocs => {
@@ -339,7 +360,7 @@ export default function App() {
             setDocs(mergedDocs);
           }
         });
-      } else {
+      } else if (event === 'SIGNED_OUT') {
         clearSharedAuthCookie();
         setUserProfile(null);
         localStorage.removeItem('ht_user_profile');
@@ -348,9 +369,18 @@ export default function App() {
 
     return () => {
       active = false;
+      window.removeEventListener('hashchange', initAuth);
+      window.removeEventListener('pageshow', initAuth);
       subscription?.unsubscribe();
     };
-  }, [fetchUserProfile]);
+  }, [fetchUserProfile, currentDocId]);
+
+  // Ensure Auth Modal closes when session is active
+  useEffect(() => {
+    if (session?.user?.id && isAuthModalOpen) {
+      setIsAuthModalOpen(false);
+    }
+  }, [session?.user?.id, isAuthModalOpen]);
 
   // Flush pending unpushed note immediately (e.g. on blur, tab hide, or unload)
   const flushPendingPush = useCallback(() => {
