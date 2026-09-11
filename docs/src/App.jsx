@@ -513,7 +513,61 @@ export default function App() {
 
   const handleApplyTextColor = (color) => {
     if (editorRef.current) editorRef.current.focus();
-    document.execCommand('foreColor', false, color);
+
+    if (!color || color === 'default' || color === 'inherit') {
+      // Apply a unique sentinel color so browser natively handles range splitting
+      // and extraction from parent colored font/span elements
+      const sentinel = '#000001';
+      document.execCommand('foreColor', false, sentinel);
+
+      if (editorRef.current) {
+        // 1. Clean up any <font> tags created with sentinel color
+        const matchingFonts = editorRef.current.querySelectorAll(
+          `font[color="${sentinel}"], font[color="rgb(0, 0, 1)"], font[color="#000001"]`
+        );
+        matchingFonts.forEach((el) => {
+          el.removeAttribute('color');
+          el.style.color = '';
+          // If the font tag has no other styling attributes, unwrap it cleanly
+          if (!el.getAttribute('size') && !el.getAttribute('face') && (!el.getAttribute('style') || !el.style.cssText)) {
+            try {
+              const parent = el.parentNode;
+              if (parent) {
+                while (el.firstChild) {
+                  parent.insertBefore(el.firstChild, el);
+                }
+                parent.removeChild(el);
+              }
+            } catch (e) {
+              // Graceful fallback
+            }
+          }
+        });
+
+        // 2. Clean up any styled elements if the browser applied inline CSS
+        const matchingStyled = editorRef.current.querySelectorAll(
+          `[style*="0, 0, 1"], [style*="${sentinel}"]`
+        );
+        matchingStyled.forEach((el) => {
+          el.style.color = '';
+          if (el.tagName === 'SPAN' && (!el.getAttribute('style') || !el.style.cssText) && !el.className && !el.id) {
+            try {
+              const parent = el.parentNode;
+              if (parent) {
+                while (el.firstChild) {
+                  parent.insertBefore(el.firstChild, el);
+                }
+                parent.removeChild(el);
+              }
+            } catch (e) {
+              // Graceful fallback
+            }
+          }
+        });
+      }
+    } else {
+      document.execCommand('foreColor', false, color);
+    }
     handleEditorInput();
   };
 
@@ -825,7 +879,7 @@ export default function App() {
           <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid var(--ht-border-subtle)' }}>
             <div className="ht-stagger-item ht-stagger-1" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
               <a 
-                href={import.meta.env.VITE_HABITICK_APP_URL || (typeof window !== 'undefined' && window.location.search.includes('tab=docs') ? '/' : (typeof window !== 'undefined' && window.location.hostname.includes('habitick.app') ? 'https://habitick.app' : 'http://localhost:5173'))} 
+                href={import.meta.env.VITE_HABITICK_APP_URL || (typeof window !== 'undefined' && window.location.search.includes('tab=docs') ? '/' : (typeof window !== 'undefined' && window.location.hostname.includes('habitick.app') ? 'https://app.habitick.app' : 'http://localhost:5173'))} 
                 title="Return to HabiTick Tracker"
                 style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '9px' }}
               >
@@ -1187,7 +1241,7 @@ export default function App() {
 
                   {/* Link back to Habit Tracker */}
                   <a
-                    href={import.meta.env.VITE_HABITICK_APP_URL || (typeof window !== 'undefined' && window.location.search.includes('tab=docs') ? '/' : (typeof window !== 'undefined' && window.location.hostname.includes('habitick.app') ? 'https://habitick.app' : 'http://localhost:5173'))}
+                    href={import.meta.env.VITE_HABITICK_APP_URL || (typeof window !== 'undefined' && window.location.search.includes('tab=docs') ? '/' : (typeof window !== 'undefined' && window.location.hostname.includes('habitick.app') ? 'https://app.habitick.app' : 'http://localhost:5173'))}
                     style={{
                       display: 'flex',
                       alignItems: 'center',

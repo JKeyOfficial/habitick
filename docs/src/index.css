@@ -69,6 +69,15 @@
   user-select: text;
 }
 
+/* Ensure reset/default text colors properly inherit theme foreground (dark/light) */
+.note-editor font:not([color]),
+.note-editor font[color="inherit"],
+.note-editor font[color="default"],
+.note-editor font[color="#000001"],
+.note-editor [style*="color: inherit"] {
+  color: inherit !important;
+}
+
 .note-editor:empty:before {
   content: attr(data-placeholder);
   color: var(--ht-text-muted);

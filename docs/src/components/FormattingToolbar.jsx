@@ -1,13 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
 
 const TEXT_COLORS = [
-  { label: 'Default', value: 'inherit', color: 'var(--ht-text-primary)' },
   { label: 'Blue', value: '#2563eb', color: '#2563eb' },
+  { label: 'Cyan', value: '#0891b2', color: '#0891b2' },
   { label: 'Green', value: '#16a34a', color: '#16a34a' },
   { label: 'Purple', value: '#9333ea', color: '#9333ea' },
   { label: 'Orange', value: '#ea580c', color: '#ea580c' },
+  { label: 'Amber', value: '#d97706', color: '#d97706' },
   { label: 'Red', value: '#dc2626', color: '#dc2626' },
-  { label: 'Muted', value: '#71717a', color: '#71717a' },
+  { label: 'Pink', value: '#e11d48', color: '#e11d48' },
+  { label: 'Slate', value: '#475569', color: '#475569' },
+  { label: 'Muted Gray', value: '#71717a', color: '#71717a' },
+  { label: 'Solid Black', value: '#0f172a', color: '#0f172a', border: '1px solid rgba(255,255,255,0.25)' },
+  { label: 'Solid White', value: '#ffffff', color: '#ffffff', textColor: '#0f172a', border: '1px solid rgba(0,0,0,0.25)' },
 ];
 
 const HIGHLIGHT_COLORS = [
@@ -41,7 +46,7 @@ export function FormattingToolbar({
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showHighlightPicker, setShowHighlightPicker] = useState(false);
   const [showSizePicker, setShowSizePicker] = useState(false);
-  const [selectedColor, setSelectedColor] = useState('#2563eb');
+  const [selectedColor, setSelectedColor] = useState('default');
   const [selectedHighlight, setSelectedHighlight] = useState('#fef08a');
 
   const colorDropdownRef = useRef(null);
@@ -313,7 +318,14 @@ export function FormattingToolbar({
           }}
         >
           <span style={{ lineHeight: 1 }}>A</span>
-          <span style={{ width: '14px', height: '3px', borderRadius: '1px', background: selectedColor }} />
+          <span
+            style={{
+              width: '14px',
+              height: '3px',
+              borderRadius: '1px',
+              background: selectedColor === 'default' ? 'var(--ht-text-primary)' : selectedColor
+            }}
+          />
         </button>
 
         {showColorPicker && (
@@ -325,15 +337,70 @@ export function FormattingToolbar({
               background: 'var(--ht-bg-card)',
               border: '1px solid var(--ht-border-card)',
               borderRadius: '10px',
-              padding: '8px',
+              padding: '10px',
               boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
               zIndex: 100,
-              minWidth: '150px'
+              minWidth: '185px'
             }}
           >
-            <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--ht-text-muted)', marginBottom: '6px', paddingLeft: '4px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--ht-text-muted)', marginBottom: '8px', paddingLeft: '2px' }}>
               Text Color
             </div>
+
+            {/* Prominent Default / Theme Auto Option */}
+            <button
+              type="button"
+              title="Default Theme Color (White in Dark Mode, Black in Light Mode)"
+              onMouseDown={handleAction(() => {
+                setSelectedColor('default');
+                onApplyTextColor('default');
+                setShowColorPicker(false);
+              })}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                width: '100%',
+                padding: '6px 8px',
+                borderRadius: '6px',
+                border: selectedColor === 'default' ? '1px solid var(--ht-accent)' : '1px solid var(--ht-border-card)',
+                background: selectedColor === 'default' ? 'var(--ht-accent-subtle)' : 'var(--ht-bg-card-subtle, rgba(255,255,255,0.04))',
+                cursor: 'pointer',
+                textAlign: 'left',
+                marginBottom: '10px',
+                transition: 'background 0.15s ease, border-color 0.15s ease'
+              }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--ht-accent)'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = selectedColor === 'default' ? 'var(--ht-accent)' : 'var(--ht-border-card)'}
+            >
+              <div
+                style={{
+                  width: '18px',
+                  height: '18px',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #ffffff 50%, #0f172a 50%)',
+                  border: '1px solid var(--ht-border-card)',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+                  flexShrink: 0
+                }}
+              />
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--ht-text-primary)', lineHeight: 1.2 }}>
+                  Default (Auto)
+                </span>
+                <span style={{ fontSize: '10px', color: 'var(--ht-text-muted)', lineHeight: 1.2 }}>
+                  White / Black by theme
+                </span>
+              </div>
+              {selectedColor === 'default' && (
+                <span style={{ fontSize: '12px', color: 'var(--ht-accent)', fontWeight: 700 }}>✓</span>
+              )}
+            </button>
+
+            <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--ht-text-muted)', marginBottom: '6px', paddingLeft: '2px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Color Palette
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
               {TEXT_COLORS.map(c => (
                 <button
@@ -346,24 +413,25 @@ export function FormattingToolbar({
                     setShowColorPicker(false);
                   })}
                   style={{
-                    width: '26px',
-                    height: '26px',
+                    width: '28px',
+                    height: '28px',
                     borderRadius: '6px',
-                    border: '1px solid var(--ht-border-card)',
-                    background: c.value === 'inherit' ? 'var(--ht-bg-card-subtle)' : c.value,
-                    color: c.value === 'inherit' ? 'var(--ht-text-primary)' : '#fff',
+                    border: c.border || (selectedColor === c.value ? '2px solid var(--ht-accent)' : '1px solid var(--ht-border-card)'),
+                    background: c.color,
+                    color: c.textColor || '#fff',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     fontSize: '11px',
                     fontWeight: 700,
-                    transition: 'transform 0.1s'
+                    transition: 'transform 0.1s ease',
+                    boxShadow: selectedColor === c.value ? '0 0 0 1px var(--ht-accent)' : 'none'
                   }}
                   onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.15)'}
                   onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
                 >
-                  {c.value === 'inherit' ? 'T' : ''}
+                  {selectedColor === c.value ? '✓' : ''}
                 </button>
               ))}
             </div>
