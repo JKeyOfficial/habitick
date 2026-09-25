@@ -21,8 +21,8 @@ export function UpgradeModal({ onClose, onUpgrade, reason }) {
       padding: "20px",
       animation: "htFadeIn 0.2s ease-out"
     }}>
-      <div style={{
-        background: "#0d1117",
+      <div className="upgrade-modal" style={{
+        background: "var(--ht-modal-bg)",
         border: "1px solid rgba(59, 130, 246, 0.2)",
         borderRadius: "24px",
         padding: "32px 28px",
@@ -57,23 +57,23 @@ export function UpgradeModal({ onClose, onUpgrade, reason }) {
           HabiTick Premium
         </div>
 
-        <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "20px", color: "#f9fafb", margin: "0 0 8px", letterSpacing: "-0.02em", lineHeight: 1.3 }}>
+        <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "20px", color: "var(--ht-text-primary)", margin: "0 0 8px", letterSpacing: "-0.02em", lineHeight: 1.3 }}>
           {r.title}
         </h2>
-        <p style={{ color: "#9ca3af", fontSize: "13.5px", lineHeight: 1.5, margin: "0 0 20px" }}>
+        <p style={{ color: "var(--ht-text-secondary)", fontSize: "13.5px", lineHeight: 1.5, margin: "0 0 20px" }}>
           {r.desc} Upgrade to unlock unlimited access and premium features.
         </p>
 
         {/* Value Features Checklist */}
-        <div style={{
-          background: "rgba(22, 31, 48, 0.4)",
-          border: "1px solid rgba(255, 255, 255, 0.05)",
+        <div className="ht-upgrade-features" style={{
+          background: "var(--ht-bg-card-subtle)",
+          border: "1px solid var(--ht-border-card)",
           borderRadius: "16px",
           padding: "16px",
           marginBottom: "24px",
           textAlign: "left"
         }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px", fontSize: "12.5px", color: "#d1d5db" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px", fontSize: "12.5px", color: "var(--ht-text-secondary)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <span style={{ color: "#3b82f6", fontWeight: 800 }}>✓</span>
               <span><strong>Unlimited</strong> Habits, Goals & Tasks</span>
@@ -88,11 +88,11 @@ export function UpgradeModal({ onClose, onUpgrade, reason }) {
             </div>
           </div>
 
-          <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.05)", marginTop: "12px", paddingTop: "12px", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-            <span style={{ fontSize: "12px", color: "#6b7280", fontWeight: 600 }}>Plan Price:</span>
+          <div style={{ borderTop: "1px solid var(--ht-border-card)", marginTop: "12px", paddingTop: "12px", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+            <span style={{ fontSize: "12px", color: "var(--ht-text-muted)", fontWeight: 600 }}>Plan Price:</span>
             <div style={{ textAlign: "right" }}>
-              <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "22px", color: "#f9fafb" }}>99p</span>
-              <span style={{ fontSize: "12px", color: "#9ca3af" }}> / month</span>
+              <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "22px", color: "var(--ht-text-primary)" }}>99p</span>
+              <span style={{ fontSize: "12px", color: "var(--ht-text-secondary)" }}> / month</span>
               <div style={{ fontSize: "10.5px", color: "#10b981", fontWeight: 600, marginTop: "2px" }}>or £12.99 lifetime pass</div>
             </div>
           </div>

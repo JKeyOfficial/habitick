@@ -187,20 +187,20 @@ export function JournalTab({ journalEntries, setJournalEntries, session, today, 
       </div>
 
       {/* Page */}
-      <div style={{ 
-        background: "#111827", 
-        border: "1px solid rgba(255, 255, 255, 0.05)", 
+      <div className="ht-journal-card" style={{ 
+        background: "var(--ht-bg-surface)", 
+        border: "1px solid var(--ht-border-card)", 
         borderRadius: "16px", 
         padding: "24px", 
         position: "relative",
-        boxShadow: "0 8px 32px rgba(0, 0, 0, 0.2)"
+        boxShadow: "var(--ht-shadow-card)"
       }}>
         
         {/* Floating rating bar modeled after the calendar strip */}
         <div style={{ 
           display: "flex", 
-          background: "rgba(17, 22, 34, 0.6)", 
-          border: "1px solid rgba(255, 255, 255, 0.05)", 
+          background: "var(--ht-bg-card-subtle)", 
+          border: "1px solid var(--ht-border-card)", 
           borderRadius: "16px", 
           padding: "6px", 
           marginBottom: "20px" 

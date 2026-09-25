@@ -36,6 +36,19 @@
   --ht-scrollbar-thumb: #1f293d;
   --ht-bg-routine: linear-gradient(145deg, rgba(22, 31, 48, 0.2) 0%, rgba(13, 17, 23, 0.3) 100%);
   --ht-bg-routine-done: linear-gradient(145deg, rgba(16, 185, 129, 0.03) 0%, rgba(4, 120, 87, 0.05) 100%);
+  --ht-bg-stat-card: linear-gradient(135deg, rgba(22, 31, 48, 0.4) 0%, rgba(13, 17, 23, 0.5) 100%);
+  --ht-border-stat-card: rgba(255, 255, 255, 0.05);
+  --ht-shadow-stat-card: 0 8px 32px rgba(0, 0, 0, 0.3);
+  --ht-bg-surface: #111827;
+  --ht-border-surface: #1f2937;
+  --ht-bg-surface-hover: #1f2937;
+  --ht-bg-btn-inactive: #1f2937;
+  --ht-border-btn-inactive: #374151;
+  --ht-text-btn-inactive: #9ca3af;
+  --ht-bg-bottom-nav: rgba(13, 17, 26, 0.96);
+  --ht-border-bottom-nav: rgba(255, 255, 255, 0.08);
+  --ht-shadow-bottom-nav: 0 -4px 24px rgba(0, 0, 0, 0.5);
+  --ht-color-scheme: dark;
 }
 
 [data-theme="light"], .theme-light {
@@ -67,6 +80,19 @@
   --ht-scrollbar-thumb: #cbd5e1;
   --ht-bg-routine: #ffffff;
   --ht-bg-routine-done: rgba(16, 185, 129, 0.06);
+  --ht-bg-stat-card: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+  --ht-border-stat-card: rgba(0, 0, 0, 0.08);
+  --ht-shadow-stat-card: 0 2px 12px rgba(0, 0, 0, 0.06);
+  --ht-bg-surface: #ffffff;
+  --ht-border-surface: rgba(0, 0, 0, 0.08);
+  --ht-bg-surface-hover: #f1f5f9;
+  --ht-bg-btn-inactive: #f1f5f9;
+  --ht-border-btn-inactive: rgba(0, 0, 0, 0.12);
+  --ht-text-btn-inactive: #64748b;
+  --ht-bg-bottom-nav: rgba(255, 255, 255, 0.95);
+  --ht-border-bottom-nav: rgba(0, 0, 0, 0.08);
+  --ht-shadow-bottom-nav: 0 -4px 20px rgba(0, 0, 0, 0.05);
+  --ht-color-scheme: light;
 }
 
 a {
@@ -302,4 +328,214 @@ body {
 /* Scrollbars in Light Mode */
 [data-theme="light"] ::-webkit-scrollbar-thumb {
   background: var(--ht-scrollbar-thumb) !important;
+}
+
+/* ============================================================
+   ANALYTICS TAB — Light Mode Overrides
+   ============================================================ */
+
+/* Stat Cards in Analytics Grid */
+[data-theme="light"] .ht-analytics-grid > div {
+  background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06) !important;
+}
+[data-theme="light"] .ht-analytics-grid > div div[style*="color: \"#6b7280\""],
+[data-theme="light"] .ht-analytics-grid > div div[style*="#6b7280"] {
+  color: var(--ht-text-muted) !important;
+}
+[data-theme="light"] .ht-analytics-grid > div div[style*="#f9fafb"] {
+  color: var(--ht-text-primary) !important;
+}
+[data-theme="light"] .ht-analytics-grid > div div[style*="#4b5563"] {
+  color: var(--ht-text-muted) !important;
+}
+
+/* Chart Container in Analytics */
+[data-theme="light"] .ht-analytics-chart {
+  background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* ============================================================
+   TODO ITEMS — Light Mode Overrides
+   ============================================================ */
+[data-theme="light"] .ht-todo-item {
+  background: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+}
+
+[data-theme="light"] .ht-todo-modal {
+  background: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
+}
+
+[data-theme="light"] .ht-todo-modal h2 {
+  color: var(--ht-text-primary) !important;
+}
+
+[data-theme="light"] .ht-btn-toggle-inactive {
+  background: #f1f5f9 !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
+  color: var(--ht-text-muted) !important;
+}
+
+[data-theme="light"] .ht-todo-checkbox:not(.ht-todo-checkbox--done) {
+  border-color: rgba(0, 0, 0, 0.2) !important;
+}
+
+/* ============================================================
+   CALENDAR TAB — Light Mode Overrides
+   ============================================================ */
+[data-theme="light"] .ht-calendar-header {
+  background: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .ht-calendar-header h2,
+[data-theme="light"] .ht-calendar-header span {
+  color: var(--ht-text-primary) !important;
+}
+
+[data-theme="light"] .ht-calendar-nav-btn {
+  background: #f1f5f9 !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
+  color: var(--ht-text-secondary) !important;
+}
+
+[data-theme="light"] .ht-calendar-grid-wrapper {
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  background: #ffffff !important;
+}
+
+[data-theme="light"] .ht-calendar-weekday-header {
+  background: #f8fafc !important;
+  border-bottom-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .ht-calendar-weekday-header > div {
+  color: var(--ht-text-muted) !important;
+}
+
+[data-theme="light"] .ht-calendar-cell {
+  border-color: rgba(0, 0, 0, 0.04) !important;
+}
+
+[data-theme="light"] .ht-calendar-cell:hover {
+  background: #f1f5f9 !important;
+}
+
+[data-theme="light"] .ht-day-detail-header {
+  background: #ffffff !important;
+  border-bottom-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .ht-day-detail-header h3 {
+  color: var(--ht-text-primary) !important;
+}
+
+[data-theme="light"] .ht-day-detail-section {
+  background: #f8fafc !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .ht-day-detail-section h4 {
+  color: var(--ht-text-primary) !important;
+}
+
+/* ============================================================
+   UPGRADE MODAL — Light Mode Overrides
+   ============================================================ */
+[data-theme="light"] .upgrade-modal {
+  background: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .upgrade-modal h2 {
+  color: var(--ht-text-primary) !important;
+}
+
+[data-theme="light"] .upgrade-modal p {
+  color: var(--ht-text-secondary) !important;
+}
+
+[data-theme="light"] .ht-upgrade-features {
+  background: #f8fafc !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .ht-upgrade-features span {
+  color: var(--ht-text-secondary) !important;
+}
+
+/* ============================================================
+   MOBILE QUICK ACTIONS — Light Mode Overrides
+   ============================================================ */
+[data-theme="light"] .ht-mobile-quick-actions {
+  background: #f8fafc !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* ============================================================
+   JOURNAL TAB — Light Mode Overrides
+   ============================================================ */
+[data-theme="light"] .ht-journal-card {
+  background: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Color scheme override for date/time inputs */
+[data-theme="light"] input[type="date"],
+[data-theme="light"] input[type="time"] {
+  color-scheme: light !important;
+}
+
+/* ============================================================
+   MOBILE BOTTOM NAVIGATION — Theme Overrides
+   ============================================================ */
+.ht-bottom-nav {
+  background: var(--ht-bg-bottom-nav) !important;
+  border-top-color: var(--ht-border-bottom-nav) !important;
+  box-shadow: var(--ht-shadow-bottom-nav) !important;
+}
+
+[data-theme="light"] .ht-bottom-nav {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-top-color: rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05) !important;
+}
+
+[data-theme="light"] .ht-bottom-nav-btn {
+  color: var(--ht-text-muted) !important;
+}
+
+[data-theme="light"] .ht-bottom-nav-btn:hover {
+  color: var(--ht-text-primary) !important;
+}
+
+[data-theme="light"] .ht-bottom-nav-btn.active {
+  color: var(--ht-accent) !important;
+}
+
+[data-theme="light"] .ht-bottom-nav-btn.active svg {
+  stroke: var(--ht-accent) !important;
+}
+
+[data-theme="light"] .ht-bottom-nav-btn.active span {
+  color: var(--ht-accent) !important;
+}
+
+[data-theme="light"] .ht-mobile-quick-actions button:first-child {
+  color: var(--ht-accent) !important;
+  background: rgba(37, 99, 235, 0.08) !important;
+  border-color: rgba(37, 99, 235, 0.2) !important;
+}
+
+[data-theme="light"] .ht-mobile-quick-actions button:nth-child(2) {
+  color: #7c3aed !important;
+  background: rgba(124, 58, 237, 0.08) !important;
+  border-color: rgba(124, 58, 237, 0.2) !important;
 }

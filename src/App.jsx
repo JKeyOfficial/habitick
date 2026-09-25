@@ -290,6 +290,12 @@ function HabiTick() {
     document.documentElement.setAttribute("data-theme", theme);
     document.body.classList.remove("theme-dark", "theme-light");
     document.body.classList.add(`theme-${theme}`);
+
+    // Dynamically update mobile browser address bar / notch background
+    const metaThemeColors = document.querySelectorAll('meta[name="theme-color"]');
+    metaThemeColors.forEach(meta => {
+      meta.setAttribute("content", theme === "light" ? "#f8fafc" : "#080b11");
+    });
   }, [theme]);
 
   const handleUpdateTheme = async (newTheme) => {
@@ -1208,7 +1214,7 @@ function HabiTick() {
         }
 
         .ht-sidebar-link:hover {
-          color: #f9fafb;
+          color: var(--ht-text-primary);
           background: rgba(255, 255, 255, 0.03);
         }
 
@@ -1220,7 +1226,7 @@ function HabiTick() {
 
         .ht-sidebar-action-btn:hover {
           background: rgba(255, 255, 255, 0.04);
-          color: #f9fafb;
+          color: var(--ht-text-primary);
         }
 
         .ht-sidebar-action-btn:hover .ht-action-plus {
@@ -1382,15 +1388,15 @@ function HabiTick() {
             /* Extend into safe-area on notched phones */
             padding-bottom: env(safe-area-inset-bottom, 0px);
             height: calc(64px + env(safe-area-inset-bottom, 0px));
-            background: rgba(13, 17, 26, 0.97);
+            background: var(--ht-bg-bottom-nav, rgba(13, 17, 26, 0.97));
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            border-top: 1px solid var(--ht-border-bottom-nav, rgba(255, 255, 255, 0.06));
             z-index: 9999;
             justify-content: space-around;
             align-items: flex-start;
             padding-top: 8px;
-            box-shadow: 0 -4px 24px rgba(0,0,0,0.5);
+            box-shadow: var(--ht-shadow-bottom-nav, 0 -4px 24px rgba(0,0,0,0.5));
             /* Guarantee it's always on top of any scroll container */
             will-change: transform;
           }
@@ -1401,16 +1407,21 @@ function HabiTick() {
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            color: #6b7280;
+            color: var(--ht-text-muted, #6b7280);
             cursor: pointer;
             gap: 4px;
-            transition: color 0.15s;
+            transition: color 0.15s, transform 0.15s;
             padding: 4px 8px;
             flex: 1;
             min-width: 0;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+          }
+          .ht-bottom-nav-btn:active {
+            transform: scale(0.92);
           }
           .ht-bottom-nav-btn.active {
-            color: #3b82f6;
+            color: var(--ht-accent, #3b82f6);
           }
           .ht-bottom-nav-btn span:first-child {
             font-size: 20px;
@@ -1797,7 +1808,7 @@ function HabiTick() {
               /* TODAY VIEW LAYOUT */
               <>
                 {/* 1. WEEK CALENDAR STRIP */}
-                <div className="ht-week-calendar-strip" style={{ display: "flex", justifyContent: "space-between", background: "rgba(17, 22, 34, 0.6)", border: "1px solid rgba(255, 255, 255, 0.05)", borderRadius: "16px", padding: "10px", marginBottom: "20px" }}>
+                <div className="ht-week-calendar-strip" style={{ display: "flex", justifyContent: "space-between", background: "var(--ht-bg-card)", border: "1px solid var(--ht-border-card)", borderRadius: "16px", padding: "10px", marginBottom: "20px" }}>
                   {getWeekDays(today).map((day) => {
                     const isSel = day.dateStr === selectedDate;
                     const isTod = day.dateStr === today;
@@ -1893,8 +1904,8 @@ function HabiTick() {
 
                 {/* 2. DAILY PROGRESS CARD — full-width top card matching mockup */}
                 <div className="ht-progress-card" style={{
-                  background: "linear-gradient(135deg, rgba(22, 31, 48, 0.4) 0%, rgba(13, 17, 23, 0.5) 100%)",
-                  border: "1px solid rgba(255, 255, 255, 0.05)",
+                  background: "var(--ht-bg-stat-card)",
+                  border: "1px solid var(--ht-border-stat-card)",
                   borderRadius: "20px",
                   padding: "20px 24px",
                   marginBottom: "24px",
@@ -2043,9 +2054,9 @@ function HabiTick() {
                     </StandaloneHabitsContainer>
 
                     {/* Quick Actions Bar - Mobile Only */}
-                    <div className="ht-mobile-only" style={{
-                      background: "rgba(22, 31, 48, 0.3)",
-                      border: "1px solid rgba(255, 255, 255, 0.04)",
+                    <div className="ht-mobile-only ht-mobile-quick-actions" style={{
+                      background: "var(--ht-bg-card-subtle)",
+                      border: "1px solid var(--ht-border-card)",
                       borderRadius: "20px",
                       padding: "16px",
                       marginTop: "24px",
@@ -2069,7 +2080,7 @@ function HabiTick() {
                       </div>
                       <button
                         onClick={togglePause}
-                        style={{ width: "100%", padding: "10px 14px", borderRadius: "12px", border: `1px solid ${isPaused ? "rgba(245, 158, 11, 0.15)" : "rgba(255,255,255,0.04)"}`, background: isPaused ? "rgba(245, 158, 11, 0.05)" : "transparent", color: isPaused ? "#fcd34d" : "#6b7280", cursor: "pointer", fontWeight: 600, fontSize: "12px", textAlign: "center" }}
+                        style={{ width: "100%", padding: "10px 14px", borderRadius: "12px", border: `1px solid ${isPaused ? "rgba(245, 158, 11, 0.3)" : "var(--ht-border-card)"}`, background: isPaused ? "rgba(245, 158, 11, 0.08)" : "transparent", color: isPaused ? "#f59e0b" : "var(--ht-text-muted)", cursor: "pointer", fontWeight: 600, fontSize: "12px", textAlign: "center" }}
                       >
                         {isPaused ? "⏸ Holiday Mode ON" : "⏸ Pause / Holiday Mode"}
                       </button>

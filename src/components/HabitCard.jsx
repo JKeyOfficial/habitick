@@ -38,8 +38,8 @@ export function HabitCard({
     <div
       className="ht-habit-card"
       style={{ 
-        background: isDropTarget ? "#1e293b" : "rgba(22, 31, 48, 0.4)", 
-        border: `1px solid ${isDropTarget ? "#3b82f6" : "rgba(255, 255, 255, 0.05)"}`, 
+        background: isDropTarget ? "var(--ht-bg-surface-hover)" : "var(--ht-bg-card)", 
+        border: `1px solid ${isDropTarget ? "#3b82f6" : "var(--ht-border-card)"}`, 
         borderRadius: "16px", 
         padding: "14px 16px", 
         boxShadow: "0 4px 12px rgba(0,0,0,0.1)", 

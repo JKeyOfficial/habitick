@@ -282,7 +282,7 @@ export function CalendarTab({
           left: 0;
           right: 0;
           bottom: 0;
-          background: rgba(3, 7, 18, 0.85);
+          background: var(--ht-modal-overlay);
           backdrop-filter: blur(8px);
           z-index: 1000;
           display: flex;
@@ -291,8 +291,8 @@ export function CalendarTab({
           animation: htFadeIn 0.2s ease-out;
         }
         .day-detail-container {
-          background: #111827;
-          border: 1px solid #1f2937;
+          background: var(--ht-bg-surface);
+          border: 1px solid var(--ht-border-surface);
           border-radius: 16px;
           width: 95%;
           max-width: 900px;
@@ -308,8 +308,8 @@ export function CalendarTab({
           justify-content: space-between;
           align-items: center;
           padding: 18px 20px;
-          border-bottom: 1px solid #1f2937;
-          background: #111827;
+          border-bottom: 1px solid var(--ht-border-surface);
+          background: var(--ht-bg-surface);
           flex-shrink: 0;
         }
         @media (max-width: 768px) {
@@ -350,12 +350,12 @@ export function CalendarTab({
           flex-direction: column;
           gap: 20px;
           min-width: 0;
-          border-left: 1px solid #1f2937;
+          border-left: 1px solid var(--ht-border-surface);
           padding-left: 24px;
         }
         .day-detail-section-card {
-          background: #1f293740;
-          border: 1px solid #1f2937;
+          background: var(--ht-bg-card-subtle);
+          border: 1px solid var(--ht-border-surface);
           border-radius: 12px;
           padding: 16px;
         }
@@ -371,7 +371,7 @@ export function CalendarTab({
           .day-detail-right {
             border-left: none;
             padding-left: 0;
-            border-top: 1px solid #1f2937;
+            border-top: 1px solid var(--ht-border-surface);
             padding-top: 12px;
           }
           .day-detail-section-card {
@@ -387,15 +387,15 @@ export function CalendarTab({
           flex: 1;
           padding: 10px 6px;
           border-radius: 10px;
-          border: 1px solid #1f2937;
-          background: #0d1117;
+          border: 1px solid var(--ht-border-surface);
+          background: var(--ht-bg-base);
           cursor: pointer;
           transition: all 0.15s;
           text-align: center;
         }
         .mood-btn:hover:not(:disabled) {
-          background: #1f293780;
-          border-color: #374151;
+          background: var(--ht-bg-surface-hover);
+          border-color: var(--ht-border-btn-inactive);
         }
         .mood-btn:disabled {
           cursor: default;
@@ -407,7 +407,7 @@ export function CalendarTab({
         }
         .mood-label {
           font-size: 11px;
-          color: #4b5563;
+          color: var(--ht-text-muted);
           font-weight: 600;
           margin-top: 4px;
         }
@@ -435,9 +435,9 @@ export function CalendarTab({
           min-height: 180px;
           padding: 12px 14px;
           border-radius: 10px;
-          border: 1px solid #1f2937;
-          background: #0d1117;
-          color: #e5e7eb;
+          border: 1px solid var(--ht-border-surface);
+          background: var(--ht-bg-base);
+          color: var(--ht-text-primary);
           font-size: 14px;
           font-family: inherit;
           line-height: 1.6;
@@ -450,7 +450,7 @@ export function CalendarTab({
           border-color: #2563eb;
         }
         .journal-textarea:disabled {
-          color: #6b7280;
+          color: var(--ht-text-muted);
           cursor: default;
         }
         @media (max-width: 768px) {
@@ -462,8 +462,8 @@ export function CalendarTab({
         }
         .journal-locked-container {
           border-radius: 12px;
-          background: #0d111766;
-          border: 1px dashed #1f2937;
+          background: var(--ht-bg-card-subtle);
+          border: 1px dashed var(--ht-border-surface);
           padding: 24px;
           text-align: center;
           display: flex;
@@ -497,7 +497,7 @@ export function CalendarTab({
         }
         .detail-section {
           padding: 16px 20px;
-          border-bottom: 1px solid #1f2937;
+          border-bottom: 1px solid var(--ht-border-surface);
         }
         .detail-section:last-child {
           border-bottom: none;
@@ -513,26 +513,26 @@ export function CalendarTab({
           align-items: center;
           justify-content: space-between;
           padding: 10px 14px;
-          background: #1f293780;
-          border: 1px solid #1f2937;
+          background: var(--ht-bg-surface-hover);
+          border: 1px solid var(--ht-border-surface);
           border-radius: 10px;
           transition: background-color 0.15s;
         }
         .detail-item:hover {
-          background: #1f2937;
+          background: var(--ht-bg-card-hover);
         }
         .detail-item-title {
           font-size: 14px;
-          color: #e5e7eb;
+          color: var(--ht-text-primary);
           font-weight: 500;
         }
         .quick-add-input {
           flex: 1;
-          background: #1f2937;
-          border: 1px solid #374151;
+          background: var(--ht-bg-btn-inactive);
+          border: 1px solid var(--ht-border-btn-inactive);
           border-radius: 8px;
           padding: 8px 12px;
-          color: #fff;
+          color: var(--ht-text-primary);
           font-size: 14px;
           outline: none;
           transition: border-color 0.15s;
@@ -564,18 +564,18 @@ export function CalendarTab({
         }
       `}</style>
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px", background: "#111827", padding: "16px 20px", borderRadius: "12px", border: "1px solid #1f2937" }}>
-        <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "20px", margin: 0, color: "#f9fafb" }}>Calendar</h2>
+      <div className="ht-calendar-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px", background: "var(--ht-bg-surface)", padding: "16px 20px", borderRadius: "12px", border: "1px solid var(--ht-border-surface)" }}>
+        <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "20px", margin: 0, color: "var(--ht-text-primary)" }}>Calendar</h2>
         <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-          <button onClick={goBack} style={{ background: "#1f2937", border: "1px solid #374151", color: "#e5e7eb", cursor: "pointer", fontSize: "16px", padding: "6px 12px", borderRadius: "8px", transition: "background 0.2s" }}>‹</button>
-          <span style={{ color: "#f9fafb", fontSize: "16px", fontWeight: 700, minWidth: "120px", textAlign: "center" }}>{MONTHS_SHORT[viewMonth]} {viewYear}</span>
-          <button onClick={goForward} style={{ background: "#1f2937", border: "1px solid #374151", color: "#e5e7eb", cursor: "pointer", fontSize: "16px", padding: "6px 12px", borderRadius: "8px", transition: "background 0.2s" }}>›</button>
+          <button className="ht-calendar-nav-btn" onClick={goBack} style={{ background: "var(--ht-bg-btn-inactive)", border: "1px solid var(--ht-border-btn-inactive)", color: "var(--ht-text-secondary)", cursor: "pointer", fontSize: "16px", padding: "6px 12px", borderRadius: "8px", transition: "background 0.2s" }}>‹</button>
+          <span style={{ color: "var(--ht-text-primary)", fontSize: "16px", fontWeight: 700, minWidth: "120px", textAlign: "center" }}>{MONTHS_SHORT[viewMonth]} {viewYear}</span>
+          <button className="ht-calendar-nav-btn" onClick={goForward} style={{ background: "var(--ht-bg-btn-inactive)", border: "1px solid var(--ht-border-btn-inactive)", color: "var(--ht-text-secondary)", cursor: "pointer", fontSize: "16px", padding: "6px 12px", borderRadius: "8px", transition: "background 0.2s" }}>›</button>
         </div>
       </div>
 
-      <div style={{ border: "1px solid #1f2937", borderRadius: "12px", overflow: "hidden", background: "#0d1117" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", background: "#111827", borderBottom: "1px solid #1f2937" }}>
-          {DAYS_SHORT.map(d => <div key={d} style={{ fontSize: "12px", color: "#9ca3af", padding: "12px 0", fontWeight: 700, textAlign: "center" }}>{d}</div>)}
+      <div className="ht-calendar-grid-wrapper" style={{ border: "1px solid var(--ht-border-surface)", borderRadius: "12px", overflow: "hidden", background: "var(--ht-bg-base)" }}>
+        <div className="ht-calendar-weekday-header" style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", background: "var(--ht-bg-surface)", borderBottom: "1px solid var(--ht-border-surface)" }}>
+          {DAYS_SHORT.map(d => <div key={d} style={{ fontSize: "12px", color: "var(--ht-text-muted)", padding: "12px 0", fontWeight: 700, textAlign: "center" }}>{d}</div>)}
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)" }}>
@@ -622,12 +622,13 @@ export function CalendarTab({
                 <div
                   key={i}
                   onClick={() => setSelectedDateStr(dateStr)} // Click cell to open details modal
+                  className="ht-calendar-cell"
                   style={{
                     minHeight: "100px",
-                    borderRight: (i + 1) % 7 === 0 ? "none" : "1px solid #1f2937",
-                    borderBottom: "1px solid #1f2937",
+                    borderRight: (i + 1) % 7 === 0 ? "none" : "1px solid var(--ht-border-surface)",
+                    borderBottom: "1px solid var(--ht-border-surface)",
                     padding: "6px",
-                    background: cell.curr ? (isPausedDay ? "#78350f15" : "transparent") : "#11182766",
+                    background: cell.curr ? (isPausedDay ? "#78350f15" : "transparent") : "var(--ht-bg-card-subtle)",
                     opacity: cell.curr ? 1 : 0.5,
                     cursor: "pointer",
                     transition: "background 0.15s",
@@ -635,7 +636,7 @@ export function CalendarTab({
                     display: "flex",
                     flexDirection: "column",
                   }}
-                  onMouseOver={e => { if (cell.curr) e.currentTarget.style.background = "#1f293766"; }}
+                  onMouseOver={e => { if (cell.curr) e.currentTarget.style.background = "var(--ht-bg-card-hover)"; }}
                   onMouseOut={e => { if (cell.curr) e.currentTarget.style.background = isPausedDay ? "#78350f15" : "transparent"; }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
@@ -643,7 +644,7 @@ export function CalendarTab({
                       <span style={{
                         fontSize: "12px",
                         fontWeight: isToday ? 800 : 600,
-                        color: isToday ? "#fff" : (cell.curr ? "#d1d5db" : "#6b7280"),
+                        color: isToday ? "#fff" : (cell.curr ? "var(--ht-text-secondary)" : "var(--ht-text-muted)"),
                         background: isToday ? "#2563eb" : "transparent",
                         width: "24px",
                         height: "24px",
@@ -677,7 +678,7 @@ export function CalendarTab({
                       }}
                       onMouseOver={(e) => {
                         e.currentTarget.style.color = "#3b82f6";
-                        e.currentTarget.style.backgroundColor = "#1f2937";
+                        e.currentTarget.style.backgroundColor = "var(--ht-bg-card-hover)";
                       }}
                       onMouseOut={(e) => {
                         e.currentTarget.style.color = "#9ca3af";
@@ -721,9 +722,9 @@ export function CalendarTab({
         <div className="day-detail-overlay" onClick={() => setSelectedDateStr(null)}>
           <div className="day-detail-container" onClick={e => e.stopPropagation()}>
             {/* Header */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 20px", borderBottom: "1px solid #1f2937", background: "#111827" }}>
+            <div className="ht-day-detail-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 20px", borderBottom: "1px solid var(--ht-border-surface)", background: "var(--ht-bg-surface)" }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: "18px", fontWeight: 800, fontFamily: "'Syne', sans-serif", color: "#f9fafb" }}>
+                <h3 style={{ margin: 0, fontSize: "18px", fontWeight: 800, fontFamily: "'Syne', sans-serif", color: "var(--ht-text-primary)" }}>
                   {selectedDateObject.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
                 </h3>
                 {selectedIsPausedDay && (
@@ -745,7 +746,7 @@ export function CalendarTab({
               {/* Left Column (Habits & Tasks) */}
               <div className="day-detail-left">
                 {/* Habits Section */}
-                <div style={{ background: "#1f293740", border: "1px solid #1f2937", borderRadius: "12px", padding: "16px" }}>
+                <div className="ht-day-detail-section" style={{ background: "var(--ht-bg-card-subtle)", border: "1px solid var(--ht-border-surface)", borderRadius: "12px", padding: "16px" }}>
                   <h4 style={{ margin: "0 0 12px 0", fontSize: "14px", fontWeight: 700, color: "#60a5fa", display: "flex", alignItems: "center", gap: "6px" }}>
                     🔥 Habits
                     <span style={{ fontSize: "12px", background: "#1e3a8a", color: "#93c5fd", padding: "2px 8px", borderRadius: "999px" }}>
@@ -754,14 +755,14 @@ export function CalendarTab({
                   </h4>
 
                   {selectedHabits.length === 0 ? (
-                    <div style={{ color: "#4b5563", fontSize: "13px" }}>No habits scheduled for this day.</div>
+                    <div style={{ color: "var(--ht-text-muted)", fontSize: "13px" }}>No habits scheduled for this day.</div>
                   ) : (
                     <div className="detail-list" style={{ marginTop: 0 }}>
                       {selectedHabits.map(h => {
                         const isDone = (h.completedDates || []).includes(selectedDateStr);
                         const isTooOld = selectedDateObject < backdateCutoff;
                         let statusStr = "Pending";
-                        let badgeBg = "#1f2937";
+                        let badgeBg = "var(--ht-bg-btn-inactive)";
                         let badgeColor = "#9ca3af";
 
                         if (isDone) {
@@ -791,7 +792,7 @@ export function CalendarTab({
                                   height: "20px",
                                   borderRadius: "6px",
                                   border: "1.5px solid",
-                                  borderColor: isDone ? "#22c55e" : "#374151",
+                                  borderColor: isDone ? "#22c55e" : "var(--ht-border-btn-inactive)",
                                   background: isDone ? "#22c55e" : "transparent",
                                   cursor: canToggle ? "pointer" : "not-allowed",
                                   display: "flex",
@@ -805,7 +806,7 @@ export function CalendarTab({
                               >
                                 {isDone && "✓"}
                               </button>
-                              <span className="detail-item-title" style={{ textDecoration: isDone ? "line-through" : "none", color: isDone ? "#4b5563" : "#e5e7eb" }}>
+                              <span className="detail-item-title" style={{ textDecoration: isDone ? "line-through" : "none", color: isDone ? "var(--ht-text-muted)" : "var(--ht-text-primary)" }}>
                                 {h.name}
                               </span>
                             </div>
@@ -820,7 +821,7 @@ export function CalendarTab({
                 </div>
 
                 {/* Tasks Section */}
-                <div style={{ background: "#1f293740", border: "1px solid #1f2937", borderRadius: "12px", padding: "16px" }}>
+                <div className="ht-day-detail-section" style={{ background: "var(--ht-bg-card-subtle)", border: "1px solid var(--ht-border-surface)", borderRadius: "12px", padding: "16px" }}>
                   <h4 style={{ margin: "0 0 12px 0", fontSize: "14px", fontWeight: 700, color: "#a78bfa", display: "flex", alignItems: "center", gap: "6px" }}>
                     📝 Tasks
                     <span style={{ fontSize: "12px", background: "#4c1d95", color: "#c084fc", padding: "2px 8px", borderRadius: "999px" }}>
@@ -829,14 +830,14 @@ export function CalendarTab({
                   </h4>
 
                   {selectedTodos.length === 0 ? (
-                    <div style={{ color: "#4b5563", fontSize: "13px" }}>No tasks for this day.</div>
+                    <div style={{ color: "var(--ht-text-muted)", fontSize: "13px" }}>No tasks for this day.</div>
                   ) : (
                     <div className="detail-list" style={{ marginTop: 0 }}>
                       {selectedTodos.map(t => {
                         const isDone = t.done && ((t.doneDate === selectedDateStr) || (t.done_date === selectedDateStr) || t.due_date === selectedDateStr);
                         const isMissed = !t.done && selectedDateStr < todayStr;
 
-                        let badgeBg = "#1f2937";
+                        let badgeBg = "var(--ht-bg-btn-inactive)";
                         let badgeColor = "#9ca3af";
                         let badgeText = "Pending";
 
@@ -860,7 +861,7 @@ export function CalendarTab({
                                   height: "20px",
                                   borderRadius: "6px",
                                   border: "1.5px solid",
-                                  borderColor: isDone ? "#22c55e" : "#374151",
+                                  borderColor: isDone ? "#22c55e" : "var(--ht-border-btn-inactive)",
                                   background: isDone ? "#22c55e" : "transparent",
                                   cursor: "pointer",
                                   display: "flex",
@@ -874,7 +875,7 @@ export function CalendarTab({
                               >
                                 {isDone && "✓"}
                               </button>
-                              <span className="detail-item-title" style={{ textDecoration: isDone ? "line-through" : "none", color: isDone ? "#4b5563" : "#e5e7eb", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              <span className="detail-item-title" style={{ textDecoration: isDone ? "line-through" : "none", color: isDone ? "var(--ht-text-muted)" : "var(--ht-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                 {t.text}
                               </span>
                             </div>
@@ -887,7 +888,7 @@ export function CalendarTab({
                               {onDeleteTodo && (
                                 <button
                                   onClick={() => onDeleteTodo(t.id)}
-                                  style={{ background: "none", border: "none", cursor: "pointer", color: "#4b5563", fontSize: "14px", padding: "2px", display: "flex", alignItems: "center", justifyContent: "center" }}
+                                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ht-text-muted)", fontSize: "14px", padding: "2px", display: "flex", alignItems: "center", justifyContent: "center" }}
                                   title="Delete task"
                                 >
                                   ✕
@@ -902,7 +903,7 @@ export function CalendarTab({
 
                   {/* Quick Add Todo Inline */}
                   {onAddTodoDirect && (
-                    <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px solid #1f2937" }}>
+                    <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px solid var(--ht-border-surface)" }}>
                       <form
                         onSubmit={async (e) => {
                           e.preventDefault();
@@ -948,7 +949,7 @@ export function CalendarTab({
 
               {/* Right Column (Journal) */}
               <div className="day-detail-right">
-                <div style={{ background: "#1f293740", border: "1px solid #1f2937", borderRadius: "12px", padding: "16px", display: "flex", flexDirection: "column", height: "100%", minHeight: "350px" }}>
+                <div className="ht-day-detail-section" style={{ background: "var(--ht-bg-card-subtle)", border: "1px solid var(--ht-border-surface)", borderRadius: "12px", padding: "16px", display: "flex", flexDirection: "column", height: "100%", minHeight: "350px" }}>
                   <h4 style={{ margin: "0 0 16px 0", fontSize: "14px", fontWeight: 700, color: "#38bdf8", display: "flex", alignItems: "center", gap: "6px" }}>
                     📓 Journal
                   </h4>
@@ -956,8 +957,8 @@ export function CalendarTab({
                   {isJournalLocked ? (
                     <div className="journal-locked-container">
                       <div style={{ fontSize: "28px" }}>🔒</div>
-                      <div style={{ color: "#f9fafb", fontWeight: 700, fontSize: "14px" }}>Premium Journal History</div>
-                      <div style={{ color: "#9ca3af", fontSize: "12px", lineHeight: 1.5, maxWidth: "240px" }}>
+                      <div style={{ color: "var(--ht-text-primary)", fontWeight: 700, fontSize: "14px" }}>Premium Journal History</div>
+                      <div style={{ color: "var(--ht-text-muted)", fontSize: "12px", lineHeight: 1.5, maxWidth: "240px" }}>
                         Free accounts can access the last {FREE_JOURNAL_DAYS} days of journal history.
                       </div>
                       {setShowUpgradeModal && (

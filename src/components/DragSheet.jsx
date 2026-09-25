@@ -14,7 +14,7 @@ export function DragSheet({ onClose, children }) {
       style={{ 
         position: "fixed", 
         inset: 0, 
-        background: "rgba(6, 8, 12, 0.85)", 
+        background: "var(--ht-modal-overlay)", 
         backdropFilter: "blur(10px)",
         zIndex: 20000, 
         display: "flex", 
@@ -25,8 +25,8 @@ export function DragSheet({ onClose, children }) {
     >
       <div
         style={{ 
-          background: "#0d1117", 
-          borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+          background: "var(--ht-modal-bg)", 
+          borderTop: "1px solid var(--ht-border-card)",
           borderRadius: "24px 24px 0 0", 
           padding: "24px 20px 48px 20px", 
           width: "100%", 
