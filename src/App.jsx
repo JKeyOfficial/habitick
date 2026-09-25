@@ -1464,7 +1464,7 @@ function HabiTick() {
       <aside className="ht-sidebar">
         <div className="ht-sidebar-logo">
           <img src="/habitick-blue-logo.png" alt="HabiTick" style={{ width: "32px", height: "32px", borderRadius: "8px", objectFit: "contain" }} />
-          <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "20px", letterSpacing: "-0.02em", color: "#fff" }}>HabiTick</span>
+          <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "20px", letterSpacing: "-0.02em", color: "var(--ht-text-primary)" }}>HabiTick</span>
         </div>
 
         <nav className="ht-sidebar-nav">
@@ -2152,7 +2152,7 @@ function HabiTick() {
               /* DEDICATED TASKS (TO-DO LIST) TAB */
               <section style={{ animation: "fadeUp 0.3s ease-out" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-                  <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "24px", margin: 0, color: "#fff", letterSpacing: "-0.02em" }}>To-Do List</h2>
+                  <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "24px", margin: 0, color: "var(--ht-text-primary)", letterSpacing: "-0.02em" }}>To-Do List</h2>
                   <button
                     onClick={() => setShowTodoModal(true)}
                     style={{ padding: "8px 16px", borderRadius: "10px", border: "none", background: "#2563eb", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: "13px", boxShadow: "0 4px 12px rgba(37,99,235,0.25)" }}
