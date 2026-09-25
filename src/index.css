@@ -539,3 +539,130 @@ body {
   background: rgba(124, 58, 237, 0.08) !important;
   border-color: rgba(124, 58, 237, 0.2) !important;
 }
+
+/* ============================================================
+   ONBOARDING SCREEN — Light Mode Overrides
+   ============================================================ */
+[data-theme="light"] .ob-container,
+.theme-light .ob-container {
+  background: var(--ht-bg-base) !important;
+  background-image: 
+    radial-gradient(at 50% 0%, rgba(37, 99, 235, 0.08) 0px, transparent 60%),
+    radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.04) 0px, transparent 50%) !important;
+}
+
+[data-theme="light"] .ob-ambient-glow,
+.theme-light .ob-ambient-glow {
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.07) 0%, rgba(255, 255, 255, 0) 70%) !important;
+}
+
+[data-theme="light"] .ob-card,
+.theme-light .ob-card {
+  background: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.03) inset !important;
+}
+
+[data-theme="light"] .ob-logo-badge,
+.theme-light .ob-logo-badge {
+  background: #f1f5f9 !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .ob-logo-text,
+.theme-light .ob-logo-text {
+  color: var(--ht-text-primary) !important;
+}
+
+[data-theme="light"] .ob-title,
+.theme-light .ob-title {
+  color: var(--ht-text-primary) !important;
+}
+
+[data-theme="light"] .ob-subtitle,
+.theme-light .ob-subtitle {
+  color: var(--ht-text-secondary) !important;
+}
+
+[data-theme="light"] .ob-feature-row,
+.theme-light .ob-feature-row {
+  background: #f8fafc !important;
+  border-color: rgba(0, 0, 0, 0.06) !important;
+}
+
+[data-theme="light"] .ob-feature-row:hover,
+.theme-light .ob-feature-row:hover {
+  background: #f1f5f9 !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
+}
+
+[data-theme="light"] .ob-feature-icon,
+.theme-light .ob-feature-icon {
+  background: rgba(37, 99, 235, 0.08) !important;
+  border-color: rgba(37, 99, 235, 0.2) !important;
+  color: #2563eb !important;
+}
+
+[data-theme="light"] .ob-feature-title,
+.theme-light .ob-feature-title {
+  color: var(--ht-text-primary) !important;
+}
+
+[data-theme="light"] .ob-feature-desc,
+.theme-light .ob-feature-desc {
+  color: var(--ht-text-muted) !important;
+}
+
+[data-theme="light"] .ob-btn-ghost,
+.theme-light .ob-btn-ghost {
+  color: var(--ht-text-muted) !important;
+}
+
+[data-theme="light"] .ob-btn-ghost:hover,
+.theme-light .ob-btn-ghost:hover {
+  color: var(--ht-text-primary) !important;
+  background: rgba(0, 0, 0, 0.04) !important;
+}
+
+[data-theme="light"] .ob-close-btn,
+.theme-light .ob-close-btn {
+  background: rgba(0, 0, 0, 0.04) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  color: var(--ht-text-muted) !important;
+}
+
+[data-theme="light"] .ob-close-btn:hover,
+.theme-light .ob-close-btn:hover {
+  background: rgba(0, 0, 0, 0.08) !important;
+  color: var(--ht-text-primary) !important;
+}
+
+[data-theme="light"] .ob-input,
+.theme-light .ob-input {
+  border-color: rgba(0, 0, 0, 0.15) !important;
+  background: #ffffff !important;
+  color: var(--ht-text-primary) !important;
+}
+
+[data-theme="light"] .ob-input:focus,
+.theme-light .ob-input:focus {
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+  background: #ffffff !important;
+}
+
+[data-theme="light"] .ob-avatar-placeholder,
+.theme-light .ob-avatar-placeholder {
+  background: #f1f5f9 !important;
+  border-color: rgba(0, 0, 0, 0.16) !important;
+}
+
+[data-theme="light"] .ob-label,
+.theme-light .ob-label {
+  color: var(--ht-text-muted) !important;
+}
+
+[data-theme="light"] .ob-hint,
+.theme-light .ob-hint {
+  color: var(--ht-text-muted) !important;
+}

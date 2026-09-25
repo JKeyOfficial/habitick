@@ -62,6 +62,7 @@ export function OnboardingScreen({ session, profile, onComplete, onClose }) {
           position: relative;
           overflow: hidden;
           box-sizing: border-box;
+          transition: background-color 0.2s ease;
         }
 
         .ob-ambient-glow {
@@ -91,6 +92,7 @@ export function OnboardingScreen({ session, profile, onComplete, onClose }) {
           z-index: 2;
           animation: obFadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
           box-sizing: border-box;
+          transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
         }
 
         @keyframes obFadeUp {
@@ -107,6 +109,7 @@ export function OnboardingScreen({ session, profile, onComplete, onClose }) {
           border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: 999px;
           margin-bottom: 20px;
+          transition: all 0.2s ease;
         }
 
         .ob-logo-img {
@@ -263,6 +266,36 @@ export function OnboardingScreen({ session, profile, onComplete, onClose }) {
           background: #0b0f17;
         }
 
+        .ob-label {
+          color: #9ca3af;
+          font-size: 12px;
+          display: block;
+          margin-bottom: 6px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+        }
+
+        .ob-hint {
+          font-size: 11.5px;
+          color: #6b7280;
+          margin-top: 6px;
+        }
+
+        .ob-avatar-placeholder {
+          width: 80px;
+          height: 80px;
+          border-radius: 50%;
+          background: rgba(31, 41, 55, 0.5);
+          border: 2px dashed rgba(255, 255, 255, 0.16);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 4px;
+          transition: all 0.2s;
+        }
+
         .ob-close-btn {
           position: absolute;
           top: 20px;
@@ -285,6 +318,131 @@ export function OnboardingScreen({ session, profile, onComplete, onClose }) {
         .ob-close-btn:hover {
           background: rgba(255, 255, 255, 0.1);
           color: #fff;
+        }
+
+        /* ── LIGHT MODE OVERRIDES ── */
+        [data-theme="light"] .ob-container,
+        .theme-light .ob-container {
+          background: #f8fafc;
+          background-image: 
+            radial-gradient(at 50% 0%, rgba(37, 99, 235, 0.08) 0px, transparent 60%),
+            radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.04) 0px, transparent 50%);
+        }
+
+        [data-theme="light"] .ob-ambient-glow,
+        .theme-light .ob-ambient-glow {
+          background: radial-gradient(circle, rgba(37, 99, 235, 0.07) 0%, rgba(255, 255, 255, 0) 70%);
+        }
+
+        [data-theme="light"] .ob-card,
+        .theme-light .ob-card {
+          background: #ffffff;
+          border: 1px solid rgba(0, 0, 0, 0.08);
+          box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.03) inset;
+        }
+
+        [data-theme="light"] .ob-logo-badge,
+        .theme-light .ob-logo-badge {
+          background: #f1f5f9;
+          border-color: rgba(0, 0, 0, 0.08);
+        }
+
+        [data-theme="light"] .ob-logo-text,
+        .theme-light .ob-logo-text {
+          color: #0f172a;
+        }
+
+        [data-theme="light"] .ob-title,
+        .theme-light .ob-title {
+          color: #0f172a !important;
+        }
+
+        [data-theme="light"] .ob-subtitle,
+        .theme-light .ob-subtitle {
+          color: #475569;
+        }
+
+        [data-theme="light"] .ob-feature-row,
+        .theme-light .ob-feature-row {
+          background: #f8fafc;
+          border-color: rgba(0, 0, 0, 0.06);
+        }
+
+        [data-theme="light"] .ob-feature-row:hover,
+        .theme-light .ob-feature-row:hover {
+          background: #f1f5f9;
+          border-color: rgba(0, 0, 0, 0.12);
+        }
+
+        [data-theme="light"] .ob-feature-icon,
+        .theme-light .ob-feature-icon {
+          background: rgba(37, 99, 235, 0.08);
+          border-color: rgba(37, 99, 235, 0.2);
+          color: #2563eb;
+        }
+
+        [data-theme="light"] .ob-feature-title,
+        .theme-light .ob-feature-title {
+          color: #0f172a;
+        }
+
+        [data-theme="light"] .ob-feature-desc,
+        .theme-light .ob-feature-desc {
+          color: #64748b;
+        }
+
+        [data-theme="light"] .ob-input,
+        .theme-light .ob-input {
+          border-color: rgba(0, 0, 0, 0.15);
+          background: #ffffff;
+          color: #0f172a;
+        }
+
+        [data-theme="light"] .ob-input:focus,
+        .theme-light .ob-input:focus {
+          border-color: #2563eb;
+          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+          background: #ffffff;
+        }
+
+        [data-theme="light"] .ob-label,
+        .theme-light .ob-label {
+          color: #64748b;
+        }
+
+        [data-theme="light"] .ob-hint,
+        .theme-light .ob-hint {
+          color: #64748b;
+        }
+
+        [data-theme="light"] .ob-avatar-placeholder,
+        .theme-light .ob-avatar-placeholder {
+          background: #f1f5f9;
+          border-color: rgba(0, 0, 0, 0.16);
+        }
+
+        [data-theme="light"] .ob-close-btn,
+        .theme-light .ob-close-btn {
+          background: rgba(0, 0, 0, 0.04);
+          border-color: rgba(0, 0, 0, 0.08);
+          color: #64748b;
+        }
+
+        [data-theme="light"] .ob-close-btn:hover,
+        .theme-light .ob-close-btn:hover {
+          background: rgba(0, 0, 0, 0.08);
+          color: #0f172a;
+        }
+
+        [data-theme="light"] .ob-btn-ghost,
+        .theme-light .ob-btn-ghost {
+          color: #64748b;
+        }
+
+        [data-theme="light"] .ob-btn-ghost:hover,
+        .theme-light .ob-btn-ghost:hover {
+          color: #0f172a;
+          background: rgba(0, 0, 0, 0.04);
         }
       `}</style>
 
@@ -365,13 +523,13 @@ export function OnboardingScreen({ session, profile, onComplete, onClose }) {
               {avatarUrl ? (
                 <img src={avatarUrl} alt="avatar" style={{ width: "80px", height: "80px", borderRadius: "50%", objectFit: "cover", border: "2.5px solid #2563eb", boxShadow: "0 8px 24px rgba(37,99,235,0.3)" }} />
               ) : (
-                <div style={{ width: "80px", height: "80px", borderRadius: "50%", background: "rgba(31, 41, 55, 0.5)", border: "2px dashed rgba(255, 255, 255, 0.16)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "4px", transition: "all 0.2s" }}>
+                <div className="ob-avatar-placeholder">
                   <span style={{ fontSize: "22px" }}>{uploadingAvatar ? "⏳" : "📷"}</span>
-                  <span style={{ fontSize: "10px", color: "#9ca3af", fontWeight: 600 }}>Add Photo</span>
+                  <span style={{ fontSize: "10px", color: "var(--ht-text-muted, #9ca3af)", fontWeight: 600 }}>Add Photo</span>
                 </div>
               )}
               {avatarUrl && (
-                <div style={{ position: "absolute", bottom: 0, right: 0, width: "24px", height: "24px", borderRadius: "50%", background: "#2563eb", border: "2px solid #0d1117", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", color: "#fff" }}>
+                <div style={{ position: "absolute", bottom: 0, right: 0, width: "24px", height: "24px", borderRadius: "50%", background: "#2563eb", border: "2px solid var(--ht-modal-bg, #0d1117)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", color: "#fff" }}>
                   📷
                 </div>
               )}
@@ -380,7 +538,7 @@ export function OnboardingScreen({ session, profile, onComplete, onClose }) {
           </div>
 
           <div style={{ marginBottom: "20px" }}>
-            <label style={{ color: "#9ca3af", fontSize: "12px", display: "block", marginBottom: "6px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            <label className="ob-label">
               Username <span style={{ color: "#f87171" }}>*</span>
             </label>
             <input
@@ -392,7 +550,7 @@ export function OnboardingScreen({ session, profile, onComplete, onClose }) {
               className="ob-input"
               style={{ borderColor: usernameErr ? "#f87171" : undefined }}
             />
-            <div style={{ fontSize: "11.5px", color: "#6b7280", marginTop: "6px" }}>Letters, numbers, underscores · min 3 characters</div>
+            <div className="ob-hint">Letters, numbers, underscores · min 3 characters</div>
             {usernameErr && <div style={{ color: "#f87171", fontSize: "12.5px", marginTop: "6px" }}>{usernameErr}</div>}
           </div>
 
@@ -450,7 +608,7 @@ export function OnboardingScreen({ session, profile, onComplete, onClose }) {
               </div>
 
               <div className="ob-feature-row">
-                <div className="ob-feature-icon" style={{ background: "rgba(59, 130, 246, 0.12)", borderColor: "rgba(59, 130, 246, 0.25)", color: "#60a5fa" }}>
+                <div className="ob-feature-icon" style={{ background: "rgba(59, 130, 246, 0.12)", borderColor: "rgba(59, 130, 246, 0.25)", color: "var(--ht-accent, #3b82f6)" }}>
                   2
                 </div>
                 <div>
