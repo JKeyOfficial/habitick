@@ -15,6 +15,7 @@ import { AuthModal } from './components/AuthModal.jsx';
 import { FormattingToolbar } from './components/FormattingToolbar.jsx';
 import { FileManagerModal } from './components/FileManagerModal.jsx';
 import { setSharedAuthCookie, getSharedAuthCookie, clearSharedAuthCookie } from './lib/sso.js';
+import { decryptText } from './lib/crypto.js';
 import './index.css';
 
 function formatInlineStyles(str) {
@@ -100,6 +101,45 @@ function parseMarkdownToHtml(text) {
   return sanitizeHtml(htmlLines.join(''));
 }
 
+function formatRelativeTime(dateStr) {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now - date;
+  if (diffMs < 0 || isNaN(diffMs)) return 'Just now';
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return 'Just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour}h ago`;
+  const diffDay = Math.floor(diffHour / 24);
+  if (diffDay === 1) return 'Yesterday';
+  if (diffDay < 7) return `${diffDay}d ago`;
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function getDocDisplayTitle(doc) {
+  if (!doc?.title) return 'Untitled Note';
+  if (doc.title.startsWith('htv2:')) {
+    return 'Encrypted Note';
+  }
+  return doc.title;
+}
+
+function getDocDisplaySnippet(doc) {
+  if (!doc?.content) return 'Empty note...';
+  if (doc.content.startsWith('htv2:')) {
+    return 'Protected encrypted content';
+  }
+  const clean = doc.content
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/[#*`_~>\-\[\]]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return clean ? (clean.length > 55 ? clean.slice(0, 55) + '...' : clean) : 'Empty note...';
+}
+
 const DEFAULT_DOC = {
   id: WELCOME_DOC_ID,
   title: 'Welcome to HabiTick Docs',
@@ -124,6 +164,7 @@ export default function App() {
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState('All');
+  const tagScrollRef = useRef(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [focusMode, setFocusMode] = useState(() => localStorage.getItem('ht_docs_focus_mode') === 'true');
   const [theme, setTheme] = useState(() => localStorage.getItem('ht_theme') || 'dark');
@@ -467,6 +508,42 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  // Proactive background decryption if any loaded doc title/content is still encrypted with htv2:
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    const hasEncryptedDocs = docs.some(d => d.title?.startsWith('htv2:') || d.content?.startsWith('htv2:'));
+    if (!hasEncryptedDocs) return;
+
+    let isSubscribed = true;
+    (async () => {
+      let updated = false;
+      const decrypted = await Promise.all(docs.map(async (doc) => {
+        let title = doc.title;
+        let content = doc.content;
+        if (title?.startsWith('htv2:')) {
+          try {
+            const decTitle = await decryptText(title, session.user.id);
+            if (decTitle && decTitle !== title) { title = decTitle; updated = true; }
+          } catch {}
+        }
+        if (content?.startsWith('htv2:')) {
+          try {
+            const decContent = await decryptText(content, session.user.id);
+            if (decContent && decContent !== content) { content = decContent; updated = true; }
+          } catch {}
+        }
+        return { ...doc, title, content };
+      }));
+
+      if (isSubscribed && updated) {
+        setDocs(decrypted);
+        saveLocalDocs(decrypted);
+      }
+    })();
+
+    return () => { isSubscribed = false; };
+  }, [session?.user?.id, docs]);
 
   // Focus Mode: auto-reveal sidebar when moving mouse to the left screen margin
   useEffect(() => {
@@ -876,23 +953,23 @@ export default function App() {
         {/* Inner Fixed-Width Wrapper: ensures silky smooth slide in/out animations without content reflow */}
         <div className="ht-sidebar-inner">
           {/* Brand Header */}
-          <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid var(--ht-border-subtle)' }}>
-            <div className="ht-stagger-item ht-stagger-1" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--ht-border-subtle)' }}>
+            <div className="ht-stagger-item ht-stagger-1" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <a 
                 href={import.meta.env.VITE_HABITICK_APP_URL || (typeof window !== 'undefined' && window.location.search.includes('tab=docs') ? '/' : (typeof window !== 'undefined' && window.location.hostname.includes('habitick.app') ? 'https://app.habitick.app' : 'http://localhost:5173'))} 
                 title="Return to HabiTick Tracker"
-                style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '9px' }}
+                style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px' }}
               >
               <img 
                 src="/habitick-blue-logo.png" 
                 alt="HabiTick Logo" 
-                style={{ width: "28px", height: "28px", borderRadius: "7px", objectFit: "contain" }} 
+                style={{ width: "32px", height: "32px", borderRadius: "8px", objectFit: "contain" }} 
               />
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: '17px', color: 'var(--ht-text-primary)' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: '20px', letterSpacing: '-0.02em', lineHeight: 1, color: 'var(--ht-text-primary)' }}>
                   HabiTick
                 </span>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                <span style={{ fontSize: '9.5px', fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.14em', lineHeight: 1, marginTop: '3px' }}>
                   Docs
                 </span>
               </div>
@@ -912,286 +989,262 @@ export default function App() {
                 justifyContent: 'center'
               }}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect width="18" height="18" x="3" y="3" rx="2" />
                 <path d="M9 3v18" />
               </svg>
             </button>
+            </div>
           </div>
 
-          {/* Action Buttons & Finder */}
-          <div className="ht-stagger-item ht-stagger-2">
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                onClick={() => handleCreateNote()}
-              style={{
-                flex: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                padding: '9px 12px',
-                borderRadius: '10px',
-                background: '#2563eb',
-                color: '#fff',
-                border: 'none',
-                fontWeight: 700,
-                fontSize: '13px',
-                cursor: 'pointer',
-                transition: 'background 0.15s'
-              }}
-            >
-              <span>+</span> New Note
-            </button>
+          {/* Search Bar directly below main header */}
+          <div className="ht-stagger-item ht-stagger-2" style={{ padding: '12px 14px 6px' }}>
+            <div className="ht-search-container">
+              <svg className="ht-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input 
+                id="doc-search-bar"
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search notes (Cmd+K)..."
+                className="ht-search-input"
+              />
+              {searchQuery ? (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="ht-search-clear-btn"
+                  title="Clear search"
+                  type="button"
+                >
+                  ×
+                </button>
+              ) : (
+                <span className="ht-search-kbd">⌘K</span>
+              )}
+            </div>
+          </div>
+
+          {/* Primary Action & Secondary Tools */}
+          <div className="ht-stagger-item ht-stagger-3" style={{ padding: '4px 14px 8px' }}>
+            {/* Full-width primary action button */}
             <button
-              onClick={() => setShowTemplatesModal(true)}
-              title="Starter note templates"
-              style={{
-                padding: '9px 12px',
-                borderRadius: '10px',
-                background: 'var(--ht-bg-card)',
-                color: 'var(--ht-text-primary)',
-                border: '1px solid var(--ht-border-card)',
-                fontWeight: 600,
-                fontSize: '13px',
-                cursor: 'pointer'
-              }}
+              onClick={() => handleCreateNote()}
+              className="ht-btn-new-note"
+              title="Create a new note"
+              type="button"
             >
-              🎓 Templates
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              <span>New Note</span>
             </button>
-          </div>
 
-          {/* macOS Finder / File Manager Button */}
-          <button
-            onClick={() => setIsFileManagerOpen(true)}
-            title="Open macOS File Manager (⌘O)"
-            style={{
-              marginTop: '8px',
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '8px 12px',
-              borderRadius: '10px',
-              background: 'var(--ht-bg-card)',
-              border: '1px solid var(--ht-border-card)',
-              color: 'var(--ht-text-primary)',
-              fontSize: '12.5px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 0.15s ease'
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.borderColor = 'rgba(37, 99, 235, 0.4)';
-              e.currentTarget.style.background = 'var(--ht-bg-card-subtle)';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.borderColor = 'var(--ht-border-card)';
-              e.currentTarget.style.background = 'var(--ht-bg-card)';
-            }}
-          >
-            <span style={{ fontSize: '14px' }}>📁</span>
-            <span>Finder / Files</span>
-            <span style={{ 
-              marginLeft: 'auto', 
-              fontSize: '10px', 
-              fontWeight: 700,
-              padding: '2px 6px', 
-              borderRadius: '5px', 
-              background: 'var(--ht-bg-base)', 
-              color: 'var(--ht-text-muted)',
-              border: '1px solid var(--ht-border-subtle)'
-            }}>
-              ⌘O
-            </span>
-            </button>
-          </div>
-        </div>
-
-        {/* Search & Tags */}
-        <div className="ht-stagger-item ht-stagger-3" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <div style={{ position: 'relative' }}>
-            <input 
-              id="doc-search-bar"
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search notes (Cmd+K)..."
-              style={{
-                width: '100%',
-                padding: '8px 10px 8px 32px',
-                borderRadius: '8px',
-                background: 'var(--ht-bg-card)',
-                border: '1px solid var(--ht-border-card)',
-                color: 'var(--ht-text-primary)',
-                fontSize: '12.5px',
-                outline: 'none',
-                boxSizing: 'border-box'
-              }}
-            />
-            <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', color: 'var(--ht-text-muted)' }}>
-              🔍
-            </span>
-          </div>
-
-          {/* Tag Filter Pills */}
-          <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', paddingBottom: '2px' }}>
-            {DEFAULT_TAGS.map(tag => (
+            {/* Secondary Action Row: Finder & Templates */}
+            <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
               <button
-                key={tag}
-                onClick={() => setSelectedTag(tag)}
-                style={{
-                  padding: '3px 8px',
-                  borderRadius: '6px',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  border: 'none',
-                  whiteSpace: 'nowrap',
-                  background: selectedTag === tag ? '#2563eb' : 'var(--ht-bg-card)',
-                  color: selectedTag === tag ? '#fff' : 'var(--ht-text-muted)'
-                }}
+                onClick={() => setIsFileManagerOpen(true)}
+                title="Open macOS File Manager (⌘O)"
+                className="ht-btn-secondary-tool"
+                style={{ flex: 1 }}
+                type="button"
               >
-                {tag}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                  <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
+                </svg>
+                <span>Finder</span>
+                <span className="ht-kbd-badge">⌘O</span>
               </button>
-            ))}
-          </div>
-        </div>
 
-        {/* Notes List */}
-        <div className="ht-stagger-item ht-stagger-4" style={{ flex: 1, overflowY: 'auto', padding: '4px 10px 16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {filteredDocs.length === 0 ? (
-            <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--ht-text-muted)', fontSize: '12.5px' }}>
-              No notes found.<br />
-              <button 
-                onClick={() => handleCreateNote()}
-                style={{ marginTop: '10px', background: 'none', border: 'none', color: '#2563eb', fontWeight: 600, cursor: 'pointer', fontSize: '12.5px' }}
+              <button
+                onClick={() => setShowTemplatesModal(true)}
+                title="Starter note templates"
+                className="ht-btn-secondary-tool"
+                style={{ flex: 1 }}
+                type="button"
               >
-                + Create Note
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                  <rect width="18" height="18" x="3" y="3" rx="2" />
+                  <path d="M3 9h18" />
+                  <path d="M9 21V9" />
+                </svg>
+                <span>Templates</span>
               </button>
             </div>
-          ) : (
-            <>
-              {/* Pinned Section */}
-              {pinnedDocs.length > 0 && (
-                <div>
-                  <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--ht-text-muted)', padding: '4px 8px' }}>
-                    📌 Pinned
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                    {pinnedDocs.map(doc => renderDocListItem(doc))}
-                  </div>
-                </div>
-              )}
+          </div>
 
-              {/* Unpinned Notes Section */}
-              {unpinnedDocs.length > 0 && (
-                <div>
-                  <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--ht-text-muted)', padding: '4px 8px' }}>
-                    {selectedTag === 'All' ? 'Notes' : `${selectedTag} Notes`} ({unpinnedDocs.length})
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                    {unpinnedDocs.map(doc => renderDocListItem(doc))}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Sidebar Footer: Profile Card matching HabiTick Main */}
-        <div 
-          ref={profileContainerRef}
-          className="ht-stagger-item ht-stagger-5" 
-          style={{ 
-            padding: '12px 14px', 
-            borderTop: '1px solid var(--ht-border-subtle)', 
-            position: 'relative',
-            zIndex: showProfileMenu ? 101 : 1
-          }}
-        >
-          {session?.user ? (
-            <>
-              {/* Invisible Click-off Backdrop */}
-              {showProfileMenu && (
-                <div
-                  aria-hidden="true"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowProfileMenu(false);
-                  }}
-                  style={{
-                    position: 'fixed',
-                    inset: 0,
-                    zIndex: 99,
-                    background: 'transparent',
-                    cursor: 'default'
-                  }}
-                />
-              )}
-
-              {/* Profile Card Button */}
-              <button 
-                onClick={() => setShowProfileMenu(prev => !prev)}
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '10px', 
-                  background: showProfileMenu ? 'var(--ht-bg-card-subtle)' : 'rgba(255, 255, 255, 0.02)', 
-                  border: showProfileMenu ? '1px solid var(--ht-accent)' : '1px solid var(--ht-border-card)', 
-                  borderRadius: '12px', 
-                  padding: '9px 12px', 
-                  cursor: 'pointer', 
-                  width: '100%', 
-                  transition: 'all 0.18s ease',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                  position: 'relative',
-                  zIndex: showProfileMenu ? 102 : 'auto',
-                  boxShadow: showProfileMenu ? '0 0 0 2px var(--ht-accent-subtle)' : 'none'
-                }}
-                onMouseEnter={e => {
-                  if (!showProfileMenu) {
-                    e.currentTarget.style.borderColor = 'rgba(37, 99, 235, 0.4)';
-                    e.currentTarget.style.background = 'var(--ht-bg-card-subtle)';
-                  }
-                }}
-                onMouseLeave={e => {
-                  if (!showProfileMenu) {
-                    e.currentTarget.style.borderColor = 'var(--ht-border-card)';
-                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)';
+          {/* Tag Filter Pills with Right Fade Mask & Smooth Wheel Scroll */}
+          <div className="ht-stagger-item ht-stagger-3" style={{ padding: '2px 14px 10px' }}>
+            <div className="ht-tag-scroll-wrapper">
+              <div 
+                ref={tagScrollRef}
+                className="ht-tag-scroll-list"
+                onWheel={(e) => {
+                  if (e.deltaY !== 0) {
+                    e.currentTarget.scrollLeft += e.deltaY;
                   }
                 }}
               >
-                {/* Avatar Photo or Initial */}
-                {userProfile?.avatar_url || session?.user?.user_metadata?.avatar_url ? (
-                  <img 
-                    src={userProfile?.avatar_url || session?.user?.user_metadata?.avatar_url} 
-                    alt="avatar" 
-                    style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} 
-                  />
-                ) : (
-                  <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: '12px', color: '#fff', flexShrink: 0 }}>
-                    {(userProfile?.username || session?.user?.user_metadata?.username || session.user.email || '?')[0].toUpperCase()}
+                {DEFAULT_TAGS.map(tag => {
+                  const isActive = selectedTag === tag;
+                  return (
+                    <button
+                      key={tag}
+                      onClick={() => setSelectedTag(tag)}
+                      type="button"
+                      className={`ht-tag-pill ${isActive ? 'ht-tag-pill-active' : ''}`}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Notes List */}
+          <div className="ht-stagger-item ht-stagger-4" style={{ flex: 1, overflowY: 'auto', padding: '2px 12px 16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {filteredDocs.length === 0 ? (
+              <div style={{ padding: '36px 16px', textAlign: 'center', color: 'var(--ht-text-muted)', fontSize: '12.5px' }}>
+                No notes found.<br />
+                <button 
+                  onClick={() => handleCreateNote()}
+                  style={{ marginTop: '10px', background: 'none', border: 'none', color: '#2563eb', fontWeight: 600, cursor: 'pointer', fontSize: '12.5px' }}
+                >
+                  + Create Note
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Pinned Section */}
+                {pinnedDocs.length > 0 && (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--ht-text-muted)', padding: '2px 6px 6px' }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#2563eb' }}>
+                        <line x1="12" y1="17" x2="12" y2="22" />
+                        <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.89A2 2 0 0 1 15 10.77V5a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v5.77a2 2 0 0 1-1.11 1.79l-1.78.89A2 2 0 0 0 5 15.24Z" />
+                      </svg>
+                      <span>Pinned</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {pinnedDocs.map(doc => renderDocListItem(doc))}
+                    </div>
                   </div>
                 )}
 
-                {/* Username */}
-                <span style={{ color: 'var(--ht-text-primary)', fontSize: '13px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, textAlign: 'left' }}>
-                  {userProfile?.username || session?.user?.user_metadata?.username || session?.user?.user_metadata?.full_name || session.user.email?.split('@')[0]}
-                </span>
+                {/* Unpinned Notes Section */}
+                {unpinnedDocs.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--ht-text-muted)', padding: '2px 6px 6px' }}>
+                      {selectedTag === 'All' ? 'Notes' : `${selectedTag} Notes`} ({unpinnedDocs.length})
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {unpinnedDocs.map(doc => renderDocListItem(doc))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
 
-                {/* Gear Icon with subtle rotation when active */}
-                <span style={{ 
-                  fontSize: '14px', 
-                  color: showProfileMenu ? 'var(--ht-accent)' : 'var(--ht-text-muted)', 
-                  flexShrink: 0,
-                  transform: showProfileMenu ? 'rotate(45deg)' : 'none',
-                  transition: 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), color 0.18s ease'
-                }}>
-                  ⚙️
-                </span>
-              </button>
+          {/* Sidebar Footer: Profile Card matching HabiTick Main */}
+          <div 
+            ref={profileContainerRef}
+            className="ht-stagger-item ht-stagger-5 ht-sidebar-footer" 
+            style={{ 
+              zIndex: showProfileMenu ? 101 : 1
+            }}
+          >
+            {session?.user ? (
+              <>
+                {/* Invisible Click-off Backdrop */}
+                {showProfileMenu && (
+                  <div
+                    aria-hidden="true"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowProfileMenu(false);
+                    }}
+                    style={{
+                      position: 'fixed',
+                      inset: 0,
+                      zIndex: 99,
+                      background: 'transparent',
+                      cursor: 'default'
+                    }}
+                  />
+                )}
+
+                {/* Profile Card Button */}
+                <button 
+                  onClick={() => setShowProfileMenu(prev => !prev)}
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '10px', 
+                    background: showProfileMenu ? 'var(--ht-bg-card-subtle)' : 'rgba(255, 255, 255, 0.02)', 
+                    border: showProfileMenu ? '1px solid var(--ht-accent)' : '1px solid var(--ht-border-card)', 
+                    borderRadius: '12px', 
+                    padding: '9px 12px', 
+                    cursor: 'pointer', 
+                    width: '100%', 
+                    transition: 'all 0.18s ease',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    position: 'relative',
+                    zIndex: showProfileMenu ? 102 : 'auto',
+                    boxShadow: showProfileMenu ? '0 0 0 2px var(--ht-accent-subtle)' : 'none'
+                  }}
+                  onMouseEnter={e => {
+                    if (!showProfileMenu) {
+                      e.currentTarget.style.borderColor = 'rgba(37, 99, 235, 0.4)';
+                      e.currentTarget.style.background = 'var(--ht-bg-card-subtle)';
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!showProfileMenu) {
+                      e.currentTarget.style.borderColor = 'var(--ht-border-card)';
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)';
+                    }
+                  }}
+                >
+                  {/* Avatar Photo or Initial */}
+                  {userProfile?.avatar_url || session?.user?.user_metadata?.avatar_url ? (
+                    <img 
+                      src={userProfile?.avatar_url || session?.user?.user_metadata?.avatar_url} 
+                      alt="avatar" 
+                      style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} 
+                    />
+                  ) : (
+                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: '12px', color: '#fff', flexShrink: 0 }}>
+                      {(userProfile?.username || session?.user?.user_metadata?.username || session.user.email || '?')[0].toUpperCase()}
+                    </div>
+                  )}
+
+                  {/* Username */}
+                  <span style={{ color: 'var(--ht-text-primary)', fontSize: '13px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, textAlign: 'left' }}>
+                    {userProfile?.username || session?.user?.user_metadata?.username || session?.user?.user_metadata?.full_name || session.user.email?.split('@')[0]}
+                  </span>
+
+                  {/* Standardized SVG Gear Settings Icon with subtle rotation when active */}
+                  <span style={{ 
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: showProfileMenu ? 'var(--ht-accent)' : 'var(--ht-text-muted)', 
+                    flexShrink: 0,
+                    transform: showProfileMenu ? 'rotate(45deg)' : 'none',
+                    transition: 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), color 0.18s ease'
+                  }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="3" />
+                      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                    </svg>
+                  </span>
+                </button>
 
               {/* Profile Dropdown / Actions Popover */}
               {showProfileMenu && (
@@ -1962,6 +2015,10 @@ export default function App() {
 
   function renderDocListItem(doc) {
     const isSelected = currentDocId === doc.id;
+    const displayTitle = getDocDisplayTitle(doc);
+    const displaySnippet = getDocDisplaySnippet(doc);
+    const relativeTime = formatRelativeTime(doc.updated_at || doc.created_at);
+
     return (
       <div
         key={doc.id}
@@ -1971,39 +2028,30 @@ export default function App() {
             setSidebarOpen(false);
           }
         }}
-        style={{
-          padding: '9px 12px',
-          borderRadius: '10px',
-          cursor: 'pointer',
-          background: isSelected ? 'var(--ht-accent-subtle)' : 'transparent',
-          border: '1px solid',
-          borderColor: isSelected ? 'rgba(37,99,235,0.25)' : 'transparent',
-          transition: 'all 0.12s ease'
-        }}
+        className={`ht-note-card ${isSelected ? 'active' : ''}`}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
-          <span style={{
-            fontWeight: isSelected ? 700 : 500,
-            fontSize: '13px',
-            color: isSelected ? '#2563eb' : 'var(--ht-text-primary)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap'
-          }}>
-            {doc.title || 'Untitled'}
+          <span className="ht-note-card-title">
+            {displayTitle}
           </span>
-          {doc.is_pinned && <span style={{ fontSize: '10px' }}>📌</span>}
+          {doc.is_pinned && (
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#2563eb', flexShrink: 0 }} title="Pinned note">
+              <line x1="12" y1="17" x2="12" y2="22" />
+              <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.89A2 2 0 0 1 15 10.77V5a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v5.77a2 2 0 0 1-1.11 1.79l-1.78.89A2 2 0 0 0 5 15.24Z" />
+            </svg>
+          )}
         </div>
-        <p style={{
-          margin: '3px 0 0',
-          fontSize: '11px',
-          color: 'var(--ht-text-muted)',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap'
-        }}>
-          {doc.content ? doc.content.replace(/[#*>\-\[\]]/g, '').slice(0, 50) : 'Empty note...'}
+        <p className="ht-note-card-snippet">
+          {displaySnippet}
         </p>
+        <div className="ht-note-card-meta">
+          <span>{relativeTime}</span>
+          {doc.tag && doc.tag !== 'All' && doc.tag !== 'General' && (
+            <span className="ht-note-card-tag-badge">
+              {doc.tag}
+            </span>
+          )}
+        </div>
       </div>
     );
   }

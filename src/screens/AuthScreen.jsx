@@ -183,8 +183,24 @@ export function AuthScreen() {
     return "Welcome back. Access your daily habits and tasks.";
   };
 
+  // Strictly enforce dark theme for AuthScreen so light mode text never affects it
+  useEffect(() => {
+    const prevTheme = document.documentElement.getAttribute("data-theme");
+    document.documentElement.setAttribute("data-theme", "dark");
+    document.body.classList.remove("theme-light");
+    document.body.classList.add("theme-dark");
+
+    return () => {
+      if (prevTheme) {
+        document.documentElement.setAttribute("data-theme", prevTheme);
+        document.body.classList.remove("theme-dark", "theme-light");
+        document.body.classList.add(`theme-${prevTheme}`);
+      }
+    };
+  }, []);
+
   return (
-    <div className="auth-split-wrapper">
+    <div className="auth-split-wrapper" data-theme="dark">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500;600;700;800&display=swap');
         
@@ -193,7 +209,7 @@ export function AuthScreen() {
           padding: 0;
           width: 100%;
           min-height: 100vh;
-          background: #080b11;
+          background: #080b11 !important;
         }
         
         * {
@@ -203,10 +219,11 @@ export function AuthScreen() {
         .auth-split-wrapper {
           min-height: 100vh;
           width: 100%;
-          background: #080b11;
+          background: #080b11 !important;
           display: flex;
           font-family: 'DM Sans', system-ui, sans-serif;
-          color: #f3f4f6;
+          color: #f3f4f6 !important;
+          color-scheme: dark !important;
           position: relative;
           overflow: hidden;
         }
@@ -316,17 +333,19 @@ export function AuthScreen() {
           transform: scale(1.05) rotate(5deg);
         }
         
-        .auth-title {
+        .auth-title,
+        h1.auth-title,
+        .auth-split-wrapper h1 {
           margin: 0;
           font-family: 'Syne', sans-serif;
           font-weight: 800;
           font-size: 28px;
-          color: #ffffff;
+          color: #ffffff !important;
           letter-spacing: -0.02em;
         }
         
         .auth-subtitle {
-          color: #9ca3af;
+          color: #9ca3af !important;
           font-size: 14px;
           margin-top: 6px;
           line-height: 1.4;
@@ -337,7 +356,7 @@ export function AuthScreen() {
         
         /* Inputs and interactive items */
         .auth-label {
-          color: #9ca3af;
+          color: #9ca3af !important;
           font-size: 13px;
           display: block;
           margin-bottom: 6px;
@@ -349,9 +368,9 @@ export function AuthScreen() {
           width: 100%;
           padding: 12px 14px;
           border-radius: 8px;
-          border: 1px solid #1f2937;
-          background: rgba(31, 41, 55, 0.4);
-          color: #ffffff;
+          border: 1px solid #1f2937 !important;
+          background: rgba(31, 41, 55, 0.4) !important;
+          color: #ffffff !important;
           font-size: 14px;
           box-sizing: border-box;
           font-family: inherit;
@@ -716,8 +735,8 @@ export function AuthScreen() {
         <div className="auth-form-container">
           <div className="auth-logo-section">
             <img src="/habitick-blue-logo.png" alt="HabiTick Logo" className="auth-logo-img" />
-            <h1 className="auth-title">HabiTick</h1>
-            <div className="auth-subtitle">
+            <h1 className="auth-title" style={{ color: "#ffffff" }}>HabiTick</h1>
+            <div className="auth-subtitle" style={{ color: "#9ca3af" }}>
               {getSubtitle()}
             </div>
           </div>

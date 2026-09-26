@@ -287,16 +287,18 @@ function HabiTick() {
   });
 
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
+    // If not authenticated (showing AuthScreen or AuthCallback), keep theme strictly dark
+    const effectiveTheme = session ? theme : "dark";
+    document.documentElement.setAttribute("data-theme", effectiveTheme);
     document.body.classList.remove("theme-dark", "theme-light");
-    document.body.classList.add(`theme-${theme}`);
+    document.body.classList.add(`theme-${effectiveTheme}`);
 
     // Dynamically update mobile browser address bar / notch background
     const metaThemeColors = document.querySelectorAll('meta[name="theme-color"]');
     metaThemeColors.forEach(meta => {
-      meta.setAttribute("content", theme === "light" ? "#f8fafc" : "#080b11");
+      meta.setAttribute("content", effectiveTheme === "light" ? "#f8fafc" : "#080b11");
     });
-  }, [theme]);
+  }, [theme, session]);
 
   const handleUpdateTheme = async (newTheme) => {
     setTheme(newTheme);

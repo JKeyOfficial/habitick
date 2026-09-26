@@ -143,20 +143,118 @@ body {
    modern, polished light theme.
    ============================================================ */
 
-[data-theme="light"] body,
-[data-theme="light"] #root,
+[data-theme="light"] body:not(:has(.auth-split-wrapper)),
+[data-theme="light"] #root:not(:has(.auth-split-wrapper)),
 [data-theme="light"] .ht-app-layout {
   background: var(--ht-bg-base) !important;
   color: var(--ht-text-primary) !important;
 }
 
-/* Headings in Light Mode */
-[data-theme="light"] h1,
-[data-theme="light"] h2,
-[data-theme="light"] h3,
-[data-theme="light"] h4,
-[data-theme="light"] h5 {
+/* Headings in Light Mode — scope strictly to app layout & modals, never auth screen */
+[data-theme="light"] .ht-app-layout h1,
+[data-theme="light"] .ht-app-layout h2,
+[data-theme="light"] .ht-app-layout h3,
+[data-theme="light"] .ht-app-layout h4,
+[data-theme="light"] .ht-app-layout h5,
+[data-theme="light"] .pm-modal h1,
+[data-theme="light"] .pm-modal h2,
+[data-theme="light"] .pm-modal h3,
+[data-theme="light"] .habit-modal h1,
+[data-theme="light"] .habit-modal h2,
+[data-theme="light"] .routine-modal h1,
+[data-theme="light"] .routine-modal h2,
+[data-theme="light"] .todo-modal h1,
+[data-theme="light"] .goal-modal h1,
+[data-theme="light"] .upgrade-modal h1,
+[data-theme="light"] .upgrade-modal h2,
+[data-theme="light"] h1:not(.auth-title):not(.auth-split-wrapper *),
+[data-theme="light"] h2:not(.auth-split-wrapper *),
+[data-theme="light"] h3:not(.auth-split-wrapper *) {
   color: var(--ht-text-primary) !important;
+}
+
+/* ============================================================
+   AUTH SCREEN STRICT DARK ISOLATION
+   Never let light mode tokens or overrides leak into AuthScreen
+   ============================================================ */
+.auth-split-wrapper,
+[data-theme="light"] .auth-split-wrapper,
+.theme-light .auth-split-wrapper {
+  color-scheme: dark !important;
+  background: #080b11 !important;
+  color: #f3f4f6 !important;
+}
+
+.auth-split-wrapper h1,
+[data-theme="light"] .auth-split-wrapper h1,
+.auth-split-wrapper .auth-title,
+[data-theme="light"] .auth-split-wrapper .auth-title {
+  color: #ffffff !important;
+}
+
+.auth-split-wrapper .auth-subtitle,
+[data-theme="light"] .auth-split-wrapper .auth-subtitle {
+  color: #9ca3af !important;
+}
+
+.auth-split-wrapper .auth-label,
+[data-theme="light"] .auth-split-wrapper .auth-label {
+  color: #9ca3af !important;
+}
+
+.auth-split-wrapper .auth-input,
+[data-theme="light"] .auth-split-wrapper .auth-input {
+  background: rgba(31, 41, 55, 0.4) !important;
+  color: #ffffff !important;
+  border-color: #1f2937 !important;
+}
+
+.auth-split-wrapper .auth-input::placeholder,
+[data-theme="light"] .auth-split-wrapper .auth-input::placeholder {
+  color: #4b5563 !important;
+}
+
+.auth-split-wrapper .auth-back-link,
+[data-theme="light"] .auth-split-wrapper .auth-back-link {
+  color: #4b5563 !important;
+}
+
+.auth-split-wrapper .auth-back-link:hover,
+[data-theme="light"] .auth-split-wrapper .auth-back-link:hover {
+  color: #f3f4f6 !important;
+}
+
+.auth-split-wrapper .auth-btn-google,
+[data-theme="light"] .auth-split-wrapper .auth-btn-google {
+  background: rgba(31, 41, 55, 0.4) !important;
+  color: #d1d5db !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.auth-split-wrapper .auth-btn-google:hover,
+[data-theme="light"] .auth-split-wrapper .auth-btn-google:hover {
+  background: rgba(31, 41, 55, 0.7) !important;
+  color: #ffffff !important;
+}
+
+.auth-split-wrapper .auth-divider-text,
+[data-theme="light"] .auth-split-wrapper .auth-divider-text {
+  color: #4b5563 !important;
+}
+
+.auth-split-wrapper .mock-app-username,
+[data-theme="light"] .auth-split-wrapper .mock-app-username {
+  color: #f3f4f6 !important;
+}
+
+.auth-split-wrapper .mock-habit-name,
+[data-theme="light"] .auth-split-wrapper .mock-habit-name {
+  color: #f3f4f6 !important;
+}
+
+.auth-split-wrapper .mock-ai-widget-body,
+[data-theme="light"] .auth-split-wrapper .mock-ai-widget-body {
+  color: #cbd5e1 !important;
 }
 
 /* Sidebar in Light Mode */
