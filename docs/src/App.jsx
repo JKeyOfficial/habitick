@@ -193,6 +193,10 @@ export default function App() {
   const renameModalInputRef = useRef(null);
   const inlineRenameInputRef = useRef(null);
   const isCancellingInlineRenameRef = useRef(false);
+  const longPressTimerRef = useRef(null);
+  const longPressTriggeredRef = useRef(false);
+  const touchStartCoordsRef = useRef({ x: 0, y: 0 });
+  const ignoreNextClickRef = useRef(false);
   const [userProfile, setUserProfile] = useState(() => {
     try {
       const cached = localStorage.getItem('ht_user_profile');
@@ -972,6 +976,78 @@ export default function App() {
       x: Math.max(12, x),
       y: Math.max(12, y)
     });
+  };
+
+  // Mobile Long-Press Touch Handlers for iOS Safari and Android Chrome
+  const handleTouchStart = (e, doc) => {
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    touchStartCoordsRef.current = { x: touch.clientX, y: touch.clientY };
+    longPressTriggeredRef.current = false;
+
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+
+    longPressTimerRef.current = setTimeout(() => {
+      longPressTriggeredRef.current = true;
+      ignoreNextClickRef.current = true;
+
+      // Haptic vibration feedback on supported mobile devices
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        try { navigator.vibrate(40); } catch (err) {}
+      }
+
+      const menuWidth = Math.min(220, window.innerWidth - 24);
+      const menuHeight = 210;
+
+      let x = touch.clientX;
+      let y = touch.clientY;
+
+      if (x + menuWidth > window.innerWidth) {
+        x = window.innerWidth - menuWidth - 12;
+      }
+      if (y + menuHeight > window.innerHeight) {
+        y = window.innerHeight - menuHeight - 12;
+      }
+
+      setNoteContextMenu({
+        doc,
+        x: Math.max(12, x),
+        y: Math.max(12, y)
+      });
+    }, 480);
+  };
+
+  const handleTouchMove = (e) => {
+    if (!touchStartCoordsRef.current) return;
+    const touch = e.touches[0];
+    const dx = Math.abs(touch.clientX - touchStartCoordsRef.current.x);
+    const dy = Math.abs(touch.clientY - touchStartCoordsRef.current.y);
+
+    // Cancel long press if finger moved more than 9px (user is scrolling the notes list)
+    if (dx > 9 || dy > 9) {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+    }
+  };
+
+  const handleTouchEnd = (e) => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+
+    if (longPressTriggeredRef.current) {
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+      // Swallow the subsequent synthesized click event so note is not selected and sidebar stays open
+      setTimeout(() => {
+        ignoreNextClickRef.current = false;
+        longPressTriggeredRef.current = false;
+      }, 350);
+    }
   };
 
   const handleStartRename = (doc) => {
@@ -2486,13 +2562,22 @@ export default function App() {
     return (
       <div
         key={doc.id}
-        onClick={() => {
+        onClick={(e) => {
+          if (ignoreNextClickRef.current || longPressTriggeredRef.current) {
+            e.stopPropagation();
+            e.preventDefault();
+            return;
+          }
           handleSelectDoc(doc.id);
           if (window.innerWidth < 768) {
             setSidebarOpen(false);
           }
         }}
         onContextMenu={(e) => handleNoteContextMenu(e, doc)}
+        onTouchStart={(e) => handleTouchStart(e, doc)}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
         className={`ht-note-card ${isSelected ? 'active' : ''} ${isContextMenuTarget ? 'context-active' : ''}`}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>

@@ -596,6 +596,10 @@
   flex-direction: column;
   gap: 3px;
   box-sizing: border-box;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: pan-y;
 }
 
 .ht-note-card:hover {
@@ -704,6 +708,12 @@
 .ht-note-card-more-btn:hover {
   background: rgba(255, 255, 255, 0.1);
   color: var(--ht-text-primary);
+}
+
+@media (hover: none), (max-width: 768px) {
+  .ht-note-card-more-btn {
+    opacity: 0.75 !important;
+  }
 }
 
 .ht-note-card-rename-input {
