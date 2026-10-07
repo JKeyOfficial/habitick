@@ -389,26 +389,51 @@ function HabiTick() {
       }
 
       // Handle fast popup SSO handshake from Docs
-      if (isSsoPopup && existingSession?.refresh_token) {
-        setSharedAuthCookie(existingSession);
-        if (window.opener) {
+      if (isSsoPopup) {
+        let activeSess = existingSession;
+        if (activeSess?.refresh_token) {
+          try {
+            const { data: refData } = await supabase.auth.refreshSession();
+            if (refData?.session) {
+              activeSess = refData.session;
+              setSession(activeSess);
+              setSharedAuthCookie(activeSess);
+            }
+          } catch (e) {
+            console.warn("SSO popup refresh error:", e);
+          }
+        }
+
+        if (activeSess?.refresh_token && window.opener) {
+          setSharedAuthCookie(activeSess);
           window.opener.postMessage({
             type: 'HT_SSO_SESSION',
-            access_token: existingSession.access_token || '',
-            refresh_token: existingSession.refresh_token
+            access_token: activeSess.access_token || '',
+            refresh_token: activeSess.refresh_token
           }, '*');
-          window.close();
+          setTimeout(() => {
+            try { window.close(); } catch (e) {}
+          }, 300);
           return;
         }
       }
 
       // Handle return_to_docs handoff request if coming from Docs to sync session
       if (isReturnToDocs) {
-        if (existingSession?.refresh_token) {
-          setSharedAuthCookie(existingSession);
+        let activeSess = existingSession;
+        if (activeSess?.refresh_token) {
+          try {
+            const { data: refData } = await supabase.auth.refreshSession();
+            if (refData?.session) {
+              activeSess = refData.session;
+            }
+          } catch (e) {
+            console.warn("SSO return_to_docs refresh error:", e);
+          }
+          setSharedAuthCookie(activeSess);
           const docsUrl = window.location.hostname === "localhost" 
             ? "/?tab=docs" 
-            : `https://docs.habitick.app/#access_token=${encodeURIComponent(existingSession.access_token || '')}&refresh_token=${encodeURIComponent(existingSession.refresh_token)}&token_type=bearer`;
+            : `https://docs.habitick.app/#access_token=${encodeURIComponent(activeSess.access_token || '')}&refresh_token=${encodeURIComponent(activeSess.refresh_token)}&token_type=bearer`;
           window.location.replace(docsUrl);
           return;
         } else {
@@ -431,7 +456,9 @@ function HabiTick() {
             access_token: s.access_token || '',
             refresh_token: s.refresh_token
           }, '*');
-          window.close();
+          setTimeout(() => {
+            try { window.close(); } catch (e) {}
+          }, 300);
         }
       } else if (event === 'SIGNED_OUT') {
         clearSharedAuthCookie();
@@ -516,6 +543,13 @@ function HabiTick() {
         }
       } else {
         profileData.ai_suggestions = {};
+      }
+
+      if (profileData.is_lifetime && !profileData.is_premium) {
+        profileData.is_premium = true;
+        supabase.from("profiles").update({ is_premium: true }).eq("id", uid).then(({ error }) => {
+          if (error) console.error("Error setting is_premium for lifetime user:", error);
+        });
       }
     }
     setProfile(profileData);
@@ -2319,6 +2353,8 @@ function HabiTick() {
           todos={todos}
           goals={goals}
           journalEntries={journalEntries}
+          pausePeriods={pausePeriods}
+          isPremium={isPremium}
           showTodayOnly={showTodayOnly}
           onChangeShowTodayOnly={val => {
             localStorage.setItem("ht_showTodayOnly", String(val));

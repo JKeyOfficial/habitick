@@ -5,7 +5,7 @@ import { useState } from 'react';
 export function BillingTab({ profile, session, showToast, onUpgrade }) {
   const [loading, setLoading] = useState(false);
 
-  const isPremium = profile?.is_premium === true;
+  const isPremium = profile?.is_premium === true || profile?.is_lifetime === true;
   const isLifetime = profile?.is_lifetime === true;
   const hasStripe = !!profile?.stripe_customer_id;
 

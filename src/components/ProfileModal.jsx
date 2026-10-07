@@ -14,6 +14,8 @@ export function ProfileModal({
   todos = [], 
   goals = [], 
   journalEntries = {}, 
+  pausePeriods = [],
+  isPremium: propIsPremium,
   showTodayOnly, 
   onChangeShowTodayOnly, 
   hideEmptyRoutines, 
@@ -51,8 +53,11 @@ export function ProfileModal({
   const [toast, setToast] = useState(null);
   const [showQrScanner, setShowQrScanner] = useState(false);
 
+  const isPremium = Boolean(propIsPremium || profile?.is_premium || profile?.is_lifetime);
+  const isLifetime = profile?.is_lifetime === true;
+
   // Compute Streak and Shield Stats
-  const { currentStreak, shields, maxShields, progressToNextShield } = calcStats(habits, [], profile?.is_premium, profile);
+  const { currentStreak, shields, maxShields, progressToNextShield } = calcStats(habits, pausePeriods, isPremium, profile);
 
   // Handle ESC key press & disable body scroll
   useEffect(() => {
@@ -658,19 +663,19 @@ export function ProfileModal({
 
             {/* Badges */}
             <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "center" }}>
-              {profile?.is_premium && (
+              {(isPremium || isLifetime) && (
                 <span style={{
                   fontSize: "9px",
                   padding: "2px 7px",
                   borderRadius: "999px",
-                  background: profile?.is_lifetime ? "linear-gradient(90deg, #2563eb 0%, #3b82f6 100%)" : "var(--ht-bg-card-subtle)",
-                  color: profile?.is_lifetime ? "#fff" : "var(--ht-text-secondary)",
+                  background: isLifetime ? "linear-gradient(90deg, #2563eb 0%, #3b82f6 100%)" : "var(--ht-bg-card-subtle)",
+                  color: isLifetime ? "#fff" : "var(--ht-text-secondary)",
                   fontWeight: 800,
                   textTransform: "uppercase",
                   letterSpacing: "0.05em",
-                  border: profile?.is_lifetime ? "1px solid #60a5fa" : "1px solid var(--ht-border-card)"
+                  border: isLifetime ? "1px solid #60a5fa" : "1px solid var(--ht-border-card)"
                 }}>
-                  {profile?.is_lifetime ? `FOUNDER #${profile?.user_number || "?"} ✦` : "PREMIUM"}
+                  {isLifetime ? `FOUNDER #${profile?.user_number || "?"} ✦` : "PREMIUM"}
                 </span>
               )}
               <span style={{
@@ -1350,7 +1355,7 @@ export function ProfileModal({
                     <div>
                       <h3 style={{ margin: 0, fontSize: "18px", fontWeight: 700, color: "var(--ht-text-primary)", fontFamily: "'Syne', sans-serif" }}>Streak Shields</h3>
                       <div style={{ fontSize: "13px", color: "var(--ht-accent)", fontWeight: 600, marginTop: "2px" }}>
-                        {shields} / {maxShields} Available {profile?.is_premium ? "(Premium Max 5)" : "(Free Max 3 · Upgrade for 5)"}
+                        {shields} / {maxShields} Available {isPremium ? "(Premium Max 5)" : "(Free Max 3 · Upgrade for 5)"}
                       </div>
                     </div>
                   </div>

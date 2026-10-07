@@ -111,16 +111,18 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess }) {
     const cookieSso = getSharedAuthCookie();
     if (cookieSso?.refresh_token) {
       try {
+        const cleanAt = cookieSso.access_token ? cookieSso.access_token.replace(/ /g, '+') : null;
+        const cleanRt = cookieSso.refresh_token.replace(/ /g, '+');
         let res = null;
-        if (cookieSso.access_token) {
+        if (cleanAt) {
           res = await supabase.auth.setSession({
-            access_token: cookieSso.access_token,
-            refresh_token: cookieSso.refresh_token
+            access_token: cleanAt,
+            refresh_token: cleanRt
           });
         }
         if (!res?.data?.session) {
           res = await supabase.auth.refreshSession({
-            refresh_token: cookieSso.refresh_token
+            refresh_token: cleanRt
           });
         }
         if (res?.data?.session) {
@@ -147,80 +149,85 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess }) {
       popup = null;
     }
 
-    if (popup) {
-      let resolved = false;
-      const handleMessage = async (event) => {
-        if (event.data?.type === 'HT_SSO_SESSION' && event.data.refresh_token) {
-          resolved = true;
-          window.removeEventListener('message', handleMessage);
-          try {
-            let res = null;
-            if (event.data.access_token) {
-              res = await supabase.auth.setSession({
-                access_token: event.data.access_token,
-                refresh_token: event.data.refresh_token
-              });
-            }
-            if (!res?.data?.session) {
-              res = await supabase.auth.refreshSession({
-                refresh_token: event.data.refresh_token
-              });
-            }
-            if (res?.data?.session) {
-              setSharedAuthCookie(res.data.session);
-              if (onAuthSuccess) onAuthSuccess(res.data.session);
-              onClose();
-            } else {
-              setError('Failed to establish session from HabiTick.');
-            }
-          } catch (err) {
-            setError('Failed to establish session from HabiTick.');
-          } finally {
-            setLoading(false);
-          }
-        }
-      };
-      window.addEventListener('message', handleMessage);
-
-      // Check if popup was closed by user
-      const checkClosed = setInterval(() => {
-        if (popup.closed) {
-          clearInterval(checkClosed);
-          window.removeEventListener('message', handleMessage);
-          if (!resolved) {
-            // Check cookie one last time in case popup wrote the cookie
-            const lateCookie = getSharedAuthCookie();
-            if (lateCookie?.refresh_token) {
-              supabase.auth.refreshSession({ refresh_token: lateCookie.refresh_token }).then(({ data }) => {
-                if (data?.session) {
-                  setSharedAuthCookie(data.session);
-                  if (onAuthSuccess) onAuthSuccess(data.session);
-                  onClose();
-                } else {
-                  setLoading(false);
-                }
-              }).catch(() => setLoading(false));
-            } else {
-              setLoading(false);
-            }
-          }
-        }
-      }, 300);
-
-      // Safety fallback: if popup doesn't finish within 4 seconds, fallback to full-page redirect
-      setTimeout(() => {
-        if (!resolved && !popup.closed) {
-          popup.close();
-          window.removeEventListener('message', handleMessage);
-          window.location.href = `${mainAppBase}/?return_to_docs=true`;
-        }
-      }, 4000);
-
+    if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+      // Popup blocked or not supported - use seamless full-page redirect
+      window.location.href = `${mainAppBase}/?return_to_docs=true`;
       return;
     }
 
-    // 3. Fallback if popup blocked by browser
-    window.location.href = `${mainAppBase}/?return_to_docs=true`;
+    let resolved = false;
+    const handleMessage = async (event) => {
+      if (event.data?.type === 'HT_SSO_SESSION' && event.data.refresh_token) {
+        resolved = true;
+        window.removeEventListener('message', handleMessage);
+        try {
+          const at = event.data.access_token ? String(event.data.access_token).trim().replace(/ /g, '+') : null;
+          const rt = String(event.data.refresh_token).trim().replace(/ /g, '+');
+          let res = null;
+          if (at) {
+            res = await supabase.auth.setSession({
+              access_token: at,
+              refresh_token: rt
+            });
+          }
+          if (!res?.data?.session) {
+            res = await supabase.auth.refreshSession({
+              refresh_token: rt
+            });
+          }
+          if (res?.data?.session) {
+            setSharedAuthCookie(res.data.session);
+            if (onAuthSuccess) onAuthSuccess(res.data.session);
+            onClose();
+          } else {
+            // Popup tokens couldn't establish session locally - seamlessly fallback to redirect handoff
+            console.warn('Popup token exchange unsuccessful, falling back to full-page handoff:', res?.error);
+            window.location.href = `${mainAppBase}/?return_to_docs=true`;
+          }
+        } catch (err) {
+          console.warn('Popup message handling error, falling back to full-page handoff:', err);
+          window.location.href = `${mainAppBase}/?return_to_docs=true`;
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+    window.addEventListener('message', handleMessage);
+
+    // Check if popup was closed by user
+    const checkClosed = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(checkClosed);
+        window.removeEventListener('message', handleMessage);
+        if (!resolved) {
+          // Check cookie one last time in case popup wrote the cookie
+          const lateCookie = getSharedAuthCookie();
+          if (lateCookie?.refresh_token) {
+            const cleanLateRt = lateCookie.refresh_token.replace(/ /g, '+');
+            supabase.auth.refreshSession({ refresh_token: cleanLateRt }).then(({ data }) => {
+              if (data?.session) {
+                setSharedAuthCookie(data.session);
+                if (onAuthSuccess) onAuthSuccess(data.session);
+                onClose();
+              } else {
+                setLoading(false);
+              }
+            }).catch(() => setLoading(false));
+          } else {
+            setLoading(false);
+          }
+        }
+      }
+    }, 300);
+
+    // Safety fallback: if popup doesn't finish within 3 seconds, fallback to full-page redirect
+    setTimeout(() => {
+      if (!resolved && !popup.closed) {
+        try { popup.close(); } catch (e) {}
+        window.removeEventListener('message', handleMessage);
+        window.location.href = `${mainAppBase}/?return_to_docs=true`;
+      }
+    }, 3000);
   };
 
   return (

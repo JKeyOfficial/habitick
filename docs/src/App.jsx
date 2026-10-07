@@ -343,16 +343,18 @@ export default function App() {
         const sso = getSharedAuthCookie();
         if (sso?.refresh_token) {
           try {
+            const cleanAt = sso.access_token ? String(sso.access_token).trim().replace(/ /g, '+') : null;
+            const cleanRt = String(sso.refresh_token).trim().replace(/ /g, '+');
             let res = null;
-            if (sso.access_token) {
+            if (cleanAt) {
               res = await supabase.auth.setSession({
-                access_token: sso.access_token,
-                refresh_token: sso.refresh_token
+                access_token: cleanAt,
+                refresh_token: cleanRt
               });
             }
             if (!res?.data?.session) {
               res = await supabase.auth.refreshSession({
-                refresh_token: sso.refresh_token
+                refresh_token: cleanRt
               });
             }
             if (res?.data?.session) {

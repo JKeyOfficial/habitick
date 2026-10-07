@@ -52,7 +52,8 @@ export function calcStats(habits, pausePeriods, isPremium, profile = null) {
   const initialShields = (profile && profile.initial_shields) ? Number(profile.initial_shields) : 0;
   const initialShieldsDate = profile && profile.initial_shields_granted_at ? (profile.initial_shields_granted_at || '').substring(0, 10) : null;
   const purchasedShields = (profile && profile.purchased_shields) ? Number(profile.purchased_shields) : 0;
-  const maxShieldLimit = isPremium ? 5 : 3;
+  const effectiveIsPremium = isPremium === true || profile?.is_premium === true || profile?.is_lifetime === true;
+  const maxShieldLimit = effectiveIsPremium ? 5 : 3;
 
   if (!habits || habits.length === 0) {
     const availableInitial = (initialShields > 0 && initialShieldsDate && initialShieldsDate <= today) ? Math.min(initialShields + purchasedShields, maxShieldLimit) : Math.min(purchasedShields, maxShieldLimit);
