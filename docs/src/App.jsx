@@ -182,6 +182,17 @@ export default function App() {
   const [currentBlock, setCurrentBlock] = useState('p');
   const [isFileManagerOpen, setIsFileManagerOpen] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+
+  // Sidebar Note Context Menu & Modal States (Right-click note actions: rename, delete, pin, duplicate)
+  const [noteContextMenu, setNoteContextMenu] = useState(null); // { doc, x, y }
+  const [renameModalDoc, setRenameModalDoc] = useState(null);
+  const [renameTitleInput, setRenameTitleInput] = useState('');
+  const [deleteModalDoc, setDeleteModalDoc] = useState(null);
+  const [inlineRenamingId, setInlineRenamingId] = useState(null);
+  const [inlineRenameTitle, setInlineRenameTitle] = useState('');
+  const renameModalInputRef = useRef(null);
+  const inlineRenameInputRef = useRef(null);
+  const isCancellingInlineRenameRef = useRef(false);
   const [userProfile, setUserProfile] = useState(() => {
     try {
       const cached = localStorage.getItem('ht_user_profile');
@@ -835,6 +846,186 @@ export default function App() {
       }
     }
     setDeleteConfirmId(null);
+  };
+
+  // --- Sidebar Note Context Menu, Rename, Delete, Pin & Duplicate Handlers ---
+
+  // Dismiss context menu on outside click, Escape, resize or scroll
+  useEffect(() => {
+    if (!noteContextMenu) return;
+
+    const handlePointerDown = (e) => {
+      if (!e.target.closest?.('.ht-context-menu')) {
+        setNoteContextMenu(null);
+      }
+    };
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setNoteContextMenu(null);
+      }
+    };
+
+    const handleDismiss = () => {
+      setNoteContextMenu(null);
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('resize', handleDismiss);
+    window.addEventListener('scroll', handleDismiss, true);
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('resize', handleDismiss);
+      window.removeEventListener('scroll', handleDismiss, true);
+    };
+  }, [noteContextMenu]);
+
+  // Focus and select input on Rename Modal open
+  useEffect(() => {
+    if (renameModalDoc && renameModalInputRef.current) {
+      setTimeout(() => {
+        renameModalInputRef.current?.focus();
+        renameModalInputRef.current?.select();
+      }, 40);
+    }
+  }, [renameModalDoc]);
+
+  // Keyboard shortcut listener for Rename Modal (Escape to cancel)
+  useEffect(() => {
+    if (!renameModalDoc) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setRenameModalDoc(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [renameModalDoc]);
+
+  // Keyboard listener for Delete Modal (Escape to cancel, Enter to confirm)
+  useEffect(() => {
+    if (!deleteModalDoc) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setDeleteModalDoc(null);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        handleDeleteNote(deleteModalDoc.id);
+        setDeleteModalDoc(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [deleteModalDoc]);
+
+  // Focus and select input on Inline Rename
+  useEffect(() => {
+    if (inlineRenamingId && inlineRenameInputRef.current) {
+      inlineRenameInputRef.current.focus();
+      inlineRenameInputRef.current.select();
+    }
+  }, [inlineRenamingId]);
+
+  const handleNoteContextMenu = (e, doc) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const menuWidth = 195;
+    const menuHeight = 200;
+
+    let x = e.clientX;
+    let y = e.clientY;
+
+    if (x + menuWidth > window.innerWidth) {
+      x = window.innerWidth - menuWidth - 12;
+    }
+    if (y + menuHeight > window.innerHeight) {
+      y = window.innerHeight - menuHeight - 12;
+    }
+
+    setNoteContextMenu({
+      doc,
+      x: Math.max(12, x),
+      y: Math.max(12, y)
+    });
+  };
+
+  const handleOpenNoteMenuFromButton = (e, doc) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const menuWidth = 195;
+    const menuHeight = 200;
+
+    let x = rect.right - menuWidth;
+    let y = rect.bottom + 4;
+
+    if (x < 12) x = rect.left;
+    if (y + menuHeight > window.innerHeight) {
+      y = rect.top - menuHeight - 4;
+    }
+
+    setNoteContextMenu({
+      doc,
+      x: Math.max(12, x),
+      y: Math.max(12, y)
+    });
+  };
+
+  const handleStartRename = (doc) => {
+    setNoteContextMenu(null);
+    setRenameModalDoc(doc);
+    setRenameTitleInput(doc.title || '');
+  };
+
+  const handleSaveRename = (e) => {
+    if (e) e.preventDefault();
+    if (!renameModalDoc) return;
+    const finalTitle = renameTitleInput.trim() || 'Untitled Note';
+    handleUpdateDoc(renameModalDoc.id, { title: finalTitle });
+    setRenameModalDoc(null);
+  };
+
+  const handleStartInlineRename = (doc) => {
+    setNoteContextMenu(null);
+    setInlineRenamingId(doc.id);
+    setInlineRenameTitle(doc.title || '');
+  };
+
+  const handleSaveInlineRename = (id) => {
+    if (!inlineRenamingId) return;
+    const finalTitle = inlineRenameTitle.trim() || 'Untitled Note';
+    handleUpdateDoc(id, { title: finalTitle });
+    setInlineRenamingId(null);
+  };
+
+  const handleStartDelete = (doc) => {
+    setNoteContextMenu(null);
+    setDeleteModalDoc(doc);
+  };
+
+  const handleDuplicateNote = (id) => {
+    const docToDup = docs.find(d => d.id === id);
+    if (!docToDup) return;
+    const newDoc = {
+      ...docToDup,
+      id: crypto.randomUUID(),
+      title: `${docToDup.title || 'Untitled Note'} (Copy)`,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    setDocs(prev => {
+      const next = [newDoc, ...prev];
+      saveLocalDocs(next);
+      return next;
+    });
+    setCurrentDocId(newDoc.id);
+    queueSync(newDoc, 'upsert');
+    if (session?.user?.id && navigator.onLine) {
+      pushDocToSupabase(newDoc, session.user.id, setSyncStatus);
+    }
   };
 
   // Formatting helper
@@ -2012,11 +2203,282 @@ export default function App() {
           }
         }}
       />
+
+      {/* SIDEBAR NOTE RIGHT-CLICK CONTEXT MENU */}
+      {noteContextMenu && (
+        <div
+          className="ht-context-menu"
+          style={{
+            left: `${noteContextMenu.x}px`,
+            top: `${noteContextMenu.y}px`
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="ht-context-menu-header">
+            <span>📝</span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {getDocDisplayTitle(noteContextMenu.doc)}
+            </span>
+          </div>
+
+          <div className="ht-context-menu-divider" />
+
+          {/* RENAME */}
+          <button
+            type="button"
+            className="ht-context-menu-item"
+            onClick={() => handleStartRename(noteContextMenu.doc)}
+          >
+            <div className="ht-context-menu-item-content">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                <path d="m15 5 4 4" />
+              </svg>
+              <span>Rename</span>
+            </div>
+            <span className="ht-context-menu-item-shortcut">↵</span>
+          </button>
+
+          {/* PIN / UNPIN */}
+          <button
+            type="button"
+            className="ht-context-menu-item"
+            onClick={() => {
+              handleUpdateDoc(noteContextMenu.doc.id, { is_pinned: !noteContextMenu.doc.is_pinned });
+              setNoteContextMenu(null);
+            }}
+          >
+            <div className="ht-context-menu-item-content">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="17" x2="12" y2="22" />
+                <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.89A2 2 0 0 1 15 10.77V5a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v5.77a2 2 0 0 1-1.11 1.79l-1.78.89A2 2 0 0 0 5 15.24Z" />
+              </svg>
+              <span>{noteContextMenu.doc.is_pinned ? 'Unpin Note' : 'Pin Note'}</span>
+            </div>
+          </button>
+
+          {/* DUPLICATE */}
+          <button
+            type="button"
+            className="ht-context-menu-item"
+            onClick={() => {
+              handleDuplicateNote(noteContextMenu.doc.id);
+              setNoteContextMenu(null);
+            }}
+          >
+            <div className="ht-context-menu-item-content">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+              </svg>
+              <span>Duplicate Note</span>
+            </div>
+          </button>
+
+          <div className="ht-context-menu-divider" />
+
+          {/* DELETE */}
+          <button
+            type="button"
+            className="ht-context-menu-item ht-context-menu-item-danger"
+            onClick={() => handleStartDelete(noteContextMenu.doc)}
+          >
+            <div className="ht-context-menu-item-content">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 6h18" />
+                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                <line x1="10" y1="11" x2="10" y2="17" />
+                <line x1="14" y1="11" x2="14" y2="17" />
+              </svg>
+              <span>Delete Note</span>
+            </div>
+            <span className="ht-context-menu-item-shortcut" style={{ color: 'rgba(239, 68, 68, 0.7)' }}>⌫</span>
+          </button>
+        </div>
+      )}
+
+      {/* RENAME NOTE MODAL */}
+      {renameModalDoc && (
+        <div
+          className="ht-modal-overlay"
+          onClick={() => setRenameModalDoc(null)}
+        >
+          <div
+            className="ht-modal-dialog"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '10px',
+                background: 'rgba(37, 99, 235, 0.12)',
+                border: '1px solid rgba(37, 99, 235, 0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#2563eb',
+                fontSize: '18px',
+                flexShrink: 0
+              }}>
+                ✏️
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--ht-text-primary)' }}>
+                  Rename Note
+                </h3>
+                <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: 'var(--ht-text-muted)' }}>
+                  Enter a new title for this note
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveRename} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <input
+                ref={renameModalInputRef}
+                type="text"
+                value={renameTitleInput}
+                onChange={(e) => setRenameTitleInput(e.target.value)}
+                placeholder="Untitled Note..."
+                autoFocus
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  border: '1.5px solid var(--ht-accent)',
+                  background: 'var(--ht-bg-base)',
+                  color: 'var(--ht-text-primary)',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  boxShadow: '0 0 0 3px var(--ht-accent-subtle)'
+                }}
+              />
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setRenameModalDoc(null)}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--ht-border-card)',
+                    background: 'transparent',
+                    color: 'var(--ht-text-secondary)',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    padding: '8px 18px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: 'var(--ht-accent)',
+                    color: '#fff',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(37, 99, 235, 0.35)'
+                  }}
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE NOTE CONFIRMATION MODAL */}
+      {deleteModalDoc && (
+        <div
+          className="ht-modal-overlay"
+          onClick={() => setDeleteModalDoc(null)}
+        >
+          <div
+            className="ht-modal-dialog"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '10px',
+                background: 'rgba(239, 68, 68, 0.12)',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ef4444',
+                fontSize: '18px',
+                flexShrink: 0
+              }}>
+                🗑️
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--ht-text-primary)' }}>
+                  Delete Note
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--ht-text-muted)', lineHeight: 1.45 }}>
+                  Are you sure you want to delete <strong style={{ color: 'var(--ht-text-primary)' }}>&ldquo;{getDocDisplayTitle(deleteModalDoc)}&rdquo;</strong>? This action cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '6px' }}>
+              <button
+                type="button"
+                onClick={() => setDeleteModalDoc(null)}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--ht-border-card)',
+                  background: 'transparent',
+                  color: 'var(--ht-text-secondary)',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleDeleteNote(deleteModalDoc.id);
+                  setDeleteModalDoc(null);
+                }}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: '#ef4444',
+                  color: '#fff',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(239, 68, 68, 0.35)'
+                }}
+              >
+                Delete Note
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 
   function renderDocListItem(doc) {
     const isSelected = currentDocId === doc.id;
+    const isContextMenuTarget = noteContextMenu?.doc?.id === doc.id;
     const displayTitle = getDocDisplayTitle(doc);
     const displaySnippet = getDocDisplaySnippet(doc);
     const relativeTime = formatRelativeTime(doc.updated_at || doc.created_at);
@@ -2030,18 +2492,76 @@ export default function App() {
             setSidebarOpen(false);
           }
         }}
-        className={`ht-note-card ${isSelected ? 'active' : ''}`}
+        onContextMenu={(e) => handleNoteContextMenu(e, doc)}
+        className={`ht-note-card ${isSelected ? 'active' : ''} ${isContextMenuTarget ? 'context-active' : ''}`}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
-          <span className="ht-note-card-title">
-            {displayTitle}
-          </span>
-          {doc.is_pinned && (
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#2563eb', flexShrink: 0 }} title="Pinned note">
-              <line x1="12" y1="17" x2="12" y2="22" />
-              <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.89A2 2 0 0 1 15 10.77V5a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v5.77a2 2 0 0 1-1.11 1.79l-1.78.89A2 2 0 0 0 5 15.24Z" />
-            </svg>
+          {inlineRenamingId === doc.id ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSaveInlineRename(doc.id);
+              }}
+              onClick={(e) => e.stopPropagation()}
+              style={{ flex: 1, minWidth: 0, margin: 0 }}
+            >
+              <input
+                ref={inlineRenameInputRef}
+                type="text"
+                value={inlineRenameTitle}
+                onChange={(e) => setInlineRenameTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    isCancellingInlineRenameRef.current = true;
+                    setInlineRenamingId(null);
+                  }
+                }}
+                onBlur={() => {
+                  if (isCancellingInlineRenameRef.current) {
+                    isCancellingInlineRenameRef.current = false;
+                    return;
+                  }
+                  handleSaveInlineRename(doc.id);
+                }}
+                className="ht-note-card-rename-input"
+                autoFocus
+              />
+            </form>
+          ) : (
+            <span
+              className="ht-note-card-title"
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                handleStartInlineRename(doc);
+              }}
+              title="Right-click for options (or double-click to rename)"
+            >
+              {displayTitle}
+            </span>
           )}
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
+            {doc.is_pinned && (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#2563eb', flexShrink: 0 }} title="Pinned note">
+                <line x1="12" y1="17" x2="12" y2="22" />
+                <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.89A2 2 0 0 1 15 10.77V5a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v5.77a2 2 0 0 1-1.11 1.79l-1.78.89A2 2 0 0 0 5 15.24Z" />
+              </svg>
+            )}
+            <button
+              type="button"
+              className="ht-note-card-more-btn"
+              onClick={(e) => handleOpenNoteMenuFromButton(e, doc)}
+              title="Note actions"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="12" r="2" />
+                <circle cx="19" cy="12" r="2" />
+                <circle cx="5" cy="12" r="2" />
+              </svg>
+            </button>
+          </div>
         </div>
         <p className="ht-note-card-snippet">
           {displaySnippet}

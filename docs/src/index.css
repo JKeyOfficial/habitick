@@ -673,4 +673,199 @@
   box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.05);
 }
 
+/* Sidebar Note Card Context Menu & Inline Editing */
+.ht-note-card.context-active {
+  border-color: rgba(37, 99, 235, 0.7) !important;
+  box-shadow: 0 0 0 1.5px rgba(37, 99, 235, 0.5), 0 4px 14px rgba(0, 0, 0, 0.2) !important;
+}
+
+.ht-note-card-more-btn {
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--ht-text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.ht-note-card:hover .ht-note-card-more-btn,
+.ht-note-card.context-active .ht-note-card-more-btn {
+  opacity: 1;
+}
+
+.ht-note-card-more-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--ht-text-primary);
+}
+
+.ht-note-card-rename-input {
+  width: 100%;
+  padding: 2px 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ht-text-primary);
+  background: var(--ht-bg-base);
+  border: 1.5px solid #2563eb;
+  border-radius: 5px;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+@keyframes htContextMenuPop {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.ht-context-menu {
+  position: fixed;
+  z-index: 100000;
+  min-width: 195px;
+  background: var(--ht-bg-sidebar);
+  border: 1px solid var(--ht-border-card);
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 18px 42px -4px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: htContextMenuPop 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  font-family: inherit;
+}
+
+.ht-context-menu-header {
+  padding: 6px 10px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ht-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ht-context-menu-divider {
+  height: 1px;
+  background: var(--ht-border-subtle);
+  margin: 3px 6px;
+}
+
+.ht-context-menu-item {
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--ht-text-primary);
+  font-size: 12.5px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  transition: background 0.12s ease, color 0.12s ease;
+  outline: none;
+  font-family: inherit;
+}
+
+.ht-context-menu-item:hover,
+.ht-context-menu-item:focus-visible {
+  background: var(--ht-bg-card-subtle);
+  color: var(--ht-text-primary);
+}
+
+.ht-context-menu-item-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ht-context-menu-item-shortcut {
+  font-size: 10.5px;
+  color: var(--ht-text-muted);
+  font-family: inherit;
+}
+
+.ht-context-menu-item-danger {
+  color: #ef4444 !important;
+}
+
+.ht-context-menu-item-danger:hover,
+.ht-context-menu-item-danger:focus-visible {
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #ef4444 !important;
+}
+
+@keyframes htFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes htModalScale {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.ht-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 7, 12, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  z-index: 100001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: htFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ht-modal-dialog {
+  background: var(--ht-bg-sidebar);
+  border: 1px solid var(--ht-border-card);
+  border-radius: 16px;
+  padding: 24px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: htModalScale 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+
 
