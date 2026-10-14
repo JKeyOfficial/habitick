@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { BillingTab } from '../screens/BillingTab.jsx';
 import { NotificationManager } from '../utils/notifications.js';
 import { VAPID_PUBLIC_KEY } from '../utils/constants.js';
 import { calcStats } from '../utils/helpers.js';
-import { QrScannerModal } from '../components/QrScannerModal.jsx';
+
+const QrScannerModal = lazy(() => import('../components/QrScannerModal.jsx'));
 
 export function ProfileModal({ 
   initialTab = "account", 
@@ -1545,10 +1546,12 @@ export function ProfileModal({
 
       {/* QR Scanner */}
       {showQrScanner && (
-        <QrScannerModal
-          onClose={() => setShowQrScanner(false)}
-          showToast={showToast}
-        />
+        <Suspense fallback={null}>
+          <QrScannerModal
+            onClose={() => setShowQrScanner(false)}
+            showToast={showToast}
+          />
+        </Suspense>
       )}
     </div>
   );

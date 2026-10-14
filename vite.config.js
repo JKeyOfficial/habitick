@@ -70,7 +70,19 @@ function localApiPlugin() {
   }
 }
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), localApiPlugin()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('@supabase')) return 'vendor-supabase';
+            if (id.includes('@dnd-kit')) return 'vendor-dnd';
+          }
+        }
+      }
+    }
+  }
 })
+

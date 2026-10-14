@@ -37,10 +37,10 @@ import { setSharedAuthCookie, getSharedAuthCookie, clearSharedAuthCookie } from 
 // Layout & Reusable Core Components
 import { DragSheet } from "./components/DragSheet.jsx";
 import { LifetimeBanner } from "./components/LifetimeBanner.jsx";
-import { UpgradeModal } from "./components/UpgradeModal.jsx";
-import { ProfileModal } from "./components/ProfileModal.jsx";
-import { AuthScreen } from "./screens/AuthScreen.jsx";
-import { OnboardingScreen } from "./screens/OnboardingScreen.jsx";
+const UpgradeModal = lazy(() => import("./components/UpgradeModal.jsx").then(m => ({ default: m.UpgradeModal })));
+const ProfileModal = lazy(() => import("./components/ProfileModal.jsx").then(m => ({ default: m.ProfileModal })));
+const AuthScreen = lazy(() => import("./screens/AuthScreen.jsx").then(m => ({ default: m.AuthScreen })));
+const OnboardingScreen = lazy(() => import("./screens/OnboardingScreen.jsx").then(m => ({ default: m.OnboardingScreen })));
 
 // Docs Companion App (Lazy loaded on docs. subdomain or ?tab=docs)
 const DocsApp = lazy(() => import("../docs/src/App.jsx"));
@@ -48,16 +48,15 @@ const DocsApp = lazy(() => import("../docs/src/App.jsx"));
 // Feature Modules
 import { RoutineSortableItem } from "./components/RoutineSortableItem.jsx";
 import { RoutineCard } from "./components/RoutineCard.jsx";
-import { RoutineModal } from "./components/RoutineModal.jsx";
+const RoutineModal = lazy(() => import("./components/RoutineModal.jsx").then(m => ({ default: m.RoutineModal })));
 import { HabitCard } from "./components/HabitCard.jsx";
 import { HabitSortableItem } from "./components/HabitSortableItem.jsx";
-import { HabitModal } from "./components/HabitModal.jsx";
+const HabitModal = lazy(() => import("./components/HabitModal.jsx").then(m => ({ default: m.HabitModal })));
 import { TodoItem, TodoModal } from "./components/Todos.jsx";
-import { AnalyticsTab } from "./screens/AnalyticsTab.jsx";
-import { JournalTab } from "./screens/JournalTab.jsx";
-import { BillingTab } from "./screens/BillingTab.jsx";
-import { GoalsTab } from "./screens/GoalsTab.jsx";
-import { GoalModal } from "./components/GoalModal.jsx";
+const AnalyticsTab = lazy(() => import("./screens/AnalyticsTab.jsx").then(m => ({ default: m.AnalyticsTab })));
+const JournalTab = lazy(() => import("./screens/JournalTab.jsx").then(m => ({ default: m.JournalTab })));
+const GoalsTab = lazy(() => import("./screens/GoalsTab.jsx").then(m => ({ default: m.GoalsTab })));
+const GoalModal = lazy(() => import("./components/GoalModal.jsx").then(m => ({ default: m.GoalModal })));
 
 const restrictToVerticalAxis = ({ transform }) => ({
   ...transform,
@@ -277,7 +276,13 @@ function HabiTick() {
   const [draggedHabit, setDraggedHabit] = useState(null);
   const [draggedRoutine, setDraggedRoutine] = useState(null);
   const [draggedItemWidth, setDraggedItemWidth] = useState(null);
-  const [lifetimeBannerDismissed, setLifetimeBannerDismissed] = useState(false);
+  const [lifetimeBannerDismissed, setLifetimeBannerDismissed] = useState(() => {
+    try {
+      return Object.keys(localStorage).some(k => k.startsWith("ht_founder_dismissed_") && localStorage.getItem(k) === "true");
+    } catch {
+      return false;
+    }
+  });
   const [showShieldPopover, setShowShieldPopover] = useState(false);
   const [profileTab, setProfileTab] = useState("account");
 
@@ -1147,19 +1152,25 @@ function HabiTick() {
   };
 
   if (session === undefined) return <div style={{ minHeight: "100vh", background: "#080b11", display: "flex", alignItems: "center", justifyContent: "center", color: "#6b7280", fontFamily: "system-ui" }}>Loading...</div>;
-  if (!session) return <AuthScreen />;
+  if (!session) return (
+    <Suspense fallback={<div style={{ minHeight: "100vh", background: "#080b11" }} />}>
+      <AuthScreen />
+    </Suspense>
+  );
   if ((!loading && profile && !profile.username) || showOnboarding) {
     return (
-      <OnboardingScreen
-        session={session}
-        profile={profile}
-        onComplete={p => {
-          if (p) setProfile(p);
-          setShowOnboarding(false);
-          if (!profile?.username) setShowHabitModal(true);
-        }}
-        onClose={profile?.username ? () => setShowOnboarding(false) : undefined}
-      />
+      <Suspense fallback={<div style={{ minHeight: "100vh", background: "#080b11" }} />}>
+        <OnboardingScreen
+          session={session}
+          profile={profile}
+          onComplete={p => {
+            if (p) setProfile(p);
+            setShowOnboarding(false);
+            if (!profile?.username) setShowHabitModal(true);
+          }}
+          onClose={profile?.username ? () => setShowOnboarding(false) : undefined}
+        />
+      </Suspense>
     );
   }
 
@@ -1173,8 +1184,6 @@ function HabiTick() {
   return (
     <div className="ht-app-layout">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500;600;700;800&display=swap');
-        
         html, body, #root {
           margin: 0;
           padding: 0;
@@ -1839,7 +1848,17 @@ function HabiTick() {
         >
           <main className="ht-main">
             {loading ? (
-              <div style={{ textAlign: "center", padding: "60px", color: "#6b7280" }}>Loading your data...</div>
+              <div style={{ width: "100%", maxWidth: "800px", margin: "0 auto", padding: "10px 0", animation: "fadeUp 0.3s ease-out" }}>
+                <div style={{ height: "64px", background: "var(--ht-bg-card)", border: "1px solid var(--ht-border-card)", borderRadius: "16px", marginBottom: "20px", opacity: 0.6 }} />
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "10px", marginBottom: "20px" }}>
+                  <div style={{ height: "80px", background: "var(--ht-bg-card)", borderRadius: "16px", border: "1px solid var(--ht-border-card)", opacity: 0.5 }} />
+                  <div style={{ height: "80px", background: "var(--ht-bg-card)", borderRadius: "16px", border: "1px solid var(--ht-border-card)", opacity: 0.5 }} />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <div style={{ height: "64px", background: "var(--ht-bg-card)", borderRadius: "16px", border: "1px solid var(--ht-border-card)", opacity: 0.5 }} />
+                  <div style={{ height: "64px", background: "var(--ht-bg-card)", borderRadius: "16px", border: "1px solid var(--ht-border-card)", opacity: 0.5 }} />
+                </div>
+              </div>
             ) : tab === "today" ? (
               /* TODAY VIEW LAYOUT */
               <>
@@ -2219,27 +2238,33 @@ function HabiTick() {
                 </div>
               </section>
             ) : tab === "analytics" ? (
-              <AnalyticsTab 
-                habits={habits} 
-                todos={todos} 
-                goals={goals}
-                pausePeriods={pausePeriods} 
-                isPremium={isPremium} 
-                journalEntries={journalEntries} 
-                profile={profile} 
-                setProfile={setProfile}
-                onRecommendHabit={(habitName) => { setEditingHabit({ name: habitName }); setShowHabitModal(true); }}
-              />
+              <Suspense fallback={<div style={{ padding: "60px", textAlign: "center", color: "#6b7280" }}>Loading stats...</div>}>
+                <AnalyticsTab 
+                  habits={habits} 
+                  todos={todos} 
+                  goals={goals}
+                  pausePeriods={pausePeriods} 
+                  isPremium={isPremium} 
+                  journalEntries={journalEntries} 
+                  profile={profile} 
+                  setProfile={setProfile}
+                  onRecommendHabit={(habitName) => { setEditingHabit({ name: habitName }); setShowHabitModal(true); }}
+                />
+              </Suspense>
             ) : tab === "goals" ? (
-              <GoalsTab
-                goals={goals}
-                onAdd={() => { setEditingGoal(null); setShowGoalModal(true); }}
-                onEdit={goal => { setEditingGoal(goal); setShowGoalModal(true); }}
-                onToggle={toggleGoal}
-                onDelete={deleteGoal}
-              />
+              <Suspense fallback={<div style={{ padding: "60px", textAlign: "center", color: "#6b7280" }}>Loading goals...</div>}>
+                <GoalsTab
+                  goals={goals}
+                  onAdd={() => { setEditingGoal(null); setShowGoalModal(true); }}
+                  onEdit={goal => { setEditingGoal(goal); setShowGoalModal(true); }}
+                  onToggle={toggleGoal}
+                  onDelete={deleteGoal}
+                />
+              </Suspense>
             ) : tab === "journal" ? (
-              <JournalTab journalEntries={journalEntries} setJournalEntries={setJournalEntries} session={session} today={today} isPremium={isPremium} />
+              <Suspense fallback={<div style={{ padding: "60px", textAlign: "center", color: "#6b7280" }}>Loading journal...</div>}>
+                <JournalTab journalEntries={journalEntries} setJournalEntries={setJournalEntries} session={session} today={today} isPremium={isPremium} />
+              </Suspense>
             ) : null}
           </main>
 
@@ -2331,59 +2356,61 @@ function HabiTick() {
       </nav>
 
       {/* MODALS */}
-      {showHabitModal && <HabitModal habit={editingHabit} profile={profile} habits={habits} onSave={saveHabit} onClose={() => { setShowHabitModal(false); setEditingHabit(null); }} />}
-      {showTodoModal && <TodoModal todo={editingTodo} onSave={editingTodo && editingTodo.id ? saveTodo : addTodo} onClose={() => { setShowTodoModal(false); setEditingTodo(null); }} />}
-      {showRoutineModal && (
-        <RoutineModal
-          routine={editingRoutine}
-          habitsList={habits}
-          profile={profile}
-          onSave={saveRoutine}
-          onDelete={routineId => { deleteRoutine(routineId); setShowRoutineModal(false); setEditingRoutine(null); }}
-          onEject={habitId => moveHabitToRoutine(habitId, null)}
-          onClose={() => { setShowRoutineModal(false); setEditingRoutine(null); }}
-        />
-      )}
-      {showProfile && (
-        <ProfileModal 
-          initialTab={profileTab}
-          session={session} 
-          profile={profile} 
-          habits={habits}
-          todos={todos}
-          goals={goals}
-          journalEntries={journalEntries}
-          pausePeriods={pausePeriods}
-          isPremium={isPremium}
-          showTodayOnly={showTodayOnly}
-          onChangeShowTodayOnly={val => {
-            localStorage.setItem("ht_showTodayOnly", String(val));
-            setShowTodayOnly(val);
-          }}
-          hideEmptyRoutines={hideEmptyRoutines}
-          onChangeHideEmptyRoutines={val => {
-            localStorage.setItem("ht_hideEmptyRoutines", String(val));
-            setHideEmptyRoutines(val);
-          }}
-          theme={theme}
-          onUpdateTheme={handleUpdateTheme}
-          onUpdate={setProfile} 
-          onClose={() => setShowProfile(false)}
-          onUpgrade={handleUpgrade}
-          onRedoOnboarding={() => {
-            setShowProfile(false);
-            setShowOnboarding(true);
-          }}
-        />
-      )}
-      {showGoalModal && (
-        <GoalModal
-          goal={editingGoal}
-          onSave={editingGoal && editingGoal.id ? (updates) => saveGoal(editingGoal.id, updates) : addGoal}
-          onClose={() => { setShowGoalModal(false); setEditingGoal(null); }}
-        />
-      )}
-      {showUpgradeModal && <UpgradeModal onUpgrade={handleUpgrade} onClose={() => setShowUpgradeModal(false)} reason={showUpgradeModal} />}
+      <Suspense fallback={null}>
+        {showHabitModal && <HabitModal habit={editingHabit} profile={profile} habits={habits} onSave={saveHabit} onClose={() => { setShowHabitModal(false); setEditingHabit(null); }} />}
+        {showTodoModal && <TodoModal todo={editingTodo} onSave={editingTodo && editingTodo.id ? saveTodo : addTodo} onClose={() => { setShowTodoModal(false); setEditingTodo(null); }} />}
+        {showRoutineModal && (
+          <RoutineModal
+            routine={editingRoutine}
+            habitsList={habits}
+            profile={profile}
+            onSave={saveRoutine}
+            onDelete={routineId => { deleteRoutine(routineId); setShowRoutineModal(false); setEditingRoutine(null); }}
+            onEject={habitId => moveHabitToRoutine(habitId, null)}
+            onClose={() => { setShowRoutineModal(false); setEditingRoutine(null); }}
+          />
+        )}
+        {showProfile && (
+          <ProfileModal 
+            initialTab={profileTab}
+            session={session} 
+            profile={profile} 
+            habits={habits}
+            todos={todos}
+            goals={goals}
+            journalEntries={journalEntries}
+            pausePeriods={pausePeriods}
+            isPremium={isPremium}
+            showTodayOnly={showTodayOnly}
+            onChangeShowTodayOnly={val => {
+              localStorage.setItem("ht_showTodayOnly", String(val));
+              setShowTodayOnly(val);
+            }}
+            hideEmptyRoutines={hideEmptyRoutines}
+            onChangeHideEmptyRoutines={val => {
+              localStorage.setItem("ht_hideEmptyRoutines", String(val));
+              setHideEmptyRoutines(val);
+            }}
+            theme={theme}
+            onUpdateTheme={handleUpdateTheme}
+            onUpdate={setProfile} 
+            onClose={() => setShowProfile(false)}
+            onUpgrade={handleUpgrade}
+            onRedoOnboarding={() => {
+              setShowProfile(false);
+              setShowOnboarding(true);
+            }}
+          />
+        )}
+        {showGoalModal && (
+          <GoalModal
+            goal={editingGoal}
+            onSave={editingGoal && editingGoal.id ? (updates) => saveGoal(editingGoal.id, updates) : addGoal}
+            onClose={() => { setShowGoalModal(false); setEditingGoal(null); }}
+          />
+        )}
+        {showUpgradeModal && <UpgradeModal onUpgrade={handleUpgrade} onClose={() => setShowUpgradeModal(false)} reason={showUpgradeModal} />}
+      </Suspense>
     </div>
   );
 }

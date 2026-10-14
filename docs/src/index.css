@@ -878,4 +878,133 @@
 }
 
 
+/* ============================================================
+   TABLET RESPONSIVE (≤ 1024px)
+   ============================================================ */
+@media (max-width: 1024px) {
+  .ht-docs-container, [data-docs-app] {
+    flex-direction: column;
+  }
+}
+
+/* ============================================================
+   MOBILE + TABLET RESPONSIVE (≤ 768px)
+   ============================================================ */
+@media (max-width: 768px) {
+  /* Top Header Bar: allow wrapping, adaptive height */
+  .docs-top-header {
+    height: auto !important;
+    min-height: 44px;
+    padding: 8px 12px !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  /* Formatting Toolbar: horizontally scrollable on mobile */
+  .formatting-bar {
+    padding: 5px 10px !important;
+    gap: 3px !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .formatting-bar::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  /* Writing Canvas: reduce padding and allow full width */
+  .docs-canvas-scroll {
+    padding: 20px 14px 60px !important;
+  }
+
+  .canvas-container {
+    max-width: 100% !important;
+  }
+
+  /* Footer: wrap and center on mobile */
+  .docs-footer {
+    height: auto !important;
+    min-height: 28px;
+    padding: 6px 12px !important;
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+    justify-content: center !important;
+    text-align: center;
+  }
+
+  /* Note title: smaller on mobile */
+  .canvas-container input[type="text"][placeholder="Untitled Note..."] {
+    font-size: 24px !important;
+  }
+
+  /* Note editor: reduce min-height on mobile */
+  .note-editor {
+    min-height: 50vh !important;
+  }
+
+  /* Modal dialog: full-width-friendly on mobile */
+  .ht-modal-dialog {
+    padding: 18px !important;
+    border-radius: 14px !important;
+    max-width: 100% !important;
+  }
+}
+
+/* ============================================================
+   SMALL MOBILE RESPONSIVE (≤ 480px)
+   ============================================================ */
+@media (max-width: 480px) {
+  /* Tighter header on small phones */
+  .docs-top-header {
+    padding: 6px 8px !important;
+    gap: 6px !important;
+  }
+
+  .formatting-bar {
+    padding: 4px 6px !important;
+    gap: 2px !important;
+  }
+
+  /* Smaller title on tiny screens */
+  .canvas-container input[type="text"][placeholder="Untitled Note..."] {
+    font-size: 20px !important;
+  }
+
+  /* Even less canvas padding */
+  .docs-canvas-scroll {
+    padding: 12px 8px 48px !important;
+  }
+
+  .note-editor {
+    min-height: 40vh !important;
+  }
+
+  .note-editor h1 {
+    font-size: 1.5em;
+  }
+
+  .note-editor h2 {
+    font-size: 1.25em;
+  }
+
+  .note-editor h3 {
+    font-size: 1.1em;
+  }
+
+  /* Sidebar drawer: wider on tiny screens */
+  .ht-sidebar {
+    max-width: 92vw !important;
+  }
+
+  /* Context menu: don't overflow screen */
+  .ht-context-menu {
+    min-width: 170px;
+    max-width: calc(100vw - 32px);
+  }
+}
 

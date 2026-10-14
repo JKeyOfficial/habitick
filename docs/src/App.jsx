@@ -1659,7 +1659,7 @@ export default function App() {
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', position: 'relative' }}>
         {/* Top Navbar */}
         <header 
-          className="no-print"
+          className="no-print docs-top-header"
           style={{
             height: '52px',
             borderBottom: '1px solid var(--ht-border-card)',
@@ -1672,7 +1672,7 @@ export default function App() {
           }}
         >
           {/* Left: Sidebar toggle, Finder button & Sync badge */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', minWidth: 0 }}>
             {!sidebarOpen && (
               <button
                 onClick={() => setSidebarOpen(true)}
@@ -1788,7 +1788,7 @@ export default function App() {
           </div>
 
           {/* Right: Clean, Minimalist Controls */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="docs-header-controls" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             {/* Focus Mode Toggle Button */}
             <button
               onClick={() => {
@@ -1979,6 +1979,7 @@ export default function App() {
 
         {/* Writing Canvas Container */}
         <div 
+          className="docs-canvas-scroll"
           style={{
             flex: 1,
             overflowY: 'auto',
@@ -2020,8 +2021,8 @@ export default function App() {
             />
 
             {/* Note Metadata Bar (Tags, Pin, Word Count, Delete) */}
-            <div className="no-print" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', paddingBottom: '8px', borderBottom: '1px solid var(--ht-border-subtle)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="no-print" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', paddingBottom: '8px', borderBottom: '1px solid var(--ht-border-subtle)', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 {/* Tag Pill Select */}
                 <select
                   value={currentDoc?.tag || 'General'}
@@ -2141,7 +2142,7 @@ export default function App() {
 
         {/* Live Bottom Stats Bar */}
         <footer 
-          className="no-print"
+          className="no-print docs-footer"
           style={{
             height: '32px',
             borderTop: '1px solid var(--ht-border-card)',
