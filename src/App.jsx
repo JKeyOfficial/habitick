@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
 import { supabase } from "./lib/supabase.js";
 import {
   DndContext,
@@ -246,12 +246,23 @@ function HabiTick() {
       setTab(urlTab);
     }
 
-    // Prefetch Docs app in the background so Service Worker caches it for offline access
-    const prefetchTimer = setTimeout(() => {
-      import("../docs/src/App.jsx").catch(() => {});
-    }, 2500);
+    // Prefetch Docs app in the background only when main thread is completely idle
+    let idleId;
+    let timerId;
+    if ("requestIdleCallback" in window) {
+      idleId = window.requestIdleCallback(() => {
+        import("../docs/src/App.jsx").catch(() => {});
+      }, { timeout: 15000 });
+    } else {
+      timerId = setTimeout(() => {
+        import("../docs/src/App.jsx").catch(() => {});
+      }, 10000);
+    }
 
-    return () => clearTimeout(prefetchTimer);
+    return () => {
+      if (idleId && "cancelIdleCallback" in window) window.cancelIdleCallback(idleId);
+      if (timerId) clearTimeout(timerId);
+    };
   }, []);
 
   const [editingTodo, setEditingTodo] = useState(null);
@@ -493,8 +504,22 @@ function HabiTick() {
   }, [session]);
 
   const loadAll = async () => {
-    setLoading(true);
     const uid = session.user.id;
+    // Instant cache hydration to unblock the main thread and provide 0ms FID on startup
+    try {
+      const cachedRaw = localStorage.getItem(`ht_offline_cache_${uid}`);
+      if (cachedRaw) {
+        const cached = JSON.parse(cachedRaw);
+        if (cached.habits && habits.length === 0) setHabits(cached.habits);
+        if (cached.todos && todos.length === 0) setTodos(cached.todos);
+        if (cached.routines && routines.length === 0) setRoutines(cached.routines);
+        if (cached.goals && goals.length === 0) setGoals(cached.goals);
+        if (cached.profile && !profile) setProfile(cached.profile);
+        if (cached.journal && Object.keys(journalEntries).length === 0) setJournalEntries(cached.journal);
+        setLoading(false);
+      }
+    } catch {}
+
     try {
       const [habitsRes, completionsRes, todosRes, pauseRes, journalRes, profileRes, routinesRes, goalsRes] = await Promise.all([
       supabase.from("habits").select("*").eq("user_id", uid).order("created_at"),
@@ -559,41 +584,42 @@ function HabiTick() {
     }
     setProfile(profileData);
 
-    // Decrypt habit names & sort by DB / profile / localStorage order
-    const decryptedHabits = [];
-    for (const h of (habitsRes.data || [])) {
-      const name = await decryptText(h.name, uid);
-      decryptedHabits.push({
+    // Decrypt in parallel using Promise.all to avoid blocking the main thread
+    const decryptedHabits = await Promise.all(
+      (habitsRes.data || []).map(async (h) => ({
         ...h,
-        name,
+        name: await decryptText(h.name, uid),
         createdDate: (h.created_date || getDateStr(new Date())).substring(0, 10), 
         completedDates: completionsByHabit[h.id] || [],
         completionTimes: completionTimesByHabit[h.id] || {}
-      });
-    }
+      }))
+    );
 
     const loadedHabits = sortItemsByOrder(decryptedHabits, profileData?.habit_order, `ht_habitOrder_${uid}`);
     setHabits(loadedHabits);
 
-    // Decrypt todo texts
-    const loadedTodos = [];
-    for (const t of (todosRes.data || [])) {
-      const decryptedTextVal = await decryptText(t.text, uid);
-      loadedTodos.push({
+    const loadedTodos = await Promise.all(
+      (todosRes.data || []).map(async (t) => ({
         ...t,
-        text: decryptedTextVal,
+        text: await decryptText(t.text, uid),
         doneDate: t.done_date ? t.done_date.substring(0, 10) : null
-      });
-    }
+      }))
+    );
     setTodos(loadedTodos);
 
     setPausePeriods((pauseRes.data || []).map(p => ({ id: p.id, start: (p.start_date || '').substring(0, 10), end: p.end_date ? p.end_date.substring(0, 10) : null })));
+    
     const entriesMap = {};
-    if (journalRes.data) {
-      for (const e of journalRes.data) {
-        const decryptedContent = await decryptText(e.content, uid);
-        entriesMap[e.entry_date.substring(0, 10)] = { ...e, content: decryptedContent };
-      }
+    if (journalRes.data && journalRes.data.length > 0) {
+      const decryptedEntries = await Promise.all(
+        journalRes.data.map(async (e) => ({
+          ...e,
+          content: await decryptText(e.content, uid)
+        }))
+      );
+      decryptedEntries.forEach(e => {
+        entriesMap[e.entry_date.substring(0, 10)] = e;
+      });
     }
     setJournalEntries(entriesMap);
 
@@ -607,30 +633,23 @@ function HabiTick() {
       }
     }
 
-    // Decrypt routine names & sort by DB / profile / localStorage order
-    const decryptedRoutines = [];
-    for (const r of (routinesRes.data || [])) {
-      const decryptedName = await decryptText(r.name, uid);
-      decryptedRoutines.push({
+    const decryptedRoutines = await Promise.all(
+      (routinesRes.data || []).map(async (r) => ({
         ...r,
-        name: decryptedName
-      });
-    }
+        name: await decryptText(r.name, uid)
+      }))
+    );
 
     const loadedRoutines = sortItemsByOrder(decryptedRoutines, profileData?.routine_order, `ht_routineOrder_${uid}`);
     setRoutines(loadedRoutines);
 
-    // Decrypt goals title and description
-    const decryptedGoals = [];
-    for (const g of (goalsRes.data || [])) {
-      const decryptedTitle = await decryptText(g.title, uid);
-      const decryptedDesc = g.description ? await decryptText(g.description, uid) : "";
-      decryptedGoals.push({
+    const decryptedGoals = await Promise.all(
+      (goalsRes.data || []).map(async (g) => ({
         ...g,
-        title: decryptedTitle,
-        description: decryptedDesc
-      });
-    }
+        title: await decryptText(g.title, uid),
+        description: g.description ? await decryptText(g.description, uid) : ""
+      }))
+    );
     setGoals(decryptedGoals);
 
     // Snapshot state for 0ms offline mobile startup
@@ -1067,59 +1086,72 @@ function HabiTick() {
     }
   };
 
-  // Selected date computations
-  const selectedDateObj = parseDateLocal(selectedDate);
+  // Selected date computations (memoized to eliminate unnecessary main-thread recalculations)
+  const selectedDateObj = useMemo(() => parseDateLocal(selectedDate), [selectedDate]);
   const selectedDow = selectedDateObj.getDay();
 
-  const todayHabits = (showTodayOnly
-    ? habits.filter(h => h.frequency === "daily" || (h.days && h.days.includes(selectedDow)))
-    : habits
-  ).filter(h => !h.createdDate || h.createdDate <= selectedDate);
+  const todayHabits = useMemo(() => {
+    return (showTodayOnly
+      ? habits.filter(h => h.frequency === "daily" || (h.days && h.days.includes(selectedDow)))
+      : habits
+    ).filter(h => !h.createdDate || h.createdDate <= selectedDate);
+  }, [habits, showTodayOnly, selectedDow, selectedDate]);
 
   const isHabitInRoutine = (h) => h.routine_id && routines.some(r => String(r.id) === String(h.routine_id));
 
-  const visibleRoutines = hideEmptyRoutines
-    ? routines.filter(routine => todayHabits.some(h => h.routine_id && String(h.routine_id) === String(routine.id)))
-    : routines;
+  const visibleRoutines = useMemo(() => {
+    return hideEmptyRoutines
+      ? routines.filter(routine => todayHabits.some(h => h.routine_id && String(h.routine_id) === String(routine.id)))
+      : routines;
+  }, [hideEmptyRoutines, routines, todayHabits]);
 
-  const doneOnSelectedDate = habits.filter(h =>
-    (!h.createdDate || h.createdDate <= selectedDate) &&
-    (h.frequency === "daily" || (h.days && h.days.includes(selectedDow))) &&
-    (h.completedDates || []).includes(selectedDate)
-  ).length;
-
-  const totalOnSelectedDate = habits.filter(h =>
-    (!h.createdDate || h.createdDate <= selectedDate) &&
-    (h.frequency === "daily" || (h.days && h.days.includes(selectedDow)))
-  ).length;
-
-  const percent = totalOnSelectedDate > 0
-    ? Math.round((doneOnSelectedDate / totalOnSelectedDate) * 100)
-    : 0;
+  const { doneOnSelectedDate, totalOnSelectedDate, percent } = useMemo(() => {
+    const scheduled = habits.filter(h =>
+      (!h.createdDate || h.createdDate <= selectedDate) &&
+      (h.frequency === "daily" || (h.days && h.days.includes(selectedDow)))
+    );
+    const done = scheduled.filter(h => (h.completedDates || []).includes(selectedDate)).length;
+    const total = scheduled.length;
+    return {
+      doneOnSelectedDate: done,
+      totalOnSelectedDate: total,
+      percent: total > 0 ? Math.round((done / total) * 100) : 0
+    };
+  }, [habits, selectedDate, selectedDow]);
 
   // Keep original today counters for general badge statistics
-  const doneToday = habits.filter(h => (h.frequency === "daily" || (h.days && h.days.includes(todayDow))) && (h.completedDates || []).includes(today)).length;
-  const totalToday = habits.filter(h => h.frequency === "daily" || (h.days && h.days.includes(todayDow))).length;
+  const doneToday = useMemo(() => {
+    return habits.filter(h => (h.frequency === "daily" || (h.days && h.days.includes(todayDow))) && (h.completedDates || []).includes(today)).length;
+  }, [habits, todayDow, today]);
+
+  const totalToday = useMemo(() => {
+    return habits.filter(h => h.frequency === "daily" || (h.days && h.days.includes(todayDow))).length;
+  }, [habits, todayDow]);
 
   const isPremium = profile?.is_premium === true || profile?.is_lifetime === true;
-  const { currentStreak, shields, maxShields, progressToNextShield, shieldedDates } = calcStats(habits, pausePeriods, isPremium, profile);
+  const { currentStreak, shields, maxShields, progressToNextShield, shieldedDates } = useMemo(() => {
+    return calcStats(habits, pausePeriods, isPremium, profile);
+  }, [habits, pausePeriods, isPremium, profile]);
 
   const priorityOrder = { high: 1, med: 2, low: 3, "": 4 };
-  const visibleTodos = (showCompleted ? todos : todos.filter(t => !t.done)).slice().sort((a, b) => {
-    if (a.done !== b.done) return a.done ? 1 : -1;
-    if (a.done && b.done) {
-      const aDone = a.doneDate || "";
-      const bDone = b.doneDate || "";
-      if (aDone !== bDone) return aDone < bDone ? 1 : -1;
-      const pr = (priorityOrder[a.priority || ""] || 4) - (priorityOrder[b.priority || ""] || 4);
-      if (pr !== 0) return pr;
-      return a.id < b.id ? -1 : 1;
-    }
-    const aDate = a.due_date ? `${a.due_date}${a.due_time ? `T${a.due_time}` : "T23:59"}` : "9999";
-    const bDate = b.due_date ? `${b.due_date}${b.due_time ? `T${b.due_time}` : "T23:59"}` : "9999";
-    if (aDate !== bDate) return aDate < bDate ? -1 : 1;
-    return (priorityOrder[a.priority || ""] || 4) - (priorityOrder[b.priority || ""] || 4);
-  });
+  const visibleTodos = useMemo(() => {
+    const list = showCompleted ? todos : todos.filter(t => !t.done);
+    return list.slice().sort((a, b) => {
+      if (a.done !== b.done) return a.done ? 1 : -1;
+      if (a.done && b.done) {
+        const aDone = a.doneDate || "";
+        const bDone = b.doneDate || "";
+        if (aDone !== bDone) return aDone < bDone ? 1 : -1;
+        const pr = (priorityOrder[a.priority || ""] || 4) - (priorityOrder[b.priority || ""] || 4);
+        if (pr !== 0) return pr;
+        return a.id < b.id ? -1 : 1;
+      }
+      const aDate = a.due_date ? `${a.due_date}${a.due_time ? `T${a.due_time}` : "T23:59"}` : "9999";
+      const bDate = b.due_date ? `${b.due_date}${b.due_time ? `T${b.due_time}` : "T23:59"}` : "9999";
+      if (aDate !== bDate) return aDate < bDate ? -1 : 1;
+      return (priorityOrder[a.priority || ""] || 4) - (priorityOrder[b.priority || ""] || 4);
+    });
+  }, [showCompleted, todos]);
 
   const isLifetime = profile?.is_lifetime === true;
   const userNumber = profile?.user_number || null;
