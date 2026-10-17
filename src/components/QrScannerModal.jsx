@@ -470,3 +470,5 @@ export function QrScannerModal({ onClose, showToast }) {
     </div>
   );
 }
+
+export default QrScannerModal;

@@ -4,13 +4,16 @@ import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/react'
 import './index.css'
 import App from './App.jsx'
+import { ErrorBoundary } from './components/ErrorBoundary.jsx'
 import { setupServiceWorkerListener } from './utils/pwa'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App />
-    <Analytics />
-    <SpeedInsights />
+    <ErrorBoundary>
+      <App />
+      <Analytics />
+      <SpeedInsights />
+    </ErrorBoundary>
   </StrictMode>,
 )
 

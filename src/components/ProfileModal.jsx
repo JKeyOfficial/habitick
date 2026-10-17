@@ -5,7 +5,7 @@ import { NotificationManager } from '../utils/notifications.js';
 import { VAPID_PUBLIC_KEY } from '../utils/constants.js';
 import { calcStats } from '../utils/helpers.js';
 
-const QrScannerModal = lazy(() => import('../components/QrScannerModal.jsx'));
+const QrScannerModal = lazy(() => import('../components/QrScannerModal.jsx').then(m => ({ default: m.QrScannerModal || m.default })));
 
 export function ProfileModal({ 
   initialTab = "account", 
@@ -1546,7 +1546,26 @@ export function ProfileModal({
 
       {/* QR Scanner */}
       {showQrScanner && (
-        <Suspense fallback={null}>
+        <Suspense fallback={
+          <div style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.85)",
+            backdropFilter: "blur(12px)",
+            zIndex: 35000,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "12px",
+            color: "#60a5fa",
+            fontSize: "14px",
+            fontWeight: 600
+          }}>
+            <div style={{ width: "24px", height: "24px", border: "2px solid #2563eb", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+            <span>Loading QR Scanner...</span>
+          </div>
+        }>
           <QrScannerModal
             onClose={() => setShowQrScanner(false)}
             showToast={showToast}

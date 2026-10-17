@@ -1,10 +1,42 @@
 import { useState } from 'react';
-import { S, ROUTINE_EMOJIS } from '../utils/constants.js';
+import { S, ROUTINE_EMOJIS, DAYS_SHORT } from '../utils/constants.js';
 
-export function RoutineModal({ routine, habitsList, profile, onSave, onDelete, onClose, onEject }) {
+export function RoutineModal({ routine, habitsList, profile, onSave, onDelete, onClose, onEject, onEditHabit, onDeleteHabit }) {
   const [name, setName] = useState(routine?.name || "");
   const [emoji, setEmoji] = useState(routine?.emoji || "📋");
   const routineHabits = habitsList?.filter(h => h.routine_id === routine?.id) || [];
+
+  // Inline editing state — only one habit expands at a time (accordion)
+  const [expandedHabitId, setExpandedHabitId] = useState(null);
+  const [editName, setEditName] = useState("");
+  const [editFrequency, setEditFrequency] = useState("daily");
+  const [editDays, setEditDays] = useState([]);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+
+  const openHabitEdit = (h) => {
+    if (expandedHabitId === h.id) {
+      setExpandedHabitId(null);
+      setConfirmDeleteId(null);
+      return;
+    }
+    setExpandedHabitId(h.id);
+    setEditName(h.name || "");
+    setEditFrequency(h.frequency || "daily");
+    setEditDays(h.days || []);
+    setConfirmDeleteId(null);
+  };
+
+  const toggleEditDay = (i) => setEditDays(prev => prev.includes(i) ? prev.filter(d => d !== i) : [...prev, i]);
+
+  const handleSaveHabitEdit = (habitId) => {
+    if (!editName.trim()) return;
+    onEditHabit(habitId, {
+      name: editName.trim(),
+      frequency: editFrequency,
+      days: editFrequency === "weekly" ? editDays : []
+    });
+    setExpandedHabitId(null);
+  };
 
   const recommendedRoutines = [
     { name: "Morning Routine", emoji: "🌅", desc: "Start your day with clarity" },
@@ -157,41 +189,298 @@ export function RoutineModal({ routine, habitsList, profile, onSave, onDelete, o
           <div style={{ marginBottom: "20px" }}>
             <label style={{ ...S.label, marginBottom: "8px", display: "block" }}>Habits in this routine</label>
             <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-              {routineHabits.map(h => (
-                <div 
-                  key={h.id} 
-                  style={{ 
-                    display: "flex", 
-                    alignItems: "center", 
-                    justifyContent: "space-between", 
-                    background: "var(--ht-bg-card-subtle)", 
-                    border: "1px solid var(--ht-border-card)", 
-                    borderRadius: "10px", 
-                    padding: "10px 12px" 
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#2563eb" }} />
-                    <span style={{ color: "var(--ht-text-primary)", fontSize: "14px", fontWeight: 600 }}>{h.name}</span>
-                  </div>
-                  <button 
-                    onClick={() => onEject(h.id)} 
+              {routineHabits.map(h => {
+                const isExpanded = expandedHabitId === h.id;
+                const isConfirmingDelete = confirmDeleteId === h.id;
+                return (
+                  <div 
+                    key={h.id} 
                     style={{ 
-                      background: "none", 
-                      border: "1px solid var(--ht-border-card)", 
-                      borderRadius: "6px", 
-                      color: "var(--ht-text-secondary)", 
-                      fontSize: "11px", 
-                      fontWeight: 600, 
-                      cursor: "pointer", 
-                      padding: "3px 8px", 
-                      fontFamily: "inherit" 
+                      background: "var(--ht-bg-card-subtle)", 
+                      border: `1px solid ${isExpanded ? "rgba(37, 99, 235, 0.4)" : "var(--ht-border-card)"}`, 
+                      borderRadius: "12px", 
+                      overflow: "hidden",
+                      transition: "border-color 0.2s ease"
                     }}
                   >
-                    ↗ Remove
-                  </button>
-                </div>
-              ))}
+                    {/* Habit row header */}
+                    <div 
+                      style={{ 
+                        display: "flex", 
+                        alignItems: "center", 
+                        justifyContent: "space-between", 
+                        padding: "10px 12px",
+                        cursor: "pointer",
+                        minHeight: "44px"
+                      }}
+                      onClick={() => openHabitEdit(h)}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1, minWidth: 0 }}>
+                        <div style={{ 
+                          width: "6px", 
+                          height: "6px", 
+                          borderRadius: "50%", 
+                          background: isExpanded ? "#60a5fa" : "#2563eb",
+                          flexShrink: 0,
+                          transition: "background 0.2s"
+                        }} />
+                        <span style={{ 
+                          color: "var(--ht-text-primary)", 
+                          fontSize: "14px", 
+                          fontWeight: 600,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap"
+                        }}>{h.name}</span>
+                      </div>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); openHabitEdit(h); }}
+                        style={{ 
+                          background: isExpanded ? "rgba(37, 99, 235, 0.15)" : "none", 
+                          border: `1px solid ${isExpanded ? "rgba(37, 99, 235, 0.3)" : "var(--ht-border-card)"}`, 
+                          borderRadius: "8px", 
+                          color: isExpanded ? "#60a5fa" : "var(--ht-text-secondary)", 
+                          fontSize: "12px", 
+                          fontWeight: 600, 
+                          cursor: "pointer", 
+                          padding: "6px 10px", 
+                          fontFamily: "inherit",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          transition: "all 0.2s ease",
+                          minHeight: "32px",
+                          flexShrink: 0
+                        }}
+                      >
+                        <span style={{ fontSize: "12px" }}>✏️</span>
+                        <span>{isExpanded ? "Close" : "Edit"}</span>
+                      </button>
+                    </div>
+
+                    {/* Expanded inline editor */}
+                    {isExpanded && (
+                      <div style={{ 
+                        padding: "0 12px 14px",
+                        borderTop: "1px solid var(--ht-border-card)",
+                        animation: "fadeSlideDown 0.2s ease-out"
+                      }}>
+                        {/* Habit Name */}
+                        <div style={{ marginTop: "12px" }}>
+                          <label style={{ 
+                            ...S.label, 
+                            fontSize: "11px", 
+                            marginBottom: "4px", 
+                            display: "block" 
+                          }}>Habit name</label>
+                          <input
+                            value={editName}
+                            onChange={e => setEditName(e.target.value)}
+                            style={{
+                              ...S.input,
+                              background: "var(--ht-bg-input)",
+                              border: "1px solid var(--ht-border-card)",
+                              fontSize: "13.5px",
+                              padding: "8px 10px",
+                              width: "100%",
+                              boxSizing: "border-box"
+                            }}
+                            placeholder="Habit name"
+                            onKeyDown={e => e.key === "Enter" && handleSaveHabitEdit(h.id)}
+                            onClick={e => e.stopPropagation()}
+                          />
+                        </div>
+
+                        {/* Frequency */}
+                        <div style={{ marginTop: "10px" }}>
+                          <label style={{ 
+                            ...S.label, 
+                            fontSize: "11px", 
+                            marginBottom: "4px", 
+                            display: "block" 
+                          }}>Frequency</label>
+                          <div style={{ display: "flex", gap: "6px" }}>
+                            {["daily", "weekly"].map(f => (
+                              <button
+                                key={f}
+                                onClick={(e) => { e.stopPropagation(); setEditFrequency(f); }}
+                                style={{
+                                  flex: 1,
+                                  padding: "7px",
+                                  borderRadius: "8px",
+                                  border: "1px solid",
+                                  borderColor: editFrequency === f ? "#2563eb" : "var(--ht-border-card)",
+                                  background: editFrequency === f ? "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)" : "var(--ht-bg-card-subtle)",
+                                  color: editFrequency === f ? "#fff" : "var(--ht-text-secondary)",
+                                  cursor: "pointer",
+                                  fontWeight: 700,
+                                  fontSize: "12px",
+                                  textTransform: "capitalize",
+                                  fontFamily: "inherit",
+                                  transition: "all 0.15s",
+                                  minHeight: "34px"
+                                }}
+                              >
+                                {f}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Day selector (weekly only) */}
+                        {editFrequency === "weekly" && (
+                          <div style={{ marginTop: "10px" }}>
+                            <label style={{ 
+                              ...S.label, 
+                              fontSize: "11px", 
+                              marginBottom: "4px", 
+                              display: "block" 
+                            }}>Select days</label>
+                            <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
+                              {DAYS_SHORT.map((d, i) => (
+                                <button
+                                  key={i}
+                                  onClick={(e) => { e.stopPropagation(); toggleEditDay(i); }}
+                                  style={{
+                                    width: "34px",
+                                    height: "34px",
+                                    borderRadius: "50%",
+                                    border: "1px solid",
+                                    borderColor: editDays.includes(i) ? "#2563eb" : "var(--ht-border-card)",
+                                    background: editDays.includes(i) ? "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)" : "var(--ht-bg-card-subtle)",
+                                    color: editDays.includes(i) ? "#fff" : "var(--ht-text-secondary)",
+                                    cursor: "pointer",
+                                    fontSize: "11px",
+                                    fontWeight: 700,
+                                    fontFamily: "inherit",
+                                    transition: "all 0.15s",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center"
+                                  }}
+                                >
+                                  {d[0]}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Action buttons */}
+                        <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                          {/* Save edit */}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleSaveHabitEdit(h.id); }}
+                            style={{
+                              width: "100%",
+                              padding: "9px",
+                              borderRadius: "8px",
+                              border: "none",
+                              background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+                              color: "#fff",
+                              fontWeight: 700,
+                              fontSize: "12.5px",
+                              cursor: "pointer",
+                              fontFamily: "inherit",
+                              transition: "all 0.15s",
+                              minHeight: "36px"
+                            }}
+                          >
+                            Save Changes
+                          </button>
+
+                          {/* Secondary actions row */}
+                          <div style={{ display: "flex", gap: "6px" }}>
+                            {/* Remove from routine */}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onEject(h.id); setExpandedHabitId(null); }}
+                              style={{
+                                flex: 1,
+                                padding: "8px 6px",
+                                borderRadius: "8px",
+                                border: "1px solid var(--ht-border-card)",
+                                background: "transparent",
+                                color: "var(--ht-text-secondary)",
+                                fontWeight: 600,
+                                fontSize: "11px",
+                                cursor: "pointer",
+                                fontFamily: "inherit",
+                                transition: "all 0.15s",
+                                minHeight: "36px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: "4px"
+                              }}
+                            >
+                              <span style={{ fontSize: "11px" }}>↗</span>
+                              Remove from routine
+                            </button>
+
+                            {/* Delete habit */}
+                            {!isConfirmingDelete ? (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(h.id); }}
+                                style={{
+                                  flex: 1,
+                                  padding: "8px 6px",
+                                  borderRadius: "8px",
+                                  border: "1px solid rgba(127, 29, 29, 0.4)",
+                                  background: "transparent",
+                                  color: "#f87171",
+                                  fontWeight: 600,
+                                  fontSize: "11px",
+                                  cursor: "pointer",
+                                  fontFamily: "inherit",
+                                  transition: "all 0.15s",
+                                  minHeight: "36px",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  gap: "4px"
+                                }}
+                              >
+                                <span style={{ fontSize: "12px" }}>🗑</span>
+                                Delete habit
+                              </button>
+                            ) : (
+                              <button
+                                onClick={(e) => { 
+                                  e.stopPropagation(); 
+                                  onDeleteHabit(h.id); 
+                                  setExpandedHabitId(null); 
+                                  setConfirmDeleteId(null); 
+                                }}
+                                style={{
+                                  flex: 1,
+                                  padding: "8px 6px",
+                                  borderRadius: "8px",
+                                  border: "1px solid #dc2626",
+                                  background: "rgba(220, 38, 38, 0.12)",
+                                  color: "#f87171",
+                                  fontWeight: 700,
+                                  fontSize: "11px",
+                                  cursor: "pointer",
+                                  fontFamily: "inherit",
+                                  transition: "all 0.15s",
+                                  minHeight: "36px",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  gap: "4px",
+                                  animation: "fadeSlideDown 0.15s ease-out"
+                                }}
+                              >
+                                ⚠️ Tap to confirm
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

@@ -39,7 +39,7 @@ import { DragSheet } from "./components/DragSheet.jsx";
 import { LifetimeBanner } from "./components/LifetimeBanner.jsx";
 const UpgradeModal = lazy(() => import("./components/UpgradeModal.jsx").then(m => ({ default: m.UpgradeModal })));
 const ProfileModal = lazy(() => import("./components/ProfileModal.jsx").then(m => ({ default: m.ProfileModal })));
-const AuthScreen = lazy(() => import("./screens/AuthScreen.jsx").then(m => ({ default: m.AuthScreen })));
+const AuthScreen = lazy(() => import("./screens/AuthScreen.jsx").then(m => ({ default: m.AuthScreen || m.default })));
 const OnboardingScreen = lazy(() => import("./screens/OnboardingScreen.jsx").then(m => ({ default: m.OnboardingScreen })));
 
 // Docs Companion App (Lazy loaded on docs. subdomain or ?tab=docs)
@@ -988,6 +988,12 @@ function HabiTick() {
     await supabase.from("habits").delete().eq("id", id);
   };
 
+  const editHabitInline = async (habitId, { name, frequency, days }) => {
+    const encryptedName = await encryptText(name, session.user.id);
+    const { data } = await supabase.from("habits").update({ name: encryptedName, frequency, days }).eq("id", habitId).select().single();
+    setHabits(prev => prev.map(h => h.id === habitId ? { ...h, ...data, name, createdDate: data.created_date } : h));
+  };
+
   const addTodo = async ({ text, priority, due_date, due_time }) => {
     const activeTodos = todos.filter(t => !t.done);
     if (!isPremium && activeTodos.length >= FREE_TODO_LIMIT) {
@@ -1185,7 +1191,20 @@ function HabiTick() {
 
   if (session === undefined) return <div style={{ minHeight: "100vh", background: "#080b11", display: "flex", alignItems: "center", justifyContent: "center", color: "#6b7280", fontFamily: "system-ui" }}>Loading...</div>;
   if (!session) return (
-    <Suspense fallback={<div style={{ minHeight: "100vh", background: "#080b11" }} />}>
+    <Suspense fallback={
+      <div style={{
+        minHeight: "100vh",
+        background: "#080b11",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "16px"
+      }}>
+        <img src="/habitick-blue-logo.png" alt="HabiTick" style={{ width: "48px", height: "48px", opacity: 0.9 }} />
+        <div style={{ color: "#6b7280", fontSize: "13px", fontFamily: "system-ui", letterSpacing: "0.5px" }}>Loading sign in...</div>
+      </div>
+    }>
       <AuthScreen />
     </Suspense>
   );
@@ -1232,6 +1251,8 @@ function HabiTick() {
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background: var(--ht-scrollbar-thumb, #1f293d); border-radius: 3px; }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeSlideDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes scaleUp { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         
         /* App Container Layout */
         .ht-app-layout {
@@ -2399,6 +2420,8 @@ function HabiTick() {
             onSave={saveRoutine}
             onDelete={routineId => { deleteRoutine(routineId); setShowRoutineModal(false); setEditingRoutine(null); }}
             onEject={habitId => moveHabitToRoutine(habitId, null)}
+            onEditHabit={editHabitInline}
+            onDeleteHabit={deleteHabit}
             onClose={() => { setShowRoutineModal(false); setEditingRoutine(null); }}
           />
         )}

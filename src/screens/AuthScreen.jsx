@@ -43,7 +43,12 @@ export function AuthScreen() {
     }
 
     try {
-      const sessionId = crypto.randomUUID();
+      const sessionId = (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
+        ? crypto.randomUUID()
+        : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+            const r = Math.random() * 16 | 0;
+            return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+          });
       const { privateKey, publicKeyJwk } = await generateQrKeyPair();
       qrPrivateKeyRef.current = privateKey;
       
@@ -1025,3 +1030,5 @@ export function AuthScreen() {
     </div>
   );
 }
+
+export default AuthScreen;

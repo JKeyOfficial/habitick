@@ -131,6 +131,7 @@ export async function decryptQrPayload(privateKey, encryptedPackage) {
  * Generate 6-digit display shortcode from session string for manual pairing
  */
 export function deriveShortCode(sessionID) {
+  if (!sessionID || typeof sessionID !== "string") return "000-000";
   let hash = 0;
   for (let i = 0; i < sessionID.length; i++) {
     hash = ((hash << 5) - hash) + sessionID.charCodeAt(i);
