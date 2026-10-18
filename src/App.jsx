@@ -2476,6 +2476,10 @@ export default function App() {
     new URLSearchParams(window.location.search).get("tab") === "docs"
   );
 
+  useEffect(() => {
+    document.title = isDocs ? "HabiTick | Docs" : "HabiTick | Habit Tracker";
+  }, [isDocs]);
+
   if (isDocs) {
     return (
       <Suspense fallback={

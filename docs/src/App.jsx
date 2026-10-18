@@ -212,6 +212,10 @@ export default function App() {
   const lastSyncTimeRef = useRef(Date.now());
   const profileContainerRef = useRef(null);
 
+  useEffect(() => {
+    document.title = "HabiTick | Docs";
+  }, []);
+
   // Close profile dropdown when clicking outside or pressing Escape
   useEffect(() => {
     if (!showProfileMenu) return;
