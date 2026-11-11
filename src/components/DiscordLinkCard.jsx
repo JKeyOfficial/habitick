@@ -104,7 +104,15 @@ export function DiscordLinkCard({
   const getAccessToken = async () => {
     try {
       const { data } = await supabase.auth.getSession();
-      return data?.session?.access_token || session?.access_token || "";
+      let activeSession = data?.session;
+      // If session is expired or within 60s of expiring, actively refresh it
+      if (activeSession?.refresh_token && (!activeSession.expires_at || activeSession.expires_at * 1000 < Date.now() + 60000)) {
+        const { data: refData } = await supabase.auth.refreshSession();
+        if (refData?.session) {
+          activeSession = refData.session;
+        }
+      }
+      return activeSession?.access_token || session?.access_token || "";
     } catch {
       return session?.access_token || "";
     }
