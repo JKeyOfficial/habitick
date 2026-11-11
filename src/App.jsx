@@ -237,6 +237,17 @@ function HabiTick() {
   const [goals, setGoals] = useState([]);
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [editingGoal, setEditingGoal] = useState(null);
+  const [discordCallbackInfo, setDiscordCallbackInfo] = useState(() => {
+    if (typeof window === "undefined") return null;
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("discord");
+    if (!status) return null;
+    const inGuildParam = params.get("in_guild");
+    return {
+      status,
+      inGuild: inGuildParam === "1" ? true : inGuildParam === "0" ? false : null,
+    };
+  });
 
   // Handle deep linking from PWA shortcuts & background-prefetch Docs for offline use
   useEffect(() => {
@@ -244,6 +255,14 @@ function HabiTick() {
     const urlTab = params.get("tab");
     if (urlTab && ["today", "calendar", "tasks", "journal", "goals", "analytics"].includes(urlTab)) {
       setTab(urlTab);
+    }
+
+    if (params.has("discord") || params.has("in_guild")) {
+      params.delete("discord");
+      params.delete("in_guild");
+      const cleanSearch = params.toString();
+      const cleanUrl = `${window.location.pathname}${cleanSearch ? `?${cleanSearch}` : ""}${window.location.hash}`;
+      window.history.replaceState({}, "", cleanUrl);
     }
 
     // Prefetch Docs app in the background only when main thread is completely idle
@@ -277,7 +296,7 @@ function HabiTick() {
   });
   const [journalEntries, setJournalEntries] = useState({}); // keyed by date string
   const [profile, setProfile] = useState(null);
-  const [showProfile, setShowProfile] = useState(false);
+  const [showProfile, setShowProfile] = useState(() => Boolean(discordCallbackInfo));
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [routines, setRoutines] = useState([]);
@@ -422,11 +441,14 @@ function HabiTick() {
 
         if (activeSess?.refresh_token && window.opener) {
           setSharedAuthCookie(activeSess);
+          const docsOrigin = window.location.hostname === 'localhost'
+            ? 'http://localhost:5174'
+            : 'https://docs.habitick.app';
           window.opener.postMessage({
             type: 'HT_SSO_SESSION',
             access_token: activeSess.access_token || '',
             refresh_token: activeSess.refresh_token
-          }, '*');
+          }, docsOrigin);
           setTimeout(() => {
             try { window.close(); } catch (e) {}
           }, 300);
@@ -467,11 +489,14 @@ function HabiTick() {
       if (s) {
         setSharedAuthCookie(s);
         if (isSsoPopup && window.opener && s.refresh_token) {
+          const docsOrigin = window.location.hostname === 'localhost'
+            ? 'http://localhost:5174'
+            : 'https://docs.habitick.app';
           window.opener.postMessage({
             type: 'HT_SSO_SESSION',
             access_token: s.access_token || '',
             refresh_token: s.refresh_token
-          }, '*');
+          }, docsOrigin);
           setTimeout(() => {
             try { window.close(); } catch (e) {}
           }, 300);
@@ -577,9 +602,8 @@ function HabiTick() {
 
       if (profileData.is_lifetime && !profileData.is_premium) {
         profileData.is_premium = true;
-        supabase.from("profiles").update({ is_premium: true }).eq("id", uid).then(({ error }) => {
-          if (error) console.error("Error setting is_premium for lifetime user:", error);
-        });
+        // is_premium is kept in sync by a database trigger (trg_sync_lifetime_premium);
+        // no client-side write needed.
       }
     }
     setProfile(profileData);
@@ -2310,6 +2334,7 @@ function HabiTick() {
                   journalEntries={journalEntries} 
                   profile={profile} 
                   setProfile={setProfile}
+                  session={session}
                   onRecommendHabit={(habitName) => { setEditingHabit({ name: habitName }); setShowHabitModal(true); }}
                 />
               </Suspense>
@@ -2458,12 +2483,17 @@ function HabiTick() {
             theme={theme}
             onUpdateTheme={handleUpdateTheme}
             onUpdate={setProfile} 
-            onClose={() => setShowProfile(false)}
+            onClose={() => {
+              setShowProfile(false);
+              setDiscordCallbackInfo(null);
+            }}
             onUpgrade={handleUpgrade}
             onRedoOnboarding={() => {
               setShowProfile(false);
               setShowOnboarding(true);
             }}
+            discordCallbackInfo={discordCallbackInfo}
+            onClearDiscordCallback={() => setDiscordCallbackInfo(null)}
           />
         )}
         {showGoalModal && (

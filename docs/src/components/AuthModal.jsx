@@ -156,7 +156,12 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess }) {
     }
 
     let resolved = false;
+    const appOrigin = window.location.hostname === 'localhost'
+      ? 'http://localhost:5173'
+      : 'https://app.habitick.app';
     const handleMessage = async (event) => {
+      // Only accept messages from the HabiTick main app origin via our popup
+      if (event.origin !== appOrigin || event.source !== popup) return;
       if (event.data?.type === 'HT_SSO_SESSION' && event.data.refresh_token) {
         resolved = true;
         window.removeEventListener('message', handleMessage);

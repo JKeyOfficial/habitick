@@ -34,15 +34,10 @@ export default async function handler(req, res) {
     .eq("id", user.id)
     .single();
 
-  const customerId = profile?.stripe_customer_id || req.body?.customerId;
+  const customerId = profile?.stripe_customer_id;
 
   if (!customerId) {
     return res.status(400).json({ error: "No billing account found for this user." });
-  }
-
-  // Extra verification: If client passed customerId, verify it matches user's profile
-  if (profile?.stripe_customer_id && req.body?.customerId && profile.stripe_customer_id !== req.body.customerId) {
-    return res.status(403).json({ error: "Forbidden: Customer ID mismatch" });
   }
 
   const returnUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://app.habitick.app");

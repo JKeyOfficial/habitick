@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { syncDiscordRolesForProfile } from "./_discord.js";
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
@@ -34,6 +35,24 @@ export default async function handler(req, res) {
   // 3. Strict ownership check: Users can ONLY delete their own account
   if (!userId || user.id !== userId) {
     return res.status(403).json({ error: "Forbidden: You cannot delete another user's account" });
+  }
+
+  // Best-effort cleanup of Discord roles if profile still holds a linked discord_id
+  try {
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("id, discord_id")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (profile?.discord_id) {
+      await syncDiscordRolesForProfile({
+        discordId: profile.discord_id,
+        profile,
+        unlink: true,
+      });
+    }
+  } catch (err) {
+    console.warn("[delete-account] Discord role cleanup warning:", err?.message || err);
   }
 
   // 4. Delete the authenticated user from Supabase Auth

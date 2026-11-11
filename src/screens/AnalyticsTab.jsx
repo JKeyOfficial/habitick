@@ -4,8 +4,8 @@ import { getDateStr, parseDateLocal, calcStats } from '../utils/helpers.js';
 import { encryptText, decryptText } from '../utils/crypto.js';
 import { supabase } from '../lib/supabase.js';
 
-// Default Gemini API key provided by the developer
-const DEFAULT_GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
+// Gemini API key is no longer exposed in the frontend bundle.
+// AI summary requests are proxied through /api/ai-summary (server-side key).
 
 function MoodInsights({ journalEntries, today }) {
   const positive = ["great", "good"];
@@ -145,7 +145,7 @@ function getTypicalTimeStr(completionTimes, completions) {
   return ` (usually in the ${period} around ${displayHrs}:${displayMins} ${ampm})`;
 }
 
-function AICoach({ habits, todos, goals = [], journalEntries, rangeDays, todayStr, isPremium, profile, setProfile, onRecommendHabit }) {
+function AICoach({ habits, todos, goals = [], journalEntries, rangeDays, todayStr, isPremium, profile, setProfile, session, onRecommendHabit }) {
   const [loadingStep, setLoadingStep] = useState(0);
   const [summary, setSummary] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
@@ -407,9 +407,12 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
       setLoadingStep(3);
 
       const prompt = buildPrompt();
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${DEFAULT_GEMINI_KEY}`, {
+      const response = await fetch('/api/ai-summary', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+        },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }]
         })
@@ -823,7 +826,7 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
   );
 }
 
-export function AnalyticsTab({ habits, todos, goals = [], pausePeriods, isPremium, journalEntries, profile, setProfile, onRecommendHabit }) {
+export function AnalyticsTab({ habits, todos, goals = [], pausePeriods, isPremium, journalEntries, profile, setProfile, session, onRecommendHabit }) {
   const [range, setRange] = useState("7days");
   const today = new Date();
   const todayStr = getDateStr(today);
@@ -1038,6 +1041,7 @@ export function AnalyticsTab({ habits, todos, goals = [], pausePeriods, isPremiu
           isPremium={isPremium}
           profile={profile}
           setProfile={setProfile}
+          session={session}
           onRecommendHabit={onRecommendHabit}
         />
       ) : (

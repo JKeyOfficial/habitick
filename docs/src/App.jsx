@@ -14,6 +14,7 @@ import { NOTE_TEMPLATES, DEFAULT_TAGS } from './components/NoteTemplates.js';
 import { AuthModal } from './components/AuthModal.jsx';
 import { FormattingToolbar } from './components/FormattingToolbar.jsx';
 import { FileManagerModal } from './components/FileManagerModal.jsx';
+import DOMPurify from 'dompurify';
 import { setSharedAuthCookie, getSharedAuthCookie, clearSharedAuthCookie } from './lib/sso.js';
 import { decryptText } from './lib/crypto.js';
 import './index.css';
@@ -28,16 +29,16 @@ function formatInlineStyles(str) {
 
 function sanitizeHtml(html) {
   if (!html) return '<p><br></p>';
-  return html
-    // Strip script tags and content
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    // Strip iframe, object, embed, form tags
-    .replace(/<\/?(iframe|object|embed|applet|form|input|button)\b[^>]*>/gi, '')
-    // Strip inline on* event handlers (e.g. onerror=, onload=, onclick=)
-    .replace(/\s+on[a-z]+\s*=\s*(?:'[^']*'|"[^"]*"|[^\s>]+)/gi, '')
-    // Strip javascript: pseudo-protocols
-    .replace(/href\s*=\s*(?:'javascript:[^']*'|"javascript:[^"]*"|javascript:[^\s>]+)/gi, 'href="#"')
-    .replace(/src\s*=\s*(?:'javascript:[^']*'|"javascript:[^"]*"|javascript:[^\s>]+)/gi, 'src=""');
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [
+      'p', 'br', 'h1', 'h2', 'h3', 'ul', 'ol', 'li',
+      'strong', 'b', 'em', 'i', 'u', 's', 'del',
+      'blockquote', 'hr', 'span', 'code', 'mark', 'div',
+    ],
+    ALLOWED_ATTR: ['style', 'class'],
+    ALLOW_DATA_ATTR: false,
+    FORCE_BODY: true,
+  });
 }
 
 function parseMarkdownToHtml(text) {
@@ -300,7 +301,7 @@ export default function App() {
     const initAuth = async () => {
       let activeSession = null;
 
-      // 1. Check for cross-domain SSO tokens in hash or search query
+      // 1. Check for cross-domain SSO tokens in URL hash only (never query params — avoids server log leakage)
       try {
         let at = null;
         let rt = null;
@@ -310,12 +311,6 @@ export default function App() {
           const hashParams = new URLSearchParams(cleanHash);
           at = hashParams.get('access_token');
           rt = hashParams.get('refresh_token');
-        }
-
-        if (!at || !rt) {
-          const searchParams = new URLSearchParams(window.location.search);
-          at = at || searchParams.get('access_token');
-          rt = rt || searchParams.get('refresh_token');
         }
 
         if (rt) {
@@ -343,8 +338,9 @@ export default function App() {
             console.warn('SSO token exchange note:', res.error.message);
           }
 
+          // Clear the hash immediately so tokens are never stored in browser history or server logs
           if (window.history.replaceState) {
-            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+            window.history.replaceState(null, '', window.location.pathname);
           }
         }
       } catch (err) {

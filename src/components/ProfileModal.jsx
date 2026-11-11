@@ -1,9 +1,10 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { BillingTab } from '../screens/BillingTab.jsx';
 import { NotificationManager } from '../utils/notifications.js';
 import { VAPID_PUBLIC_KEY } from '../utils/constants.js';
 import { calcStats } from '../utils/helpers.js';
+import { DiscordLinkCard } from './DiscordLinkCard.jsx';
 
 const QrScannerModal = lazy(() => import('../components/QrScannerModal.jsx').then(m => ({ default: m.QrScannerModal || m.default })));
 
@@ -26,7 +27,9 @@ export function ProfileModal({
   onUpdate, 
   onClose, 
   onUpgrade,
-  onRedoOnboarding 
+  onRedoOnboarding,
+  discordCallbackInfo = null,
+  onClearDiscordCallback
 }) {
   const [tab, setTab] = useState(initialTab);
   const [username, setUsername] = useState(profile?.username || "");
@@ -73,10 +76,10 @@ export function ProfileModal({
     };
   }, [onClose]);
 
-  const showToast = (msg, type = "success") => {
+  const showToast = useCallback((msg, type = "success") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
-  };
+  }, []);
 
   const avatarLetter = (profile?.username || session.user.email || "?")[0].toUpperCase();
 
@@ -188,6 +191,12 @@ export function ProfileModal({
     setDeletingAccount(true);
     try {
       const uid = session.user.id;
+      if (profile?.discord_id) {
+        await fetch("/api/discord-unlink", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${session.access_token}` },
+        }).catch(() => {});
+      }
       await supabase.from("habit_completions").delete().eq("user_id", uid);
       await supabase.from("habits").delete().eq("user_id", uid);
       await supabase.from("todos").delete().eq("user_id", uid);
@@ -1108,6 +1117,18 @@ export function ProfileModal({
                     </button>
                   </div>
                 </div>
+
+                {/* Optional Discord Role Sync Card */}
+                <DiscordLinkCard
+                  session={session}
+                  profile={profile}
+                  isPremium={isPremium}
+                  isLifetime={isLifetime}
+                  onUpdate={onUpdate}
+                  showToast={showToast}
+                  discordCallbackInfo={discordCallbackInfo}
+                  onClearDiscordCallback={onClearDiscordCallback}
+                />
 
                 {/* Welcome Onboarding & Setup Guide */}
                 <div className="pm-card" style={{ marginBottom: 0 }}>

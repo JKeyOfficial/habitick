@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "pro.habitick.app.twa",
+        "sha256_cert_fingerprints": ["93:03:9B:91:A3:04:0E:C1:F1:6B:54:8E:DF:82:5F:AA:5E:9A:F8:F0:9C:03:71:69:5C:D1:CA:86:27:05:08:E5"]
+      }
+    }]

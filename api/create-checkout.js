@@ -12,28 +12,32 @@ import { createClient } from "@supabase/supabase-js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  let { userId, userEmail, planType = "monthly" } = req.body;
-
-  // Verify Bearer token if provided to ensure genuine user identity
+  // Require Bearer token — derive userId/userEmail solely from the verified session
   const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith("Bearer ") && supabaseUrl && supabaseAnonKey) {
-    const token = authHeader.replace("Bearer ", "").trim();
-    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
-    const { data: { user } } = await supabaseClient.auth.getUser(token);
-    if (user) {
-      userId = user.id;
-      userEmail = user.email || userEmail;
-    }
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Unauthorized: Missing authentication token" });
   }
 
-  if (!userId || !userEmail) {
-    return res.status(400).json({ error: "Missing userId or userEmail" });
+  const token = authHeader.replace("Bearer ", "").trim();
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    return res.status(500).json({ error: "Server configuration error" });
   }
+
+  const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+  if (authError || !user) {
+    return res.status(401).json({ error: "Unauthorized: Invalid or expired session" });
+  }
+
+  const userId = user.id;
+  const userEmail = user.email;
+  const { planType = "monthly" } = req.body;
 
   const isLifetime = planType === "lifetime";
   

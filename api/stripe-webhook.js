@@ -11,11 +11,20 @@
 
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
+import { syncDiscordRolesByUserId } from "./_discord.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+async function safeSyncDiscord(userId) {
+  try {
+    await syncDiscordRolesByUserId(supabase, userId);
+  } catch (err) {
+    console.warn("[stripe-webhook] Discord role sync warning:", err?.message || err);
+  }
+}
 
 export const config = { api: { bodyParser: false } };
 
@@ -54,6 +63,7 @@ export default async function handler(req, res) {
         stripe_subscription_id: session.subscription || null,
         updated_at: new Date().toISOString(),
       }).eq("id", userId);
+      await safeSyncDiscord(userId);
     }
   }
 
@@ -66,6 +76,7 @@ export default async function handler(req, res) {
       await supabase.from("profiles")
         .update({ is_premium: false, updated_at: new Date().toISOString() })
         .eq("id", profiles[0].id);
+      await safeSyncDiscord(profiles[0].id);
     }
   }
 
@@ -80,6 +91,7 @@ export default async function handler(req, res) {
         await supabase.from("profiles")
           .update({ is_premium: false, updated_at: new Date().toISOString() })
           .eq("id", profiles[0].id);
+        await safeSyncDiscord(profiles[0].id);
       }
     }
   }
