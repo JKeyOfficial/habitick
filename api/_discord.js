@@ -60,7 +60,8 @@ export async function authenticateBearerUser(req, supabaseAdmin) {
   const token = authHeader.replace("Bearer ", "").trim();
   const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
   if (error || !user) {
-    return { user: null, error: "Unauthorized: Invalid or expired session" };
+    console.error("[discord-auth] Supabase getUser error:", error?.message || error);
+    return { user: null, error: `Unauthorized: ${error?.message || "Invalid or expired session"}` };
   }
   return { user, error: null };
 }
