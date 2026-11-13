@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase.js';
-import { getTodayStr } from '../utils/helpers.js';
+import { getTodayStr, validateAvatarFile } from '../utils/helpers.js';
 
 export function OnboardingScreen({ session, profile, onComplete, onClose }) {
   const [step, setStep] = useState(0);
@@ -13,11 +13,21 @@ export function OnboardingScreen({ session, profile, onComplete, onClose }) {
   const uploadAvatar = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { setUsernameErr("Image must be under 2MB"); return; }
+
+    // Strict security validation: MIME type, file extension, and binary header magic bytes
+    const check = await validateAvatarFile(file);
+    if (!check.valid) {
+      setUsernameErr(check.error);
+      return;
+    }
+
     setUploadingAvatar(true);
-    const ext = file.name.split(".").pop();
+    const ext = check.extension;
     const path = `${session.user.id}/avatar.${ext}`;
-    const { error: upErr } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+    const { error: upErr } = await supabase.storage.from("avatars").upload(path, file, { 
+      upsert: true,
+      contentType: file.type
+    });
     if (upErr) { setUsernameErr("Upload failed"); setUploadingAvatar(false); return; }
     const { data } = supabase.storage.from("avatars").getPublicUrl(path);
     setAvatarUrl(data.publicUrl + "?t=" + Date.now());

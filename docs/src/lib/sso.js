@@ -27,7 +27,8 @@ export function setSharedAuthCookie(session) {
   }
 
   try {
-    const maxAge = 60 * 60 * 24 * 30; // 30 days
+    const rtMaxAge = 60 * 60 * 24 * 30; // 30 days for refresh token
+    const atMaxAge = session.expires_in || 3600; // 1 hour for access token
     const secureFlag = isHttps ? '; Secure' : '';
     const sameSite = '; SameSite=Lax';
 
@@ -35,8 +36,8 @@ export function setSharedAuthCookie(session) {
     const at = session.access_token || '';
 
     // Refresh token is tiny (~60 bytes) - 100% reliable across all browsers
-    const rtBase = `${COOKIE_RT}=${encodeURIComponent(rt)}; Path=/; Max-Age=${maxAge}${sameSite}${secureFlag}`;
-    const atBase = `${COOKIE_AT}=${encodeURIComponent(at)}; Path=/; Max-Age=${maxAge}${sameSite}${secureFlag}`;
+    const rtBase = `${COOKIE_RT}=${encodeURIComponent(rt)}; Path=/; Max-Age=${rtMaxAge}${sameSite}${secureFlag}`;
+    const atBase = `${COOKIE_AT}=${encodeURIComponent(at)}; Path=/; Max-Age=${atMaxAge}${sameSite}${secureFlag}`;
 
     if (domain) {
       document.cookie = `${rtBase}; Domain=${domain}`;

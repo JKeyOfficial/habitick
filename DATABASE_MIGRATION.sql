@@ -150,4 +150,34 @@ CREATE TRIGGER trg_protect_discord_columns
   FOR EACH ROW
   EXECUTE FUNCTION public.prevent_client_discord_column_update();
 
+-- 9. Push Subscriptions Table & Strict Database RLS
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  subscription JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, subscription)
+);
+
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_id ON push_subscriptions(user_id);
+
+ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE push_subscriptions FORCE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can view their own push subscriptions' AND tablename = 'push_subscriptions') THEN
+    CREATE POLICY "Users can view their own push subscriptions" ON push_subscriptions FOR SELECT TO authenticated USING (auth.uid() = user_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can insert their own push subscriptions' AND tablename = 'push_subscriptions') THEN
+    CREATE POLICY "Users can insert their own push subscriptions" ON push_subscriptions FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can update their own push subscriptions' AND tablename = 'push_subscriptions') THEN
+    CREATE POLICY "Users can update their own push subscriptions" ON push_subscriptions FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can delete their own push subscriptions' AND tablename = 'push_subscriptions') THEN
+    CREATE POLICY "Users can delete their own push subscriptions" ON push_subscriptions FOR DELETE TO authenticated USING (auth.uid() = user_id);
+  END IF;
+END $$;
+
+
 

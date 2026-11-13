@@ -3,7 +3,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { supabase } from '../lib/supabase.js';
 import { S } from '../utils/constants.js';
 import { getTodayStr } from '../utils/helpers.js';
-import { generateQrKeyPair, decryptQrPayload, deriveShortCode } from '../utils/qrCrypto.js';
+import { generateQrKeyPair, decryptQrPayload, deriveShortCode, generateChallenge } from '../utils/qrCrypto.js';
 
 export function AuthScreen() {
   const [mode, setMode] = useState("signin");
@@ -17,13 +17,33 @@ export function AuthScreen() {
   const [qrSessionId, setQrSessionId] = useState("");
   const [qrPublicKeyJwk, setQrPublicKeyJwk] = useState(null);
   const [qrShortCode, setQrShortCode] = useState("");
+  const [qrCodePayload, setQrCodePayload] = useState("");
   const [qrTimeLeft, setQrTimeLeft] = useState(90);
   const [qrLoading, setQrLoading] = useState(false);
   const [qrSuccess, setQrSuccess] = useState(false);
 
   const qrPrivateKeyRef = useRef(null);
   const qrChannelRef = useRef(null);
+  const qrShortChannelRef = useRef(null);
   const qrTimerRef = useRef(null);
+  const qrChallengeRef = useRef(null);
+
+  const cleanupQrChannels = () => {
+    if (qrChannelRef.current) {
+      supabase.removeChannel(qrChannelRef.current);
+      qrChannelRef.current = null;
+    }
+    if (qrShortChannelRef.current) {
+      supabase.removeChannel(qrShortChannelRef.current);
+      qrShortChannelRef.current = null;
+    }
+    if (qrTimerRef.current) {
+      clearInterval(qrTimerRef.current);
+      qrTimerRef.current = null;
+    }
+    qrPrivateKeyRef.current = null;
+    qrChallengeRef.current = null;
+  };
 
   // Initialize E2EE QR Flow
   const initQrFlow = async () => {
@@ -32,15 +52,7 @@ export function AuthScreen() {
     setQrSuccess(false);
     setQrTimeLeft(90);
 
-    // Clean up existing channel & timers
-    if (qrChannelRef.current) {
-      supabase.removeChannel(qrChannelRef.current);
-      qrChannelRef.current = null;
-    }
-    if (qrTimerRef.current) {
-      clearInterval(qrTimerRef.current);
-      qrTimerRef.current = null;
-    }
+    cleanupQrChannels();
 
     try {
       const sessionId = (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
@@ -49,7 +61,10 @@ export function AuthScreen() {
             const r = Math.random() * 16 | 0;
             return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
           });
-      const { privateKey, publicKeyJwk } = await generateQrKeyPair();
+      const challenge = generateChallenge();
+      qrChallengeRef.current = challenge;
+
+      const { privateKey, publicKeyJwk, fingerprint } = await generateQrKeyPair();
       qrPrivateKeyRef.current = privateKey;
       
       const shortCode = deriveShortCode(sessionId);
@@ -57,6 +72,10 @@ export function AuthScreen() {
       setQrSessionId(sessionId);
       setQrPublicKeyJwk(publicKeyJwk);
       setQrShortCode(shortCode);
+
+      // Cryptographically bind session ID, challenge nonce, and public key fingerprint into QR payload
+      const secureQrPayload = `ht:v2:${sessionId}:${challenge}:${fingerprint}:${shortCode}`;
+      setQrCodePayload(secureQrPayload);
 
       // Subscribe to E2EE broadcast channel by Session ID
       const channel = supabase.channel(`qr-login-${sessionId}`, {
@@ -69,7 +88,7 @@ export function AuthScreen() {
       });
 
       const handlePubkeyReq = () => {
-        const payload = { publicKeyJwk, sessionId, shortCode };
+        const payload = { publicKeyJwk, sessionId, shortCode, fingerprint };
         channel.send({ type: 'broadcast', event: 'pubkey_response', payload });
         shortChannel.send({ type: 'broadcast', event: 'pubkey_response', payload });
       };
@@ -78,8 +97,24 @@ export function AuthScreen() {
         try {
           if (!qrPrivateKeyRef.current) return;
           const decrypted = await decryptQrPayload(qrPrivateKeyRef.current, payload);
+
+          // 1. Replay & Spoofing Protection: Verify challenge nonce
+          if (qrChallengeRef.current && decrypted.challenge !== qrChallengeRef.current) {
+            console.error("E2EE QR Auth rejected: Challenge nonce mismatch");
+            setError("Security verification failed. Please scan again.");
+            return;
+          }
+
+          // 2. Timestamp freshness guard: Must be within 60 seconds
+          if (!decrypted.timestamp || Math.abs(Date.now() - decrypted.timestamp) > 60000) {
+            console.error("E2EE QR Auth rejected: Expired token packet");
+            setError("Login session expired. Please scan again.");
+            return;
+          }
+
           if (decrypted && decrypted.access_token && decrypted.refresh_token) {
             setQrSuccess(true);
+            cleanupQrChannels();
             const { error: sessionErr } = await supabase.auth.setSession({
               access_token: decrypted.access_token,
               refresh_token: decrypted.refresh_token
@@ -101,20 +136,13 @@ export function AuthScreen() {
       await channel.subscribe();
       await shortChannel.subscribe();
       qrChannelRef.current = channel;
-
-      // Periodically broadcast pubkey for fast scanner pickup
-      const pubKeyBroadcaster = setInterval(() => {
-        if (channel && shortChannel) {
-          handlePubkeyReq();
-        }
-      }, 1200);
+      qrShortChannelRef.current = shortChannel;
 
       // Start 90s expiration timer
       qrTimerRef.current = setInterval(() => {
         setQrTimeLeft(prev => {
           if (prev <= 1) {
-            clearInterval(qrTimerRef.current);
-            clearInterval(pubKeyBroadcaster);
+            cleanupQrChannels();
             return 0;
           }
           return prev - 1;
@@ -132,21 +160,11 @@ export function AuthScreen() {
     if (mode === "qr") {
       initQrFlow();
     } else {
-      if (qrChannelRef.current) {
-        supabase.removeChannel(qrChannelRef.current);
-        qrChannelRef.current = null;
-      }
-      if (qrTimerRef.current) {
-        clearInterval(qrTimerRef.current);
-        qrTimerRef.current = null;
-      }
-      qrPrivateKeyRef.current = null;
+      cleanupQrChannels();
     }
 
     return () => {
-      if (qrChannelRef.current) supabase.removeChannel(qrChannelRef.current);
-      if (qrTimerRef.current) clearInterval(qrTimerRef.current);
-      qrPrivateKeyRef.current = null;
+      cleanupQrChannels();
     };
   }, [mode]);
 
@@ -793,9 +811,9 @@ export function AuthScreen() {
                       }}>
                         {qrSessionId && (
                           <QRCodeSVG
-                            value={`ht:${qrSessionId}`}
+                            value={qrCodePayload || `ht:${qrSessionId}`}
                             size={200}
-                            level="L"
+                            level="M"
                           />
                         )}
                       </div>

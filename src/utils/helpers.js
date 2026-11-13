@@ -266,3 +266,54 @@ export function getXpForLevelStart(level) {
   return 25 * (level - 1) * (level - 1);
 }
 
+/**
+ * Validates an avatar image file for size, MIME type, file extension,
+ * and header magic bytes to prevent XSS (e.g. SVG script injection) and spoofing.
+ */
+export async function validateAvatarFile(file) {
+  if (!file) {
+    return { valid: false, error: "No file selected" };
+  }
+
+  // 1. Enforce file size limit: Max 2MB
+  const MAX_SIZE = 2 * 1024 * 1024;
+  if (file.size > MAX_SIZE) {
+    return { valid: false, error: "Image must be under 2MB" };
+  }
+
+  // 2. Strict MIME type whitelist (explicitly excludes SVG, HTML, and scripts)
+  const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
+  if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+    return { valid: false, error: "Only JPG, PNG, and WebP images are allowed" };
+  }
+
+  // 3. Strict extension whitelist
+  const rawExt = file.name.split(".").pop() || "";
+  const ext = rawExt.toLowerCase().trim();
+  const ALLOWED_EXTENSIONS = ["jpg", "jpeg", "png", "webp"];
+  if (!ALLOWED_EXTENSIONS.includes(ext)) {
+    return { valid: false, error: "Invalid file extension. Only .jpg, .jpeg, .png, and .webp are allowed" };
+  }
+
+  // 4. Magic bytes inspection (verifies first 12 binary header bytes)
+  try {
+    const buffer = await file.slice(0, 12).arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+
+    const isJpeg = bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF;
+    const isPng = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47;
+    const isRiff = bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46;
+    const isWebp = isRiff && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50;
+
+    if (!isJpeg && !isPng && !isWebp) {
+      return { valid: false, error: "Corrupted or invalid image file content" };
+    }
+
+    const normalizedExt = isPng ? "png" : isWebp ? "webp" : "jpg";
+    return { valid: true, extension: normalizedExt };
+  } catch (err) {
+    return { valid: false, error: "Failed to read image file" };
+  }
+}
+
+

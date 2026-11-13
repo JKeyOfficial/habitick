@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase.js';
 import { BillingTab } from '../screens/BillingTab.jsx';
 import { NotificationManager } from '../utils/notifications.js';
 import { VAPID_PUBLIC_KEY } from '../utils/constants.js';
-import { calcStats } from '../utils/helpers.js';
+import { calcStats, validateAvatarFile } from '../utils/helpers.js';
 import { DiscordLinkCard } from './DiscordLinkCard.jsx';
 
 const QrScannerModal = lazy(() => import('../components/QrScannerModal.jsx').then(m => ({ default: m.QrScannerModal || m.default })));
@@ -86,11 +86,21 @@ export function ProfileModal({
   const uploadAvatar = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { showToast("Image must be under 2MB", "error"); return; }
+
+    // Strict security validation: MIME type, file extension, and binary header magic bytes
+    const check = await validateAvatarFile(file);
+    if (!check.valid) {
+      showToast(check.error, "error");
+      return;
+    }
+
     setUploadingAvatar(true);
-    const ext = file.name.split(".").pop();
+    const ext = check.extension;
     const path = `${session.user.id}/avatar.${ext}`;
-    const { error: upErr } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+    const { error: upErr } = await supabase.storage.from("avatars").upload(path, file, { 
+      upsert: true,
+      contentType: file.type
+    });
     if (upErr) { showToast("Upload failed", "error"); setUploadingAvatar(false); return; }
     const { data } = supabase.storage.from("avatars").getPublicUrl(path);
     const url = data.publicUrl + "?t=" + Date.now();

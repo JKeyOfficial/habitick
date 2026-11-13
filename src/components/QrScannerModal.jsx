@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { supabase } from '../lib/supabase.js';
-import { encryptQrPayload, deriveShortCode } from '../utils/qrCrypto.js';
+import { encryptQrPayload, deriveShortCode, computeKeyFingerprint } from '../utils/qrCrypto.js';
 
 export function QrScannerModal({ onClose, showToast }) {
   const [mode, setMode] = useState("camera"); // "camera" | "code"
   const [manualCode, setManualCode] = useState("");
   const [scanning, setScanning] = useState(false);
   const [cameraError, setCameraError] = useState("");
-  const [pendingAuth, setPendingAuth] = useState(null); // { sessionId, publicKeyJwk, shortCode, channelName }
+  const [pendingAuth, setPendingAuth] = useState(null); // { sessionId, publicKeyJwk, shortCode, channelName, challenge, keyFingerprint }
   const [authorizing, setAuthorizing] = useState(false);
   const [searchingCode, setSearchingCode] = useState(false);
 
@@ -16,7 +16,7 @@ export function QrScannerModal({ onClose, showToast }) {
   const activeChannelRef = useRef(null);
 
   // Connect to target channel (by sessionId or shortcode) and obtain E2EE Public Key
-  const connectToDeviceChannel = async (channelName, targetSessionId, displayShortCode) => {
+  const connectToDeviceChannel = async (channelName, targetSessionId, displayShortCode, expectedFingerprint = null, challenge = null) => {
     try {
       if (activeChannelRef.current) {
         supabase.removeChannel(activeChannelRef.current);
@@ -27,12 +27,24 @@ export function QrScannerModal({ onClose, showToast }) {
         config: { broadcast: { ack: true } }
       });
 
-      channel.on('broadcast', { event: 'pubkey_response' }, ({ payload }) => {
+      channel.on('broadcast', { event: 'pubkey_response' }, async ({ payload }) => {
         if (payload && payload.publicKeyJwk) {
+          // Cryptographic Fingerprint Verification (MITM Prevention)
+          if (expectedFingerprint) {
+            const actualFp = await computeKeyFingerprint(payload.publicKeyJwk);
+            if (actualFp !== expectedFingerprint) {
+              console.error("[QR Auth] Key fingerprint mismatch:", { actualFp, expectedFingerprint });
+              showToast("Security Alert: Device key fingerprint mismatch! Pairing aborted.", "error");
+              setSearchingCode(false);
+              return;
+            }
+          }
+
           setPendingAuth({
             sessionId: payload.sessionId || targetSessionId,
             publicKeyJwk: payload.publicKeyJwk,
             shortCode: payload.shortCode || displayShortCode || "Target Device",
+            challenge: challenge || null,
             channelName
           });
           setSearchingCode(false);
@@ -55,20 +67,39 @@ export function QrScannerModal({ onClose, showToast }) {
   // Process decoded QR text from camera
   const processQrText = (decodedText) => {
     let sessionId = "";
+    let challenge = null;
+    let keyFingerprint = null;
+    let displayCode = null;
 
     try {
-      if (decodedText.startsWith("ht:")) {
-        sessionId = decodedText.replace("ht:", "").trim();
+      if (decodedText.startsWith("ht:v2:")) {
+        // Format: ht:v2:<sessionId>:<challenge>:<fingerprint>:<shortCode>
+        const parts = decodedText.split(":");
+        sessionId = parts[2]?.trim();
+        challenge = parts[3]?.trim();
+        keyFingerprint = parts[4]?.trim();
+        displayCode = parts[5]?.trim();
       } else if (decodedText.startsWith("{")) {
         const data = JSON.parse(decodedText);
         sessionId = data.id || data.sessionId;
+        challenge = data.ch || data.challenge || null;
+        keyFingerprint = data.fp || data.fingerprint || null;
+        displayCode = data.sc || data.shortCode || null;
+      } else if (decodedText.startsWith("ht:")) {
+        sessionId = decodedText.replace("ht:", "").trim();
       } else {
         sessionId = decodedText.trim();
       }
 
       if (sessionId) {
         stopCamera();
-        connectToDeviceChannel(`qr-login-${sessionId}`, sessionId, deriveShortCode(sessionId));
+        connectToDeviceChannel(
+          `qr-login-${sessionId}`,
+          sessionId,
+          displayCode || deriveShortCode(sessionId),
+          keyFingerprint,
+          challenge
+        );
       } else {
         showToast("Invalid QR Code format", "error");
       }
@@ -158,10 +189,11 @@ export function QrScannerModal({ onClose, showToast }) {
         return;
       }
 
-      // Encrypt tokens with target public key
+      // Encrypt tokens with target public key including challenge nonce for replay protection
       const encryptedPackage = await encryptQrPayload(pendingAuth.publicKeyJwk, {
         access_token: session.access_token,
         refresh_token: session.refresh_token,
+        challenge: pendingAuth.challenge || null,
         timestamp: Date.now()
       });
 

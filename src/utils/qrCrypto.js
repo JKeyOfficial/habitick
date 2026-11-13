@@ -23,6 +23,36 @@ function base64ToArrayBuffer(base64) {
 }
 
 /**
+ * Generate cryptographically secure random challenge nonce
+ */
+export function generateChallenge() {
+  const bytes = new Uint8Array(16);
+  window.crypto.getRandomValues(bytes);
+  let hex = '';
+  for (let i = 0; i < bytes.length; i++) {
+    hex += bytes[i].toString(16).padStart(2, '0');
+  }
+  return hex;
+}
+
+/**
+ * Computes a deterministic SHA-256 fingerprint for an RSA-OAEP public key
+ * Used to verify the authenticity of the public key out-of-band via QR code
+ */
+export async function computeKeyFingerprint(publicKeyJwk) {
+  if (!publicKeyJwk || !publicKeyJwk.n) return '';
+  const canonical = `${publicKeyJwk.kty || 'RSA'}:${publicKeyJwk.n}:${publicKeyJwk.e || 'AQAB'}`;
+  const enc = new TextEncoder();
+  const digest = await window.crypto.subtle.digest('SHA-256', enc.encode(canonical));
+  const bytes = new Uint8Array(digest);
+  let hex = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    hex += bytes[i].toString(16).padStart(2, '0');
+  }
+  return hex.substring(0, 16);
+}
+
+/**
  * Generate ephemeral RSA-OAEP key pair for receiving encrypted session payload
  */
 export async function generateQrKeyPair() {
@@ -38,9 +68,12 @@ export async function generateQrKeyPair() {
   );
 
   const publicKeyJwk = await window.crypto.subtle.exportKey("jwk", keyPair.publicKey);
+  const fingerprint = await computeKeyFingerprint(publicKeyJwk);
+
   return {
     privateKey: keyPair.privateKey,
     publicKeyJwk,
+    fingerprint,
   };
 }
 

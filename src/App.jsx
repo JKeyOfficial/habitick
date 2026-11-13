@@ -471,7 +471,7 @@ function HabiTick() {
           setSharedAuthCookie(activeSess);
           const docsUrl = window.location.hostname === "localhost" 
             ? "/?tab=docs" 
-            : `https://docs.habitick.app/#access_token=${encodeURIComponent(activeSess.access_token || '')}&refresh_token=${encodeURIComponent(activeSess.refresh_token)}&token_type=bearer`;
+            : "https://docs.habitick.app/";
           window.location.replace(docsUrl);
           return;
         } else {
@@ -1680,9 +1680,7 @@ function HabiTick() {
             );
             const shouldUseInternal = isStandalone || window.location.hostname === "localhost";
             const base = shouldUseInternal ? "/?tab=docs" : "https://docs.habitick.app";
-            const docsHref = (!shouldUseInternal && session?.access_token && session?.refresh_token)
-              ? `${base}#access_token=${encodeURIComponent(session.access_token)}&refresh_token=${encodeURIComponent(session.refresh_token)}&token_type=bearer`
-              : base;
+            const docsHref = base;
 
             return (
               <a
