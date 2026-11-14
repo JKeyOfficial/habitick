@@ -535,9 +535,19 @@ function HabiTick() {
       const cachedRaw = localStorage.getItem(`ht_offline_cache_${uid}`);
       if (cachedRaw) {
         const cached = JSON.parse(cachedRaw);
-        if (cached.habits && habits.length === 0) setHabits(cached.habits);
+        if (cached.habits && habits.length === 0) {
+          setHabits(cached.habits);
+          if (cached.habits.some(h => typeof h.name === 'string' && (h.name.startsWith("htv3:") || h.name.startsWith("htv2:")))) {
+            Promise.all(cached.habits.map(async h => ({ ...h, name: await decryptText(h.name, uid) }))).then(dec => setHabits(dec));
+          }
+        }
         if (cached.todos && todos.length === 0) setTodos(cached.todos);
-        if (cached.routines && routines.length === 0) setRoutines(cached.routines);
+        if (cached.routines && routines.length === 0) {
+          setRoutines(cached.routines);
+          if (cached.routines.some(r => typeof r.name === 'string' && (r.name.startsWith("htv3:") || r.name.startsWith("htv2:")))) {
+            Promise.all(cached.routines.map(async r => ({ ...r, name: await decryptText(r.name, uid) }))).then(dec => setRoutines(dec));
+          }
+        }
         if (cached.goals && goals.length === 0) setGoals(cached.goals);
         if (cached.profile && !profile) setProfile(cached.profile);
         if (cached.journal && Object.keys(journalEntries).length === 0) setJournalEntries(cached.journal);
@@ -693,9 +703,19 @@ function HabiTick() {
         const cachedRaw = localStorage.getItem(`ht_offline_cache_${uid}`);
         if (cachedRaw) {
           const cached = JSON.parse(cachedRaw);
-          if (cached.habits) setHabits(cached.habits);
+          if (cached.habits) {
+            setHabits(cached.habits);
+            if (cached.habits.some(h => typeof h.name === 'string' && (h.name.startsWith("htv3:") || h.name.startsWith("htv2:")))) {
+              Promise.all(cached.habits.map(async h => ({ ...h, name: await decryptText(h.name, uid) }))).then(dec => setHabits(dec));
+            }
+          }
           if (cached.todos) setTodos(cached.todos);
-          if (cached.routines) setRoutines(cached.routines);
+          if (cached.routines) {
+            setRoutines(cached.routines);
+            if (cached.routines.some(r => typeof r.name === 'string' && (r.name.startsWith("htv3:") || r.name.startsWith("htv2:")))) {
+              Promise.all(cached.routines.map(async r => ({ ...r, name: await decryptText(r.name, uid) }))).then(dec => setRoutines(dec));
+            }
+          }
           if (cached.goals) setGoals(cached.goals);
           if (cached.profile) setProfile(cached.profile);
           if (cached.journal) setJournalEntries(cached.journal);

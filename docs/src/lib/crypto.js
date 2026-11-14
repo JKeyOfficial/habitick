@@ -1,3 +1,5 @@
+import { supabase } from "./supabase.js";
+
 /**
  * HabiTick Cryptography Engine (v3) - Docs Companion App
  * Standard-compliant Zero-Knowledge Client-Side Encryption
@@ -8,14 +10,28 @@
  * - Key Derivation: PBKDF2 (RFC 2898 / NIST SP 800-132) with HMAC-SHA-256 and 100,000 iterations
  * - Envelope Prefix: "htv3:<base64(iv + ciphertext)>"
  * - Full backward compatibility with legacy v2 ("htv2:") and v1 (unprefixed base64) formats
+ * - Multi-candidate salt resilience: transparently decrypts items across all historical salt migrations
  */
 
 const keyCache = new Map();
 const saltCache = new Map();
 
-// Known salts across HabiTick versions for 100% backward compatibility
+// Known salts across HabiTick versions for backward compatibility
 export const V2_SALT_PRIMARY = "HabiTick_Secure_Salt_V2_5e82f1b402cf8da7a66b5c00e1291c6e";
+export const V3_SALT_STATIC = "HabiTick_Secure_Salt_V3_5e82f1b402cf8da7a66b5c00e1291c6e";
 export const V1_SALT = "HabiTick_Frontend_Secure_Salt_2026";
+
+async function getAccessToken() {
+  try {
+    if (typeof supabase !== "undefined" && supabase?.auth) {
+      const { data: { session } } = await supabase.auth.getSession();
+      return session?.access_token || null;
+    }
+  } catch (e) {
+    // Non-blocking
+  }
+  return null;
+}
 
 export async function getSalt(userId) {
   if (!userId) return V2_SALT_PRIMARY;
@@ -24,7 +40,7 @@ export async function getSalt(userId) {
   // 1. Check persistent localStorage cache
   if (typeof localStorage !== "undefined") {
     try {
-      const local = localStorage.getItem(`ht_salt_${userId}`) || localStorage.getItem("ht_crypto_salt");
+      const local = localStorage.getItem(`ht_salt_${userId}`);
       if (local) {
         saltCache.set(userId, local);
         return local;
@@ -32,36 +48,37 @@ export async function getSalt(userId) {
     } catch (e) {}
   }
 
-  // 2. Fetch dynamic salt if online
-  if (typeof fetch !== "undefined") {
-    try {
-      const res = await fetch("/api/get-salt");
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.salt) {
-          saltCache.set(userId, data.salt);
-          if (typeof localStorage !== "undefined") {
-            try {
-              localStorage.setItem(`ht_salt_${userId}`, data.salt);
-            } catch (e) {}
-          }
-          return data.salt;
+  // 2. Fetch authenticated user-scoped salt from server
+  try {
+    const token = await getAccessToken();
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await fetch("/api/get-salt", { headers });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.salt) {
+        saltCache.set(userId, data.salt);
+        if (typeof localStorage !== "undefined") {
+          try {
+            localStorage.setItem(`ht_salt_${userId}`, data.salt);
+          } catch (e) {}
         }
+        return data.salt;
       }
-    } catch (e) {
-      // Offline or local dev
     }
+  } catch (e) {
+    // Offline or server unreachable
   }
 
-  // 3. Fallback to primary production salt
-  saltCache.set(userId, V2_SALT_PRIMARY);
-  return V2_SALT_PRIMARY;
+  // 3. Fallback: Deterministic user fallback salt (not permanently stored to allow later server hydration)
+  const fallbackSalt = `HabiTick_Fallback_Salt_v3_${userId}`;
+  saltCache.set(userId, fallbackSalt);
+  return fallbackSalt;
 }
 
 /**
  * Key derivation for legacy v1 and v2 encryption (SHA-256)
  */
-async function getLegacyKey(userId, salt) {
+export async function getLegacyKey(userId, salt) {
   const cacheKey = `${userId}_legacy_${salt}`;
   if (keyCache.has(cacheKey)) {
     return keyCache.get(cacheKey);
@@ -84,17 +101,17 @@ async function getLegacyKey(userId, salt) {
 /**
  * Key derivation for standard v3 encryption (PBKDF2 100,000 iterations + HMAC-SHA-256)
  */
-async function getV3Key(userId) {
-  const cacheKey = `${userId}_v3_pbkdf2`;
+export async function getV3Key(userId, salt = null) {
+  const actualSalt = salt || (await getSalt(userId));
+  const cacheKey = `${userId}_v3_${actualSalt}`;
   if (keyCache.has(cacheKey)) {
     return keyCache.get(cacheKey);
   }
 
   const enc = new TextEncoder();
-  const salt = await getSalt(userId);
   const keyMaterial = await crypto.subtle.importKey(
     "raw",
-    enc.encode(`${userId}:${salt}`),
+    enc.encode(`${userId}:${actualSalt}`),
     { name: "PBKDF2" },
     false,
     ["deriveKey"]
@@ -103,7 +120,7 @@ async function getV3Key(userId) {
   const cryptoKey = await crypto.subtle.deriveKey(
     {
       name: "PBKDF2",
-      salt: enc.encode(salt),
+      salt: enc.encode(actualSalt),
       iterations: 100000,
       hash: "SHA-256",
     },
@@ -125,7 +142,8 @@ export async function encryptText(text, userId) {
   if (!userId) return text;
 
   try {
-    const key = await getV3Key(userId);
+    const salt = await getSalt(userId);
+    const key = await getV3Key(userId, salt);
     const enc = new TextEncoder();
     const encoded = enc.encode(text);
     const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -147,9 +165,93 @@ export async function encryptText(text, userId) {
     }
 
     return "htv3:" + btoa(binary);
-  } catch (err) {
-    console.warn("[HabiTick Crypto] Encryption fallback to plaintext:", err);
+  } catch (e) {
+    console.error("[HabiTick Crypto] Encryption failed:", e);
     return text;
+  }
+}
+
+/**
+ * Helper to derive client-side HMAC user salt using standard Web Crypto API
+ */
+async function deriveHmacSaltClient(secret, userId) {
+  try {
+    const enc = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      "raw",
+      enc.encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+    const signature = await crypto.subtle.sign(
+      "HMAC",
+      key,
+      enc.encode(`user_salt_v3:${userId}`)
+    );
+    const hashArray = Array.from(new Uint8Array(signature));
+    return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Collect candidate salts for a given user to guarantee decryption resilience
+ */
+async function getCandidateSalts(userId) {
+  const salts = [];
+
+  // 1. Active dynamic/cached salt
+  try {
+    const activeSalt = await getSalt(userId);
+    if (activeSalt) salts.push(activeSalt);
+  } catch (e) {}
+
+  // 2. Deterministic v3 fallback
+  salts.push(`HabiTick_Fallback_Salt_v3_${userId}`);
+
+  // 3. Known production salts
+  salts.push(V2_SALT_PRIMARY);
+  salts.push(V3_SALT_STATIC);
+  salts.push(V1_SALT);
+
+  // 4. Client-side derived HMAC user salts from known server secrets
+  try {
+    const hmacV2 = await deriveHmacSaltClient(V2_SALT_PRIMARY, userId);
+    if (hmacV2) salts.push(hmacV2);
+    const hmacV1 = await deriveHmacSaltClient(V1_SALT, userId);
+    if (hmacV1) salts.push(hmacV1);
+    const hmacV3 = await deriveHmacSaltClient(V3_SALT_STATIC, userId);
+    if (hmacV3) salts.push(hmacV3);
+  } catch (e) {}
+
+  // 5. Persistent localStorage caches
+  if (typeof localStorage !== "undefined") {
+    try {
+      const s1 = localStorage.getItem(`ht_salt_${userId}`);
+      if (s1) salts.push(s1);
+      const s2 = localStorage.getItem("ht_crypto_salt");
+      if (s2) salts.push(s2);
+    } catch (e) {}
+  }
+
+  return [...new Set(salts.filter(Boolean))];
+}
+
+/**
+ * Internal helper to attempt AES-GCM decryption
+ */
+async function tryDecryptAesGcm(cryptoKey, iv, ciphertext) {
+  try {
+    const decrypted = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv },
+      cryptoKey,
+      ciphertext
+    );
+    return new TextDecoder().decode(decrypted);
+  } catch (e) {
+    return null;
   }
 }
 
@@ -164,26 +266,40 @@ export async function decryptText(encryptedText, userId) {
 
   // 1. Decrypt Version 3 (PBKDF2 + AES-GCM)
   if (encryptedText.startsWith("htv3:")) {
+    const cleanCiphertext = encryptedText.substring(5);
     try {
-      const cleanCiphertext = encryptedText.substring(5);
-      const key = await getV3Key(userId);
       const binaryString = atob(cleanCiphertext);
+      if (binaryString.length < 28) return encryptedText; // 12-byte IV + 16-byte auth tag minimum
       const bytes = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {
         bytes[i] = binaryString.charCodeAt(i);
       }
       const iv = bytes.slice(0, 12);
       const ciphertext = bytes.slice(12);
-      const decrypted = await crypto.subtle.decrypt(
-        { name: "AES-GCM", iv },
-        key,
-        ciphertext
-      );
-      return new TextDecoder().decode(decrypted);
-    } catch (e) {
-      console.warn("[HabiTick Crypto] Failed to decrypt v3 ciphertext:", e);
-      return encryptedText;
+
+      const candidateSalts = await getCandidateSalts(userId);
+
+      // Attempt 1: Multi-candidate PBKDF2 decryption
+      for (const salt of candidateSalts) {
+        try {
+          const key = await getV3Key(userId, salt);
+          const result = await tryDecryptAesGcm(key, iv, ciphertext);
+          if (result !== null) return result;
+        } catch (e) {}
+      }
+
+      // Attempt 2: Legacy SHA-256 fallback across candidate salts (safe fallback)
+      for (const salt of candidateSalts) {
+        try {
+          const legacyKey = await getLegacyKey(userId, salt);
+          const result = await tryDecryptAesGcm(legacyKey, iv, ciphertext);
+          if (result !== null) return result;
+        } catch (e) {}
+      }
+    } catch (parseErr) {
+      // Malformed base64
     }
+    return encryptedText;
   }
 
   // 2. Decrypt Legacy Version 2 ("htv2:")
@@ -191,6 +307,7 @@ export async function decryptText(encryptedText, userId) {
     const cleanCiphertext = encryptedText.substring(5);
     try {
       const binaryString = atob(cleanCiphertext);
+      if (binaryString.length < 28) return encryptedText;
       const bytes = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {
         bytes[i] = binaryString.charCodeAt(i);
@@ -198,40 +315,35 @@ export async function decryptText(encryptedText, userId) {
       const iv = bytes.slice(0, 12);
       const ciphertext = bytes.slice(12);
 
-      // Attempt 1: Decrypt with primary production v2 salt (CRYPTO_SALT)
+      const candidateSalts = [
+        V2_SALT_PRIMARY,
+        V1_SALT,
+        `HabiTick_Fallback_Salt_v3_${userId}`,
+        V3_SALT_STATIC
+      ];
       try {
-        const keyV2 = await getLegacyKey(userId, V2_SALT_PRIMARY);
-        const decrypted = await crypto.subtle.decrypt(
-          { name: "AES-GCM", iv },
-          keyV2,
-          ciphertext
-        );
-        return new TextDecoder().decode(decrypted);
-      } catch (err1) {
-        // Attempt 2: Decrypt with legacy v1 salt fallback
-        try {
-          const keyV1 = await getLegacyKey(userId, V1_SALT);
-          const decrypted = await crypto.subtle.decrypt(
-            { name: "AES-GCM", iv },
-            keyV1,
-            ciphertext
-          );
-          return new TextDecoder().decode(decrypted);
-        } catch (err2) {
-          // Attempt 3: Decrypt with any dynamically fetched salt
-          try {
-            const dynamicSalt = await getSalt(userId);
-            if (dynamicSalt !== V2_SALT_PRIMARY && dynamicSalt !== V1_SALT) {
-              const keyDynamic = await getLegacyKey(userId, dynamicSalt);
-              const decrypted = await crypto.subtle.decrypt(
-                { name: "AES-GCM", iv },
-                keyDynamic,
-                ciphertext
-              );
-              return new TextDecoder().decode(decrypted);
-            }
-          } catch (err3) {}
+        const dynamicSalt = await getSalt(userId);
+        if (dynamicSalt && !candidateSalts.includes(dynamicSalt)) {
+          candidateSalts.push(dynamicSalt);
         }
+      } catch (e) {}
+
+      // Attempt with legacy SHA-256 keys
+      for (const salt of candidateSalts) {
+        try {
+          const key = await getLegacyKey(userId, salt);
+          const result = await tryDecryptAesGcm(key, iv, ciphertext);
+          if (result !== null) return result;
+        } catch (e) {}
+      }
+
+      // Attempt with PBKDF2 keys just in case
+      for (const salt of candidateSalts) {
+        try {
+          const key = await getV3Key(userId, salt);
+          const result = await tryDecryptAesGcm(key, iv, ciphertext);
+          if (result !== null) return result;
+        } catch (e) {}
       }
     } catch (parseErr) {
       // Malformed base64
@@ -244,33 +356,21 @@ export async function decryptText(encryptedText, userId) {
   if (looksLikeBase64) {
     try {
       const binaryString = atob(encryptedText.trim());
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      const iv = bytes.slice(0, 12);
-      const ciphertext = bytes.slice(12);
+      if (binaryString.length >= 28) {
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const iv = bytes.slice(0, 12);
+        const ciphertext = bytes.slice(12);
 
-      // Attempt with V1 salt
-      try {
-        const keyV1 = await getLegacyKey(userId, V1_SALT);
-        const decrypted = await crypto.subtle.decrypt(
-          { name: "AES-GCM", iv },
-          keyV1,
-          ciphertext
-        );
-        return new TextDecoder().decode(decrypted);
-      } catch (e1) {
-        // Attempt with V2 salt
-        try {
-          const keyV2 = await getLegacyKey(userId, V2_SALT_PRIMARY);
-          const decrypted = await crypto.subtle.decrypt(
-            { name: "AES-GCM", iv },
-            keyV2,
-            ciphertext
-          );
-          return new TextDecoder().decode(decrypted);
-        } catch (e2) {}
+        for (const salt of [V1_SALT, V2_SALT_PRIMARY]) {
+          try {
+            const key = await getLegacyKey(userId, salt);
+            const result = await tryDecryptAesGcm(key, iv, ciphertext);
+            if (result !== null) return result;
+          } catch (e) {}
+        }
       }
     } catch (e) {
       // Not base64
