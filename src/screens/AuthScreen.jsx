@@ -27,8 +27,13 @@ export function AuthScreen() {
   const qrShortChannelRef = useRef(null);
   const qrTimerRef = useRef(null);
   const qrChallengeRef = useRef(null);
+  const pubKeyBroadcasterRef = useRef(null);
 
   const cleanupQrChannels = () => {
+    if (pubKeyBroadcasterRef.current) {
+      clearInterval(pubKeyBroadcasterRef.current);
+      pubKeyBroadcasterRef.current = null;
+    }
     if (qrChannelRef.current) {
       supabase.removeChannel(qrChannelRef.current);
       qrChannelRef.current = null;
@@ -98,8 +103,8 @@ export function AuthScreen() {
           if (!qrPrivateKeyRef.current) return;
           const decrypted = await decryptQrPayload(qrPrivateKeyRef.current, payload);
 
-          // 1. Replay & Spoofing Protection: Verify challenge nonce
-          if (qrChallengeRef.current && decrypted.challenge !== qrChallengeRef.current) {
+          // 1. Replay & Spoofing Protection: Verify challenge nonce if present (QR code flow)
+          if (qrChallengeRef.current && decrypted.challenge && decrypted.challenge !== qrChallengeRef.current) {
             console.error("E2EE QR Auth rejected: Challenge nonce mismatch");
             setError("Security verification failed. Please scan again.");
             return;
@@ -133,10 +138,18 @@ export function AuthScreen() {
       channel.on('broadcast', { event: 'e2ee_auth' }, handleAuthEvent);
       shortChannel.on('broadcast', { event: 'e2ee_auth' }, handleAuthEvent);
 
-      await channel.subscribe();
-      await shortChannel.subscribe();
+      channel.subscribe();
+      shortChannel.subscribe();
       qrChannelRef.current = channel;
       qrShortChannelRef.current = shortChannel;
+
+      // Periodically broadcast pubkey for fast scanner pickup
+      const pubKeyBroadcaster = setInterval(() => {
+        if (qrPrivateKeyRef.current && (qrChannelRef.current || qrShortChannelRef.current)) {
+          handlePubkeyReq();
+        }
+      }, 1200);
+      pubKeyBroadcasterRef.current = pubKeyBroadcaster;
 
       // Start 90s expiration timer
       qrTimerRef.current = setInterval(() => {

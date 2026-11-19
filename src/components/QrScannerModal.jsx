@@ -7,6 +7,7 @@ export function QrScannerModal({ onClose, showToast }) {
   const [mode, setMode] = useState("camera"); // "camera" | "code"
   const [manualCode, setManualCode] = useState("");
   const [scanning, setScanning] = useState(false);
+  const [cameraLoading, setCameraLoading] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [pendingAuth, setPendingAuth] = useState(null); // { sessionId, publicKeyJwk, shortCode, channelName, challenge, keyFingerprint }
   const [authorizing, setAuthorizing] = useState(false);
@@ -14,10 +15,23 @@ export function QrScannerModal({ onClose, showToast }) {
 
   const html5QrCodeRef = useRef(null);
   const activeChannelRef = useRef(null);
+  const pubkeyRetryRef = useRef(null);
+  const isReceivedPubkeyRef = useRef(false);
+  const startCameraTimeoutRef = useRef(null);
+
+  const clearPubkeyRetry = () => {
+    if (pubkeyRetryRef.current) {
+      clearInterval(pubkeyRetryRef.current);
+      pubkeyRetryRef.current = null;
+    }
+  };
 
   // Connect to target channel (by sessionId or shortcode) and obtain E2EE Public Key
   const connectToDeviceChannel = async (channelName, targetSessionId, displayShortCode, expectedFingerprint = null, challenge = null) => {
     try {
+      clearPubkeyRetry();
+      isReceivedPubkeyRef.current = false;
+
       if (activeChannelRef.current) {
         supabase.removeChannel(activeChannelRef.current);
         activeChannelRef.current = null;
@@ -28,7 +42,10 @@ export function QrScannerModal({ onClose, showToast }) {
       });
 
       channel.on('broadcast', { event: 'pubkey_response' }, async ({ payload }) => {
-        if (payload && payload.publicKeyJwk) {
+        if (payload && payload.publicKeyJwk && !isReceivedPubkeyRef.current) {
+          isReceivedPubkeyRef.current = true;
+          clearPubkeyRetry();
+
           // Cryptographic Fingerprint Verification (MITM Prevention)
           if (expectedFingerprint) {
             const actualFp = await computeKeyFingerprint(payload.publicKeyJwk);
@@ -52,11 +69,31 @@ export function QrScannerModal({ onClose, showToast }) {
         }
       });
 
-      await channel.subscribe();
       activeChannelRef.current = channel;
 
-      // Request target device's public key
-      channel.send({ type: 'broadcast', event: 'get_pubkey' });
+      // When subscribed, immediately request target device's public key
+      channel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          channel.send({ type: 'broadcast', event: 'get_pubkey' });
+        }
+      });
+
+      // Retry sending get_pubkey every 1 second until pubkey_response is received or timeout (15s)
+      let attempts = 0;
+      pubkeyRetryRef.current = setInterval(() => {
+        attempts++;
+        if (isReceivedPubkeyRef.current || attempts > 15) {
+          clearPubkeyRetry();
+          if (attempts > 15 && !isReceivedPubkeyRef.current) {
+            setSearchingCode(false);
+            showToast("Pairing timed out. Please check the code and try again.", "error");
+          }
+          return;
+        }
+        if (channel) {
+          channel.send({ type: 'broadcast', event: 'get_pubkey' });
+        }
+      }, 1000);
     } catch (err) {
       console.error("Channel connection error:", err);
       showToast("Failed to connect to device session", "error");
@@ -123,25 +160,86 @@ export function QrScannerModal({ onClose, showToast }) {
   // Start live camera scanner
   const startCamera = async () => {
     setCameraError("");
+    setCameraLoading(true);
     setScanning(true);
+
     try {
-      if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
-        await html5QrCodeRef.current.stop();
+      if (html5QrCodeRef.current) {
+        try {
+          if (html5QrCodeRef.current.isScanning) {
+            await html5QrCodeRef.current.stop();
+          }
+          html5QrCodeRef.current.clear();
+        } catch (e) {}
+        html5QrCodeRef.current = null;
       }
+
+      // Check that the container DOM element exists
+      const container = document.getElementById("qr-camera-reader");
+      if (!container) {
+        setCameraLoading(false);
+        setScanning(false);
+        return;
+      }
+
       const html5QrCode = new Html5Qrcode("qr-camera-reader");
       html5QrCodeRef.current = html5QrCode;
 
-      await html5QrCode.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 220, height: 220 } },
-        (decodedText) => {
-          processQrText(decodedText);
-        },
-        () => {}
-      );
+      const qrConfig = {
+        fps: 10,
+        qrbox: (viewfinderWidth, viewfinderHeight) => {
+          const edge = Math.min(viewfinderWidth, viewfinderHeight);
+          const boxSize = Math.max(160, Math.floor(edge * 0.72));
+          return { width: boxSize, height: boxSize };
+        }
+      };
+
+      const onScanSuccess = (decodedText) => {
+        processQrText(decodedText);
+      };
+
+      // Query cameras to pick back/rear camera on phones
+      let cameraConfig = { facingMode: "environment" };
+      try {
+        const devices = await Html5Qrcode.getCameras();
+        if (devices && devices.length > 0) {
+          const backCam = devices.find(d => 
+            d.label && /back|rear|environment|wide/i.test(d.label)
+          );
+          if (backCam) {
+            cameraConfig = backCam.id;
+          } else {
+            cameraConfig = devices[devices.length - 1].id;
+          }
+        }
+      } catch (camErr) {
+        console.warn("[QR Scanner] Camera enum failed, using facingMode:", camErr);
+        cameraConfig = { facingMode: "environment" };
+      }
+
+      try {
+        await html5QrCode.start(cameraConfig, qrConfig, onScanSuccess, () => {});
+        setCameraLoading(false);
+      } catch (firstErr) {
+        console.warn("[QR Scanner] Primary camera start failed, trying fallback:", firstErr);
+        try {
+          await html5QrCode.start({ facingMode: "environment" }, qrConfig, onScanSuccess, () => {});
+          setCameraLoading(false);
+        } catch (secondErr) {
+          console.warn("[QR Scanner] Fallback facingMode failed, trying front/any camera:", secondErr);
+          const anyDevices = await Html5Qrcode.getCameras().catch(() => []);
+          if (anyDevices && anyDevices.length > 0) {
+            await html5QrCode.start(anyDevices[0].id, qrConfig, onScanSuccess, () => {});
+            setCameraLoading(false);
+          } else {
+            throw secondErr;
+          }
+        }
+      }
     } catch (err) {
       console.warn("Camera start error:", err);
-      setCameraError("Camera permission denied or unavailable. Use 6-digit code entry below.");
+      setCameraError("Camera permission denied or unavailable. Enter 6-digit code below.");
+      setCameraLoading(false);
       setScanning(false);
     }
   };
@@ -160,18 +258,31 @@ export function QrScannerModal({ onClose, showToast }) {
       html5QrCodeRef.current = null;
     }
     setScanning(false);
+    setCameraLoading(false);
   };
 
   useEffect(() => {
     if (mode === "camera" && !pendingAuth) {
-      startCamera();
+      startCameraTimeoutRef.current = setTimeout(() => {
+        startCamera();
+      }, 120);
     } else {
+      if (startCameraTimeoutRef.current) {
+        clearTimeout(startCameraTimeoutRef.current);
+        startCameraTimeoutRef.current = null;
+      }
       stopCamera();
     }
     return () => {
+      if (startCameraTimeoutRef.current) {
+        clearTimeout(startCameraTimeoutRef.current);
+        startCameraTimeoutRef.current = null;
+      }
+      clearPubkeyRetry();
       stopCamera();
       if (activeChannelRef.current) {
         supabase.removeChannel(activeChannelRef.current);
+        activeChannelRef.current = null;
       }
     };
   }, [mode, pendingAuth]);
@@ -199,7 +310,6 @@ export function QrScannerModal({ onClose, showToast }) {
 
       // Broadcast payload to target channel
       const targetChannel = activeChannelRef.current || supabase.channel(pendingAuth.channelName || `qr-login-${pendingAuth.sessionId}`);
-      if (!activeChannelRef.current) await targetChannel.subscribe();
       
       await targetChannel.send({
         type: 'broadcast',
@@ -208,7 +318,9 @@ export function QrScannerModal({ onClose, showToast }) {
       });
 
       showToast("✓ Device authorized successfully!");
-      onClose();
+      setTimeout(() => {
+        onClose();
+      }, 500);
     } catch (err) {
       console.error("Failed to authorize login:", err);
       showToast("Failed to authorize sign-in request.", "error");
@@ -383,16 +495,28 @@ export function QrScannerModal({ onClose, showToast }) {
             {mode === "camera" && (
               <div>
                 <style>{`
+                  #qr-camera-reader {
+                    width: 100% !important;
+                    height: 100% !important;
+                    border: none !important;
+                    position: relative !important;
+                  }
+                  #qr-camera-reader__scan_region {
+                    width: 100% !important;
+                    height: 100% !important;
+                    min-height: 240px !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                  }
                   #qr-camera-reader video {
                     object-fit: cover !important;
                     width: 100% !important;
                     height: 100% !important;
                     border-radius: 14px !important;
                   }
-                  #qr-camera-reader {
-                    border: none !important;
-                  }
-                  #qr-camera-reader img {
+                  #qr-camera-reader img,
+                  #qr-camera-reader__dashboard_section_csr {
                     display: none !important;
                   }
                 `}</style>
@@ -404,7 +528,7 @@ export function QrScannerModal({ onClose, showToast }) {
                   margin: "0 auto",
                   borderRadius: "16px",
                   overflow: "hidden",
-                  background: "#000",
+                  background: "#080b11",
                   border: "1px solid rgba(255, 255, 255, 0.12)",
                   display: "flex",
                   alignItems: "center",
@@ -412,6 +536,33 @@ export function QrScannerModal({ onClose, showToast }) {
                   boxShadow: "0 8px 24px rgba(0,0,0,0.5)"
                 }}>
                   <div id="qr-camera-reader" style={{ width: "100%", height: "100%" }}></div>
+
+                  {/* Camera loading state spinner */}
+                  {cameraLoading && !cameraError && (
+                    <div style={{
+                      position: "absolute",
+                      inset: 0,
+                      background: "#0d1117",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "10px",
+                      zIndex: 2
+                    }}>
+                      <div style={{
+                        width: "32px",
+                        height: "32px",
+                        border: "3px solid #2563eb",
+                        borderTopColor: "transparent",
+                        borderRadius: "50%",
+                        animation: "spin 0.8s linear infinite"
+                      }} />
+                      <span style={{ fontSize: "12px", color: "#9ca3af", fontWeight: 600 }}>
+                        Starting camera...
+                      </span>
+                    </div>
+                  )}
 
                   {cameraError && (
                     <div style={{
@@ -423,7 +574,8 @@ export function QrScannerModal({ onClose, showToast }) {
                       flexDirection: "column",
                       alignItems: "center",
                       justifyContent: "center",
-                      textAlign: "center"
+                      textAlign: "center",
+                      zIndex: 3
                     }}>
                       <div style={{ color: "#ef4444", fontSize: "13px", marginBottom: "12px", lineHeight: 1.4 }}>
                         {cameraError}
@@ -458,6 +610,11 @@ export function QrScannerModal({ onClose, showToast }) {
                 <input
                   value={manualCode}
                   onChange={(e) => setManualCode(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && manualCode.replace(/[^0-9]/g, "").length >= 6) {
+                      handleManualPairing();
+                    }
+                  }}
                   placeholder="397-944"
                   maxLength={7}
                   style={{
