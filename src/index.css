@@ -159,6 +159,69 @@ body {
   }
 }
 
+/* Missed Habit / Missed Day animated split */
+.ht-missed-split {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0px;
+  margin-top: 16px;
+  transition: grid-template-columns 0.34s cubic-bezier(0.22, 1, 0.36, 1), gap 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ht-missed-split.ht-missed-split--expanded {
+  gap: 12px;
+}
+
+.ht-missed-day-card {
+  min-width: 0;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  padding: 0 18px;
+  border-width: 0 !important;
+  pointer-events: none;
+  transform: translateY(-6px) scale(0.98);
+  transition:
+    max-height 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.26s ease,
+    padding 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+    border-width 0.2s ease;
+}
+
+.ht-missed-split--expanded .ht-missed-day-card {
+  max-height: 200px;
+  opacity: 1;
+  padding: 18px 18px;
+  border-width: 1px !important;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+
+@media (min-width: 640px) {
+  .ht-missed-split {
+    grid-template-columns: minmax(0, 1fr) 0fr;
+  }
+
+  .ht-missed-split.ht-missed-split--expanded {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .ht-missed-day-card {
+    max-height: none;
+    padding: 18px 0;
+    white-space: nowrap;
+    transform: translateX(12px) scale(0.98);
+  }
+
+  .ht-missed-split--expanded .ht-missed-day-card {
+    max-height: none;
+    padding: 18px 18px;
+    transform: translateX(0) scale(1);
+  }
+}
+
 /* ============================================================
    LIGHT MODE TARGETED HIGH-CONTRAST OVERRIDES
    Transforms all screens, cards, modals, and text into a crisp,

@@ -868,8 +868,46 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
   );
 }
 
+function getDayHabitCompletion(habits, dateObj, todayStr) {
+  const ds = getDateStr(dateObj);
+  const dow = dateObj.getDay();
+  let scheduled = 0;
+  let completed = 0;
+  habits.forEach(h => {
+    const createdStr = (h.createdDate || h.created_date || todayStr).substring(0, 10);
+    if (ds < createdStr) return;
+    const isScheduled = h.frequency === "daily" || (h.days && h.days.includes(dow));
+    if (isScheduled) {
+      scheduled++;
+      if ((h.completedDates || []).some(x => x.substring(0, 10) === ds)) {
+        completed++;
+      }
+    }
+  });
+  return { ds, scheduled, completed };
+}
+
+function buildSmoothLinePath(pts, minY, maxY) {
+  if (pts.length === 0) return "";
+  if (pts.length === 1) return `M ${pts[0].x} ${pts[0].y}`;
+  let d = `M ${pts[0].x.toFixed(2)} ${pts[0].y.toFixed(2)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] || p2;
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = Math.max(minY, Math.min(maxY, p1.y + (p2.y - p0.y) / 6));
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = Math.max(minY, Math.min(maxY, p2.y - (p3.y - p1.y) / 6));
+    d += ` C ${cp1x.toFixed(2)} ${cp1y.toFixed(2)}, ${cp2x.toFixed(2)} ${cp2y.toFixed(2)}, ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`;
+  }
+  return d;
+}
+
 export function AnalyticsTab({ habits, todos, goals = [], pausePeriods, isPremium, journalEntries, profile, setProfile, session, onRecommendHabit }) {
   const [range, setRange] = useState("7days");
+  const [cachedMissedDay, setCachedMissedDay] = useState(null);
   const today = new Date();
   const todayStr = getDateStr(today);
   const rangeDays = range === "7days" ? 7 : range === "30days" ? 30 : range === "year" ? 365 : null;
@@ -889,8 +927,8 @@ export function AnalyticsTab({ habits, todos, goals = [], pausePeriods, isPremiu
   const { currentStreak, bestStreak, shields, cumulativeCompletedDays } = calcStats(habits, pausePeriods, isPremium, profile);
   const shieldThreshold = isPremium ? 7 : 14;
   const daysToNextShield = shields >= 5 ? null : shieldThreshold - (cumulativeCompletedDays % shieldThreshold);
-  const { completionRate, totalCompletions } = (() => {
-    if (habits.length === 0) return { completionRate: null, totalCompletions: 0 };
+  const { completionRate, totalCompletions, mostMissedHabit, mostMissedDay } = (() => {
+    if (habits.length === 0) return { completionRate: null, totalCompletions: 0, mostMissedHabit: null, mostMissedDay: null };
     const start = getRangeStart();
     const earliestHabit = habits.reduce((earliest, h) => {
       const created = (h.createdDate || todayStr).substring(0, 10);
@@ -898,6 +936,10 @@ export function AnalyticsTab({ habits, todos, goals = [], pausePeriods, isPremiu
     }, todayStr);
     const rangeStart = start ? start : parseDateLocal(earliestHabit);
     let scheduledCount = 0, completedCount = 0;
+    const habitMissMap = new Map();
+    const weekdayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const weekdayStats = weekdayNames.map(name => ({ name, scheduled: 0, missed: 0 }));
+
     const d = new Date(rangeStart);
     d.setHours(0, 0, 0, 0);
     const end = new Date(); end.setHours(0, 0, 0, 0);
@@ -907,43 +949,70 @@ export function AnalyticsTab({ habits, todos, goals = [], pausePeriods, isPremiu
       habits.forEach(h => {
         const createdStr = (h.createdDate || h.created_date || todayStr).substring(0, 10);
         if (ds < createdStr) return;
-        const scheduled = h.frequency === "daily" || (h.days && h.days.includes(dow));
-        if (scheduled) { scheduledCount++; if ((h.completedDates || []).map(x => x.substring(0, 10)).includes(ds)) completedCount++; }
+        const isScheduled = h.frequency === "daily" || (h.days && h.days.includes(dow));
+        if (!isScheduled) return;
+        const done = (h.completedDates || []).some(x => x.substring(0, 10) === ds);
+        scheduledCount++;
+        if (done) completedCount++;
+
+        const prev = habitMissMap.get(h.id) || { name: h.name, scheduled: 0, completed: 0, missed: 0 };
+        prev.scheduled++;
+        if (done) prev.completed++;
+        else prev.missed++;
+        habitMissMap.set(h.id, prev);
+
+        weekdayStats[dow].scheduled++;
+        if (!done) weekdayStats[dow].missed++;
       });
       d.setDate(d.getDate() + 1);
     }
+
+    const missedHabits = Array.from(habitMissMap.values()).filter(x => x.missed > 0);
+    missedHabits.sort((a, b) => b.missed - a.missed || (b.missed / b.scheduled) - (a.missed / a.scheduled));
+    const topMissedHabit = missedHabits[0] || null;
+
+    const missedDays = weekdayStats.filter(x => x.scheduled > 0 && x.missed > 0);
+    missedDays.sort((a, b) => (b.missed / b.scheduled) - (a.missed / a.scheduled) || b.missed - a.missed);
+    const topMissedDay = missedDays[0] || null;
+
     const total = habits.reduce((sum, h) => sum + (h.completedDates || []).filter(ds => inRange(ds.substring(0, 10))).length, 0);
-    return { completionRate: scheduledCount === 0 ? null : Math.round((completedCount / scheduledCount) * 100), totalCompletions: total };
+    return {
+      completionRate: scheduledCount === 0 ? null : Math.round((completedCount / scheduledCount) * 100),
+      totalCompletions: total,
+      mostMissedHabit: topMissedHabit,
+      mostMissedDay: topMissedDay
+    };
   })();
   const chartDays = rangeDays || 365;
   const chartPoints = Math.min(chartDays, 30);
   const chartData = Array.from({ length: chartPoints }, (_, i) => {
     const d = new Date(today); d.setDate(d.getDate() - (chartPoints - 1 - i));
-    const ds = getDateStr(d);
+    const { ds, scheduled, completed } = getDayHabitCompletion(habits, d, todayStr);
     const label = chartPoints <= 7 ? DAYS_SHORT[d.getDay()] : chartPoints <= 31 ? String(d.getDate()) : DAYS_SHORT[d.getDay()][0];
-    return { label, habits: habits.filter(h => (h.completedDates || []).map(x => x.substring(0, 10)).includes(ds)).length, tasks: todos.filter(t => t.doneDate === ds).length };
+    const pct = scheduled > 0 ? Math.round((completed / scheduled) * 100) : null;
+    const tasks = todos.filter(t => t.doneDate === ds).length;
+    return { label, pct, completed, scheduled, tasks };
   });
   const useWeekly = rangeDays === 365 || rangeDays === null;
   const finalChartData = useWeekly ? (() => {
     return Array.from({ length: 26 }, (_, wi) => {
       const weekEnd = new Date(today); weekEnd.setDate(weekEnd.getDate() - wi * 7);
-      let h = 0, t = 0;
+      let completed = 0, scheduled = 0, tasks = 0;
       for (let day = 0; day < 7; day++) {
         const d = new Date(weekEnd); d.setDate(d.getDate() - day);
-        const ds = getDateStr(d);
-        h += habits.filter(hb => (hb.completedDates || []).map(x => x.substring(0, 10)).includes(ds)).length;
-        t += todos.filter(td => td.doneDate === ds).length;
+        const dayStats = getDayHabitCompletion(habits, d, todayStr);
+        scheduled += dayStats.scheduled;
+        completed += dayStats.completed;
+        tasks += todos.filter(td => td.doneDate === dayStats.ds).length;
       }
       const d = new Date(weekEnd); d.setDate(d.getDate() - 6);
-      return { label: `${d.getDate()}/${d.getMonth() + 1}`, habits: h, tasks: t };
+      const pct = scheduled > 0 ? Math.round((completed / scheduled) * 100) : null;
+      return { label: `${d.getDate()}/${d.getMonth() + 1}`, pct, completed, scheduled, tasks };
     }).reverse();
   })() : chartData;
-  const maxTotal = Math.max(...finalChartData.map(d => d.habits + d.tasks), 1);
-  const yAxisMid = Math.ceil(maxTotal / 2);
-  const totalChartHabits = finalChartData.reduce((s, d) => s + d.habits, 0);
-  const totalChartTasks = finalChartData.reduce((s, d) => s + d.tasks, 0);
+  const perfectCount = finalChartData.filter(d => d.pct === 100).length;
   const [hoveredBar, setHoveredBar] = useState(null);
-  const chartTitle = range === "7days" ? "Daily Activity — Last 7 Days" : range === "30days" ? "Daily Activity — Last 30 Days" : range === "year" ? "Weekly Activity — Last Year" : "Weekly Activity — All Time";
+  const chartTitle = range === "7days" ? "Completion Rate — Last 7 Days" : range === "30days" ? "Completion Rate — Last 30 Days" : range === "year" ? "Weekly Completion — Last Year" : "Weekly Completion — All Time";
 
   const stats = [
     {
@@ -1016,7 +1085,49 @@ export function AnalyticsTab({ habits, todos, goals = [], pausePeriods, isPremiu
     },
   ];
 
-  const barMaxWidth = finalChartData.length <= 7 ? "28px" : finalChartData.length <= 14 ? "18px" : "10px";
+  const barMaxWidth = finalChartData.length <= 7 ? "48px" : finalChartData.length <= 14 ? "26px" : "16px";
+  const barRadius = finalChartData.length <= 7 ? "14px" : "8px";
+  const isLineChart = range !== "7days";
+  useEffect(() => {
+    if (isLineChart) setCachedMissedDay(mostMissedDay);
+  }, [isLineChart, mostMissedDay]);
+  const visibleMissedDay = isLineChart ? mostMissedDay : cachedMissedDay;
+  const activeChartData = isLineChart ? (() => {
+    const firstIdx = finalChartData.findIndex(d => d.pct !== null);
+    return firstIdx > 0 ? finalChartData.slice(firstIdx) : finalChartData;
+  })() : finalChartData;
+
+  // Build contiguous line segments for non-null percentage points
+  const lineSegments = (() => {
+    if (!isLineChart || activeChartData.length === 0) return [];
+    const n = activeChartData.length;
+    const segments = [];
+    let current = [];
+    activeChartData.forEach((d, i) => {
+      if (d.pct !== null) {
+        const x = n > 1 ? (i / (n - 1)) * 1000 : 500;
+        const y = 200 - (d.pct / 100) * 200;
+        current.push({ x, y, index: i, pct: d.pct });
+      } else if (current.length > 0) {
+        segments.push(current);
+        current = [];
+      }
+    });
+    if (current.length > 0) segments.push(current);
+    return segments;
+  })();
+
+  // Pick ~5-6 evenly spaced x-axis labels for line chart legibility
+  const lineAxisTicks = (() => {
+    const n = activeChartData.length;
+    if (n <= 1) return activeChartData.map((d, i) => ({ index: i, label: d.label, leftPct: 50 }));
+    const tickCount = Math.min(6, n);
+    const indices = new Set();
+    for (let t = 0; t < tickCount; t++) {
+      indices.add(Math.round((t / (tickCount - 1)) * (n - 1)));
+    }
+    return Array.from(indices).map(idx => ({ index: idx, label: activeChartData[idx].label, leftPct: (idx / (n - 1)) * 100 }));
+  })();
 
   return (
     <div style={{ maxWidth: "1000px", width: "100%", margin: "0 auto", padding: "12px 0 32px", fontFamily: "'DM Sans', sans-serif" }}>
@@ -1103,7 +1214,7 @@ export function AnalyticsTab({ habits, todos, goals = [], pausePeriods, isPremiu
         ))}
       </div>
 
-      {/* Activity Chart */}
+      {/* Completion Rate Chart */}
       <div className="ht-analytics-chart" style={{
         background: "var(--ht-bg-stat-card)",
         border: "1px solid var(--ht-border-stat-card)",
@@ -1112,152 +1223,438 @@ export function AnalyticsTab({ habits, todos, goals = [], pausePeriods, isPremiu
         boxShadow: "var(--ht-shadow-stat-card)"
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px", marginBottom: "18px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
             <h3 style={{ margin: 0, fontFamily: "'Syne', sans-serif", color: "var(--ht-text-primary)", fontWeight: 700, fontSize: "15px", letterSpacing: "-0.01em" }}>{chartTitle}</h3>
-            {hoveredBar !== null && finalChartData[hoveredBar] && (
+            {hoveredBar !== null && activeChartData[hoveredBar] && (
               <span style={{ fontSize: "11.5px", color: "var(--ht-text-secondary)", fontVariantNumeric: "tabular-nums", background: "var(--ht-bg-card-subtle)", border: "1px solid var(--ht-border-card)", borderRadius: "8px", padding: "2px 9px" }}>
-                {finalChartData[hoveredBar].label}: {finalChartData[hoveredBar].habits} habits, {finalChartData[hoveredBar].tasks} tasks
+                {activeChartData[hoveredBar].pct !== null
+                  ? `${activeChartData[hoveredBar].label}: ${activeChartData[hoveredBar].pct}% (${activeChartData[hoveredBar].completed}/${activeChartData[hoveredBar].scheduled} habits${activeChartData[hoveredBar].tasks > 0 ? ` · ${activeChartData[hoveredBar].tasks} tasks` : ""})`
+                  : `${activeChartData[hoveredBar].label}: No habits scheduled`}
               </span>
             )}
           </div>
           <div style={{ display: "flex", gap: "14px", fontSize: "11.5px", color: "var(--ht-text-secondary)", fontVariantNumeric: "tabular-nums" }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-              <span style={{ width: "9px", height: "9px", background: "linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%)", borderRadius: "3px" }} />
-              Habits <span style={{ color: "var(--ht-text-muted)" }}>({totalChartHabits})</span>
-            </span>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-              <span style={{ width: "9px", height: "9px", background: "linear-gradient(180deg, #34d399 0%, #10b981 100%)", borderRadius: "3px" }} />
-              Tasks <span style={{ color: "var(--ht-text-muted)" }}>({totalChartTasks})</span>
-            </span>
+            {isLineChart ? (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                <span style={{ width: "12px", height: "3px", background: "linear-gradient(90deg, #60a5fa, #34d399)", borderRadius: "2px" }} />
+                Completion %
+              </span>
+            ) : (
+              <>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                  <span style={{ width: "9px", height: "9px", background: "linear-gradient(180deg, #34d399 0%, #10b981 100%)", borderRadius: "3px" }} />
+                  100% <span style={{ color: "var(--ht-text-muted)" }}>({perfectCount})</span>
+                </span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                  <span style={{ width: "9px", height: "9px", background: "linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%)", borderRadius: "3px" }} />
+                  Partial
+                </span>
+              </>
+            )}
+            {completionRate !== null && (
+              <span style={{ color: "var(--ht-text-muted)", fontWeight: 600 }}>
+                Avg {completionRate}%
+              </span>
+            )}
           </div>
         </div>
 
-        <div key={range} style={{ display: "flex", gap: "10px", alignItems: "stretch", height: "160px" }}>
+        <div key={range} style={{ display: "flex", gap: "12px", alignItems: "stretch", height: "196px" }}>
           {/* Y-Axis Labels */}
           <div style={{
             display: "flex",
             flexDirection: "column",
             justifyContent: "space-between",
-            paddingBottom: finalChartData.length <= 30 ? "22px" : "4px",
-            fontSize: "10px",
+            paddingBottom: "26px",
+            fontSize: "10.5px",
             color: "var(--ht-text-muted)",
             fontVariantNumeric: "tabular-nums",
             textAlign: "right",
-            minWidth: "20px",
+            minWidth: "30px",
             userSelect: "none"
           }}>
-            <span>{maxTotal}</span>
-            <span>{yAxisMid}</span>
-            <span>0</span>
+            <span>100%</span>
+            <span>50%</span>
+            <span>0%</span>
           </div>
 
-          {/* Plot Area with Gridlines */}
-          <div style={{ position: "relative", flex: 1, display: "flex", alignItems: "flex-end", gap: "4px", overflowX: "auto", paddingBottom: "2px" }}>
-            {/* Horizontal Gridlines */}
-            <div style={{
-              position: "absolute",
-              inset: 0,
-              bottom: finalChartData.length <= 30 ? "22px" : "4px",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between",
-              pointerEvents: "none"
-            }}>
-              <div style={{ borderTop: "1px dashed var(--ht-border-subtle)", width: "100%" }} />
-              <div style={{ borderTop: "1px dashed var(--ht-border-subtle)", width: "100%" }} />
-              <div style={{ borderTop: "1px solid var(--ht-border-card)", width: "100%" }} />
-            </div>
+          {isLineChart ? (
+            /* Line Chart for 30 Days, Year, All Time */
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+              <div style={{ position: "relative", flex: 1, minHeight: 0 }}>
+                {/* Horizontal Gridlines */}
+                <div style={{
+                  position: "absolute",
+                  inset: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  pointerEvents: "none"
+                }}>
+                  <div style={{ borderTop: "1px dashed var(--ht-border-subtle)", width: "100%" }} />
+                  <div style={{ borderTop: "1px dashed var(--ht-border-subtle)", width: "100%" }} />
+                  <div style={{ borderTop: "1px solid var(--ht-border-card)", width: "100%" }} />
+                </div>
 
-            {finalChartData.map((d, i) => {
-              const total = d.habits + d.tasks;
-              const habitsPct = (d.habits / maxTotal) * 100;
-              const tasksPct = (d.tasks / maxTotal) * 100;
-              const isHovered = hoveredBar === i;
-
-              return (
-                <div
-                  key={i}
-                  onMouseEnter={() => setHoveredBar(i)}
-                  onMouseLeave={() => setHoveredBar(null)}
-                  title={`${d.label}: ${d.habits} habits, ${d.tasks} tasks`}
-                  style={{
-                    minWidth: finalChartData.length > 14 ? "14px" : undefined,
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    height: "100%",
-                    flex: 1,
-                    position: "relative",
-                    zIndex: 1,
-                    cursor: "default"
-                  }}
+                {/* SVG Line + Area */}
+                <svg
+                  viewBox="0 0 1000 200"
+                  preserveAspectRatio="none"
+                  style={{ position: "absolute", inset: 0, width: "100%", height: "100%", overflow: "visible" }}
                 >
-                  <div style={{
-                    flex: 1,
-                    width: "100%",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "flex-end",
-                    alignItems: "center",
-                    gap: "2px",
-                    paddingTop: "4px"
-                  }}>
-                    <div style={{
-                      width: "100%",
-                      maxWidth: barMaxWidth,
+                  <defs>
+                    <linearGradient id="htLineAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.28" />
+                      <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.01" />
+                    </linearGradient>
+                    <linearGradient id="htLineStrokeGrad" x1="0" y1="1" x2="0" y2="0">
+                      <stop offset="0%" stopColor="#3b82f6" />
+                      <stop offset="75%" stopColor="#60a5fa" />
+                      <stop offset="100%" stopColor="#34d399" />
+                    </linearGradient>
+                  </defs>
+
+                  {lineSegments.map((seg, si) => {
+                    if (seg.length < 2) return null;
+                    const lineD = buildSmoothLinePath(seg, 0, 200);
+                    const areaD = `${lineD} L ${seg[seg.length - 1].x.toFixed(2)} 200 L ${seg[0].x.toFixed(2)} 200 Z`;
+                    return (
+                      <g key={si}>
+                        <path d={areaD} fill="url(#htLineAreaGrad)" />
+                        <path
+                          d={lineD}
+                          fill="none"
+                          stroke="url(#htLineStrokeGrad)"
+                          strokeWidth="3"
+                          vectorEffect="non-scaling-stroke"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </g>
+                    );
+                  })}
+                </svg>
+
+                {/* Hover Guide & Active Dot */}
+                {hoveredBar !== null && activeChartData[hoveredBar] && (() => {
+                  const d = activeChartData[hoveredBar];
+                  const leftPct = activeChartData.length > 1 ? (hoveredBar / (activeChartData.length - 1)) * 100 : 50;
+                  const topPct = d.pct !== null ? 100 - d.pct : null;
+                  const dotColor = d.pct === 100 ? "#10b981" : d.pct === 0 ? "#f59e0b" : "#3b82f6";
+                  return (
+                    <>
+                      <div style={{
+                        position: "absolute",
+                        left: `${leftPct}%`,
+                        top: 0,
+                        bottom: 0,
+                        width: "1px",
+                        borderLeft: "1px dashed var(--ht-border-hover)",
+                        pointerEvents: "none"
+                      }} />
+                      {topPct !== null && (
+                        <div style={{
+                          position: "absolute",
+                          left: `${leftPct}%`,
+                          top: `${topPct}%`,
+                          width: "10px",
+                          height: "10px",
+                          borderRadius: "50%",
+                          background: dotColor,
+                          border: "2px solid var(--ht-bg-stat-card)",
+                          boxShadow: `0 0 10px ${dotColor}`,
+                          transform: "translate(-50%, -50%)",
+                          pointerEvents: "none",
+                          zIndex: 2
+                        }} />
+                      )}
+                    </>
+                  );
+                })()}
+
+                {/* Invisible Hover Columns */}
+                <div style={{ position: "absolute", inset: 0, display: "flex", zIndex: 3 }}>
+                  {activeChartData.map((d, i) => (
+                    <div
+                      key={i}
+                      onMouseEnter={() => setHoveredBar(i)}
+                      onMouseLeave={() => setHoveredBar(null)}
+                      title={d.pct !== null
+                        ? `${d.label}: ${d.pct}% (${d.completed}/${d.scheduled} habits${d.tasks > 0 ? `, ${d.tasks} tasks` : ""})`
+                        : `${d.label}: No habits scheduled`}
+                      style={{ flex: 1, height: "100%", cursor: "crosshair" }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Spaced X-Axis Labels */}
+              <div style={{ position: "relative", height: "26px", marginTop: "0px" }}>
+                {lineAxisTicks.map((tick, ti) => {
+                  const isFirst = ti === 0;
+                  const isLast = ti === lineAxisTicks.length - 1;
+                  return (
+                    <span
+                      key={tick.index}
+                      style={{
+                        position: "absolute",
+                        left: `${tick.leftPct}%`,
+                        top: "8px",
+                        transform: isFirst ? "translateX(0)" : isLast ? "translateX(-100%)" : "translateX(-50%)",
+                        fontSize: "10.5px",
+                        fontWeight: 600,
+                        color: "var(--ht-text-muted)",
+                        fontVariantNumeric: "tabular-nums",
+                        whiteSpace: "nowrap"
+                      }}
+                    >
+                      {tick.label}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            /* Bar Chart for 7 Days */
+            <div style={{ position: "relative", flex: 1, display: "flex", alignItems: "flex-end", gap: "10px", paddingBottom: "2px" }}>
+              {/* Horizontal Gridlines */}
+              <div style={{
+                position: "absolute",
+                inset: 0,
+                bottom: "26px",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+                pointerEvents: "none"
+              }}>
+                <div style={{ borderTop: "1px dashed var(--ht-border-subtle)", width: "100%" }} />
+                <div style={{ borderTop: "1px dashed var(--ht-border-subtle)", width: "100%" }} />
+                <div style={{ borderTop: "1px solid var(--ht-border-card)", width: "100%" }} />
+              </div>
+
+              {finalChartData.map((d, i) => {
+                const isHovered = hoveredBar === i;
+                const isPerfect = d.pct === 100;
+                const tooltip = d.pct !== null
+                  ? `${d.label}: ${d.pct}% (${d.completed}/${d.scheduled} habits${d.tasks > 0 ? `, ${d.tasks} tasks` : ""})`
+                  : `${d.label}: No habits scheduled`;
+
+                return (
+                  <div
+                    key={i}
+                    onMouseEnter={() => setHoveredBar(i)}
+                    onMouseLeave={() => setHoveredBar(null)}
+                    title={tooltip}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
                       height: "100%",
+                      flex: 1,
+                      position: "relative",
+                      zIndex: 1,
+                      cursor: "default"
+                    }}
+                  >
+                    <div style={{
+                      flex: 1,
+                      width: "100%",
                       display: "flex",
                       flexDirection: "column",
                       justifyContent: "flex-end",
-                      gap: "2px",
-                      opacity: hoveredBar !== null && !isHovered ? 0.45 : 1,
-                      transition: "opacity 0.15s ease"
+                      alignItems: "center"
                     }}>
-                      {d.habits > 0 && (
-                        <div style={{
-                          background: "linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%)",
-                          borderRadius: d.tasks > 0 ? "5px 5px 2px 2px" : "5px 5px 0 0",
-                          height: `${habitsPct}%`,
-                          minHeight: "4px",
-                          transition: "height 0.25s ease"
-                        }} />
-                      )}
-                      {d.tasks > 0 && (
-                        <div style={{
-                          background: "linear-gradient(180deg, #34d399 0%, #10b981 100%)",
-                          borderRadius: d.habits > 0 ? "2px 2px 0 0" : "5px 5px 0 0",
-                          height: `${tasksPct}%`,
-                          minHeight: "4px",
-                          transition: "height 0.25s ease"
-                        }} />
-                      )}
-                      {total === 0 && (
-                        <div style={{
-                          background: "var(--ht-border-card)",
-                          height: "2px",
-                          width: "100%",
-                          borderRadius: "1px",
-                          opacity: 0.6
-                        }} />
-                      )}
+                      <div style={{
+                        width: "100%",
+                        maxWidth: barMaxWidth,
+                        height: "100%",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "flex-end",
+                        background: "var(--ht-bg-card-subtle)",
+                        border: `1px solid ${isHovered ? "var(--ht-border-hover)" : "var(--ht-border-subtle)"}`,
+                        borderRadius: barRadius,
+                        overflow: "hidden",
+                        opacity: d.pct === null ? 0.45 : hoveredBar !== null && !isHovered ? 0.5 : 1,
+                        transition: "opacity 0.15s ease, border-color 0.15s ease"
+                      }}>
+                        {d.pct !== null && d.pct > 0 ? (
+                          <div style={{
+                            background: isPerfect
+                              ? "linear-gradient(180deg, #34d399 0%, #10b981 100%)"
+                              : "linear-gradient(180deg, #60a5fa 0%, #2563eb 100%)",
+                            borderRadius: barRadius,
+                            height: `${d.pct}%`,
+                            minHeight: "10px",
+                            boxShadow: isPerfect
+                              ? "0 0 14px rgba(16, 185, 129, 0.28)"
+                              : "0 0 14px rgba(59, 130, 246, 0.22)",
+                            transition: "height 0.25s ease"
+                          }} />
+                        ) : d.pct === 0 ? (
+                          <div style={{
+                            background: "linear-gradient(180deg, rgba(251, 191, 36, 0.75) 0%, rgba(245, 158, 11, 0.7) 100%)",
+                            height: "6px",
+                            width: "100%",
+                            borderRadius: barRadius
+                          }} />
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
-                  {finalChartData.length <= 30 && (
                     <div style={{
                       color: isHovered ? "var(--ht-text-primary)" : "var(--ht-text-muted)",
-                      fontSize: "10px",
-                      fontWeight: isHovered ? 600 : 500,
-                      marginTop: "6px",
+                      fontSize: "10.5px",
+                      fontWeight: isHovered ? 700 : 600,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                      marginTop: "8px",
                       whiteSpace: "nowrap",
                       transition: "color 0.15s"
                     }}>
                       {d.label}
                     </div>
-                  )}
-                </div>
-              );
-            })}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Missed Habit (7d) -> Two-Split with Most Missed Day (30d / Year / All Time) */}
+      <div className={`ht-missed-split${isLineChart ? " ht-missed-split--expanded" : ""}`}>
+        {/* Most Missed Habit */}
+        <div style={{
+          background: "var(--ht-bg-stat-card)",
+          border: "1px solid var(--ht-border-stat-card)",
+          borderRadius: "18px",
+          padding: "18px 18px",
+          boxShadow: "var(--ht-shadow-stat-card)",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          minWidth: 0
+        }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px", gap: "8px" }}>
+            <span style={{ color: "var(--ht-text-muted)", fontSize: "10.5px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>Most Missed Habit</span>
+            <div style={{
+              width: "32px",
+              height: "32px",
+              borderRadius: "10px",
+              background: mostMissedHabit ? "rgba(245, 158, 11, 0.1)" : "rgba(16, 185, 129, 0.1)",
+              border: `1px solid ${mostMissedHabit ? "rgba(245, 158, 11, 0.22)" : "rgba(16, 185, 129, 0.22)"}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: mostMissedHabit ? "#f59e0b" : "#10b981",
+              flexShrink: 0
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+            </div>
           </div>
+          {mostMissedHabit ? (
+            <>
+              <div style={{
+                fontFamily: "'DM Sans', sans-serif",
+                fontWeight: 800,
+                fontSize: "26px",
+                letterSpacing: "-0.03em",
+                lineHeight: 1.1,
+                color: "var(--ht-text-primary)",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis"
+              }} title={mostMissedHabit.name}>
+                {mostMissedHabit.name}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", fontSize: "11px", color: "var(--ht-text-muted)", marginTop: "8px", fontVariantNumeric: "tabular-nums" }}>
+                <span>Missed {mostMissedHabit.missed} of {mostMissedHabit.scheduled} times</span>
+                <span style={{ color: "#f59e0b", fontWeight: 600 }}>
+                  {Math.round((mostMissedHabit.completed / mostMissedHabit.scheduled) * 100)}% done
+                </span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 800, fontSize: "26px", letterSpacing: "-0.03em", lineHeight: 1.1, color: "var(--ht-text-primary)" }}>
+                {habits.length === 0 ? "No habits yet" : "None — 100%!"}
+              </div>
+              <div style={{ fontSize: "11px", color: "var(--ht-text-muted)", marginTop: "8px" }}>
+                {habits.length === 0 ? "Add habits to track misses" : "Every scheduled habit completed"}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Most Missed Day */}
+        <div
+          className="ht-missed-day-card"
+          aria-hidden={!isLineChart}
+          style={{
+            background: "var(--ht-bg-stat-card)",
+            border: "1px solid var(--ht-border-stat-card)",
+            borderRadius: "18px",
+            boxShadow: "var(--ht-shadow-stat-card)",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between"
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px", gap: "8px" }}>
+            <span style={{ color: "var(--ht-text-muted)", fontSize: "10.5px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>Most Missed Day</span>
+            <div style={{
+              width: "32px",
+              height: "32px",
+              borderRadius: "10px",
+              background: visibleMissedDay ? "rgba(245, 158, 11, 0.1)" : "rgba(16, 185, 129, 0.1)",
+              border: `1px solid ${visibleMissedDay ? "rgba(245, 158, 11, 0.22)" : "rgba(16, 185, 129, 0.22)"}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: visibleMissedDay ? "#f59e0b" : "#10b981",
+              flexShrink: 0
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+            </div>
+          </div>
+          {visibleMissedDay ? (
+            <>
+              <div style={{
+                fontFamily: "'DM Sans', sans-serif",
+                fontWeight: 800,
+                fontSize: "26px",
+                letterSpacing: "-0.03em",
+                lineHeight: 1.1,
+                color: "var(--ht-text-primary)"
+              }}>
+                {visibleMissedDay.name}s
+              </div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", fontSize: "11px", color: "var(--ht-text-muted)", marginTop: "8px", fontVariantNumeric: "tabular-nums" }}>
+                <span>{visibleMissedDay.missed} of {visibleMissedDay.scheduled} habits missed</span>
+                <span style={{ color: "#f59e0b", fontWeight: 600 }}>
+                  {Math.round((visibleMissedDay.missed / visibleMissedDay.scheduled) * 100)}% miss rate
+                </span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 800, fontSize: "26px", letterSpacing: "-0.03em", lineHeight: 1.1, color: "var(--ht-text-primary)" }}>
+                {habits.length === 0 ? "No data yet" : "None — 100%!"}
+              </div>
+              <div style={{ fontSize: "11px", color: "var(--ht-text-muted)", marginTop: "8px" }}>
+                {habits.length === 0 ? "Add habits to track daily trends" : "No missed habits in this period"}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
