@@ -31,52 +31,54 @@ function MoodInsights({ journalEntries, today }) {
   const lastMonthCounts = countMoods(lastMonth);
   const totalPositiveThisMonth = positive.reduce((s, m) => s + monthCounts[m], 0);
   const totalPositiveLastMonth = positive.reduce((s, m) => s + lastMonthCounts[m], 0);
-  const positiveTrend = lastMonthCounts > 0
-    ? Math.round(((totalPositiveThisMonth - totalPositiveLastMonth) / Math.max(totalPositiveLastMonth, 1)) * 100)
+  const positiveTrend = totalPositiveLastMonth > 0
+    ? Math.round(((totalPositiveThisMonth - totalPositiveLastMonth) / totalPositiveLastMonth) * 100)
     : null;
   const topWeekMood = Object.entries(weekCounts).sort((a, b) => b[1] - a[1]).find(([, v]) => v > 0);
   const totalEntries = Object.values(weekCounts).reduce((a, b) => a + b, 0);
-  const moodLabels = { great: "Great 🌟", good: "Good 😊", okay: "Okay 😐", bad: "Bad 😔" };
+  const moodLabels = { great: "Great", good: "Good", okay: "Okay", bad: "Bad" };
   const insights = [];
   if (topWeekMood) {
     const [mood, count] = topWeekMood;
-    if (positive.includes(mood)) insights.push({ emoji: "🌟", text: `You felt ${moodLabels[mood].split(" ")[0].toLowerCase()} ${count} time${count !== 1 ? "s" : ""} this week!` });
-    else insights.push({ emoji: "💙", text: `You logged ${count} entr${count !== 1 ? "ies" : "y"} this week. Showing up every day is the win.` });
+    if (positive.includes(mood)) insights.push({ tone: "#34d399", text: `You felt ${moodLabels[mood].toLowerCase()} ${count} time${count !== 1 ? "s" : ""} this week.` });
+    else insights.push({ tone: "#60a5fa", text: `You logged ${count} entr${count !== 1 ? "ies" : "y"} this week. Showing up every day is the win.` });
   }
-  if (weekCounts.great > 0) insights.push({ emoji: "✨", text: `${weekCounts.great} great day${weekCounts.great !== 1 ? "s" : ""} this week. You're building something real.` });
-  if (monthCounts.great + monthCounts.good >= 15) insights.push({ emoji: "🔥", text: `${monthCounts.great + monthCounts.good} positive days this month. That's a strong month.` });
-  if (positiveTrend !== null && positiveTrend > 0) insights.push({ emoji: "📈", text: `${positiveTrend}% more positive days than last month.` });
-  else if (positiveTrend !== null && positiveTrend < 0) insights.push({ emoji: "💪", text: `Tougher month than last — but you're still here, still tracking. That counts.` });
-  if (totalEntries === 7) insights.push({ emoji: "🏅", text: "Perfect journal week — 7 entries in 7 days." });
-  else if (totalEntries >= 5) insights.push({ emoji: "📓", text: `${totalEntries} journal entries this week.` });
-  if (insights.length === 0) insights.push({ emoji: "📓", text: "Start logging your mood in the journal to unlock personalised insights." });
+  if (weekCounts.great > 0) insights.push({ tone: "#60a5fa", text: `${weekCounts.great} great day${weekCounts.great !== 1 ? "s" : ""} this week — strong momentum.` });
+  if (monthCounts.great + monthCounts.good >= 15) insights.push({ tone: "#f59e0b", text: `${monthCounts.great + monthCounts.good} positive days logged this month.` });
+  if (positiveTrend !== null && positiveTrend > 0) insights.push({ tone: "#34d399", text: `${positiveTrend}% more positive days than last month.` });
+  else if (positiveTrend !== null && positiveTrend < 0) insights.push({ tone: "#9ca3af", text: `Tougher month than last — staying consistent with tracking still counts.` });
+  if (totalEntries === 7) insights.push({ tone: "#34d399", text: "Perfect journal week — 7 entries in 7 days." });
+  else if (totalEntries >= 5) insights.push({ tone: "#60a5fa", text: `${totalEntries} journal entries logged this week.` });
+  if (insights.length === 0) insights.push({ tone: "#6b7280", text: "Start logging your mood in the journal to unlock personalised insights." });
 
   return (
     <div style={{
-      background: "var(--ht-bg-card)",
-      border: "1px solid var(--ht-border-card)",
-      borderRadius: "20px",
-      padding: "22px",
-      marginTop: "20px",
-      boxShadow: "var(--ht-shadow-card)"
+      background: "var(--ht-bg-stat-card)",
+      border: "1px solid var(--ht-border-stat-card)",
+      borderRadius: "18px",
+      padding: "20px 22px",
+      marginTop: "16px",
+      boxShadow: "var(--ht-shadow-stat-card)"
     }}>
-      <div style={{ display: "flex", alignItems: "center", justifyItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
-        <h3 style={{ margin: 0, fontFamily: "'Syne', sans-serif", color: "var(--ht-text-primary)", fontWeight: 800, fontSize: "15px", letterSpacing: "-0.01em" }}>Mood Insights</h3>
-        <span style={{ fontSize: "10px", padding: "3px 10px", borderRadius: "999px", background: "rgba(59, 130, 246, 0.15)", border: "1px solid rgba(59, 130, 246, 0.25)", color: "#60a5fa", fontWeight: 700 }}>Premium</span>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+        <h3 style={{ margin: 0, fontFamily: "'Syne', sans-serif", color: "var(--ht-text-primary)", fontWeight: 700, fontSize: "15px", letterSpacing: "-0.01em" }}>Mood Insights</h3>
+        <span style={{ fontSize: "10.5px", padding: "3px 9px", borderRadius: "999px", background: "rgba(59, 130, 246, 0.12)", border: "1px solid rgba(59, 130, 246, 0.25)", color: "#60a5fa", fontWeight: 700 }}>Pro</span>
       </div>
-      <div style={{ display: "flex", gap: "8px", marginBottom: "20px" }}>
-        {Object.entries({ great: "🌟", good: "😊", okay: "😐", bad: "😔" }).map(([mood, emoji]) => (
-          <div key={mood} style={{ flex: 1, background: "var(--ht-bg-card-subtle)", borderRadius: "12px", padding: "12px 8px", textAlign: "center", border: "1px solid var(--ht-border-card)" }}>
-            <div style={{ fontSize: "18px", marginBottom: "4px" }}>{emoji}</div>
-            <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "20px", color: weekCounts[mood] > 0 ? "var(--ht-text-primary)" : "var(--ht-text-muted)" }}>{weekCounts[mood]}</div>
-            <div style={{ fontSize: "10px", color: "var(--ht-text-muted)", marginTop: "2px", textTransform: "capitalize" }}>{mood}</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "10px", marginBottom: "16px" }}>
+        {Object.entries({ great: { label: "Great", dot: "#34d399" }, good: { label: "Good", dot: "#60a5fa" }, okay: { label: "Okay", dot: "#f59e0b" }, bad: { label: "Bad", dot: "#f87171" } }).map(([mood, meta]) => (
+          <div key={mood} style={{ background: "var(--ht-bg-card-subtle)", borderRadius: "10px", padding: "12px 10px", textAlign: "center", border: "1px solid var(--ht-border-card)" }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "11px", color: "var(--ht-text-muted)", fontWeight: 600, marginBottom: "4px" }}>
+              <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: meta.dot }} />
+              {meta.label}
+            </div>
+            <div style={{ fontFamily: "'DM Sans', sans-serif", fontVariantNumeric: "tabular-nums", fontWeight: 700, fontSize: "20px", color: weekCounts[mood] > 0 ? "var(--ht-text-primary)" : "var(--ht-text-muted)" }}>{weekCounts[mood]}</div>
           </div>
         ))}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
         {insights.map((ins, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: "10px", background: "var(--ht-bg-card-subtle)", borderRadius: "10px", padding: "12px 14px", border: "1px solid var(--ht-border-card)" }}>
-            <span style={{ fontSize: "16px", flexShrink: 0 }}>{ins.emoji}</span>
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: "10px", background: "var(--ht-bg-card-subtle)", borderRadius: "10px", padding: "10px 14px", border: "1px solid var(--ht-border-card)" }}>
+            <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: ins.tone, flexShrink: 0 }} />
             <span style={{ fontSize: "13px", color: "var(--ht-text-secondary)", lineHeight: 1.5 }}>{ins.text}</span>
           </div>
         ))}
@@ -85,36 +87,52 @@ function MoodInsights({ journalEntries, today }) {
   );
 }
 
-function parseBold(text) {
-  const parts = text.split(/\*\*(.*?)\*\*/g);
-  return parts.map((part, i) => i % 2 === 1 ? <strong key={i} style={{ color: "var(--ht-text-primary)", fontWeight: 700 }}>{part}</strong> : part);
+/**
+ * Parse inline markdown (**bold**, *italic*, `code`) into React elements
+ * so raw asterisks never leak into the UI.
+ */
+function parseInline(text) {
+  const tokenRegex = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g;
+  const parts = text.split(tokenRegex);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
+      return <strong key={i} style={{ color: "inherit", fontWeight: 600 }}>{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
+      return <em key={i} style={{ color: "inherit", fontStyle: "italic", fontWeight: "inherit" }}>{part.slice(1, -1)}</em>;
+    }
+    if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
+      return <code key={i} style={{ fontSize: "12px", padding: "1px 5px", borderRadius: "4px", background: "var(--ht-bg-card-subtle)", border: "1px solid var(--ht-border-card)" }}>{part.slice(1, -1)}</code>;
+    }
+    return part;
+  });
 }
 
 function renderMarkdown(text) {
   if (!text) return null;
   return text.split("\n").map((line, idx) => {
     let clean = line.trim();
-    if (!clean) return <div key={idx} style={{ height: "8px" }} />;
+    if (!clean) return <div key={idx} style={{ height: "6px" }} />;
 
     if (clean.startsWith("### ")) {
-      return <h5 key={idx} style={{ margin: "14px 0 6px", color: "var(--ht-text-primary)", fontSize: "13px", fontWeight: 700 }}>{clean.substring(4)}</h5>;
+      return <h5 key={idx} style={{ margin: "14px 0 6px", color: "var(--ht-text-primary)", fontSize: "13px", fontWeight: 600 }}>{parseInline(clean.substring(4))}</h5>;
     }
     if (clean.startsWith("## ") || clean.startsWith("# ")) {
       const val = clean.startsWith("## ") ? clean.substring(3) : clean.substring(2);
-      return <h4 key={idx} style={{ margin: "18px 0 8px", color: "#a78bfa", fontSize: "14px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>{val}</h4>;
+      return <h4 key={idx} style={{ margin: "16px 0 6px", color: "var(--ht-text-primary)", fontSize: "12px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>{parseInline(val)}</h4>;
     }
 
     if (clean.startsWith("- ") || clean.startsWith("* ")) {
       const val = clean.substring(2);
       return (
-        <div key={idx} style={{ display: "flex", gap: "8px", alignItems: "flex-start", margin: "4px 0 4px 8px" }}>
-          <span style={{ color: "#a78bfa", fontSize: "12px", marginTop: "2px" }}>•</span>
-          <span style={{ fontSize: "13px", color: "var(--ht-text-secondary)", lineHeight: 1.4 }}>{parseBold(val)}</span>
+        <div key={idx} style={{ display: "flex", gap: "10px", alignItems: "flex-start", margin: "4px 0 4px 4px" }}>
+          <span style={{ color: "var(--ht-text-muted)", fontSize: "13px", lineHeight: 1.6 }}>•</span>
+          <span style={{ fontSize: "13.5px", color: "var(--ht-text-secondary)", lineHeight: 1.6 }}>{parseInline(val)}</span>
         </div>
       );
     }
 
-    return <p key={idx} style={{ margin: "0 0 8px", fontSize: "13px", color: "var(--ht-text-primary)", lineHeight: 1.5 }}>{parseBold(clean)}</p>;
+    return <p key={idx} style={{ margin: "0 0 10px", fontSize: "13.5px", color: "var(--ht-text-secondary)", lineHeight: 1.65 }}>{parseInline(clean)}</p>;
   });
 }
 
@@ -518,36 +536,70 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
   };
 
   const stepTexts = {
-    1: "🔍 Reading habit completions database...",
-    2: "📓 Correlating emotional journal notes...",
-    3: "🧠 Synthesizing customized coaching plan..."
+    1: "Reading habit completions...",
+    2: "Correlating journal reflections...",
+    3: "Synthesizing coaching summary..."
   };
 
   const hasCooldownActive = summary?.cachedTime && (Date.now() - summary.cachedTime < cooldownMs);
 
+  const coachHeader = (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <div style={{
+          width: "32px",
+          height: "32px",
+          borderRadius: "10px",
+          background: "linear-gradient(135deg, rgba(139, 92, 246, 0.18) 0%, rgba(59, 130, 246, 0.14) 100%)",
+          border: "1px solid rgba(139, 92, 246, 0.3)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#a78bfa",
+          boxShadow: "0 2px 8px rgba(139, 92, 246, 0.15)"
+        }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="rgba(167, 139, 250, 0.22)" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z" />
+          </svg>
+        </div>
+        <div>
+          <h3 style={{ margin: 0, fontFamily: "'Syne', sans-serif", color: "var(--ht-text-primary)", fontWeight: 700, fontSize: "15px", letterSpacing: "-0.01em" }}>AI Performance Coach</h3>
+        </div>
+      </div>
+      <span style={{ fontSize: "10.5px", padding: "3px 9px", borderRadius: "999px", background: "rgba(139, 92, 246, 0.12)", border: "1px solid rgba(139, 92, 246, 0.25)", color: "#a78bfa", fontWeight: 700 }}>Pro</span>
+    </div>
+  );
+
   if (!isPremium) {
     return (
       <div style={{
-        background: "var(--ht-bg-card)",
-        border: "1px solid var(--ht-border-card)",
-        borderRadius: "20px",
-        padding: "24px",
-        marginTop: "20px",
-        boxShadow: "var(--ht-shadow-card)",
-        position: "relative",
-        overflow: "hidden"
+        background: "var(--ht-bg-stat-card)",
+        border: "1px solid var(--ht-border-stat-card)",
+        borderRadius: "18px",
+        padding: "20px 22px",
+        marginTop: "16px",
+        boxShadow: "var(--ht-shadow-stat-card)"
       }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <span style={{ fontSize: "20px" }}>✨</span>
-            <h3 style={{ margin: 0, fontFamily: "'Syne', sans-serif", color: "var(--ht-text-primary)", fontWeight: 800, fontSize: "15px", letterSpacing: "-0.01em" }}>AI Performance Coach</h3>
+        {coachHeader}
+        <div style={{ padding: "24px 10px", display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", textAlign: "center" }}>
+          <div style={{
+            width: "36px",
+            height: "36px",
+            borderRadius: "10px",
+            background: "var(--ht-bg-card-subtle)",
+            border: "1px solid var(--ht-border-card)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "var(--ht-text-muted)"
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
           </div>
-          <span style={{ fontSize: "10px", padding: "3px 10px", borderRadius: "999px", background: "rgba(167, 139, 250, 0.15)", border: "1px solid rgba(167, 139, 250, 0.25)", color: "#c084fc", fontWeight: 700 }}>Premium</span>
-        </div>
-        <div style={{ padding: "20px 10px", display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", textAlign: "center" }}>
-          <span style={{ fontSize: "32px" }}>🔒</span>
-          <p style={{ color: "var(--ht-text-secondary)", fontSize: "13px", margin: "0 auto", lineHeight: 1.5, maxWidth: "340px" }}>
-            Unlock warm, personalized weekly and monthly coaching summaries powered by Gemini AI. Upgrade to Premium for full access.
+          <p style={{ color: "var(--ht-text-secondary)", fontSize: "13px", margin: "0 auto", lineHeight: 1.5, maxWidth: "360px" }}>
+            Unlock personalized weekly and monthly coaching summaries powered by your encrypted habit and journal data. Upgrade to Pro for full access.
           </p>
         </div>
       </div>
@@ -556,70 +608,57 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
 
   return (
     <div style={{
-      background: "var(--ht-bg-card)",
-      border: "1px solid var(--ht-border-card)",
-      borderRadius: "20px",
-      padding: "24px",
-      marginTop: "20px",
-      boxShadow: "var(--ht-shadow-card)",
-      position: "relative",
-      overflow: "hidden"
+      background: "var(--ht-bg-stat-card)",
+      border: "1px solid var(--ht-border-stat-card)",
+      borderRadius: "18px",
+      padding: "20px 22px",
+      marginTop: "16px",
+      boxShadow: "var(--ht-shadow-stat-card)"
     }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <span style={{ fontSize: "20px" }}>✨</span>
-          <h3 style={{ margin: 0, fontFamily: "'Syne', sans-serif", color: "var(--ht-text-primary)", fontWeight: 800, fontSize: "15px", letterSpacing: "-0.01em" }}>AI Performance Coach</h3>
-        </div>
-        <span style={{ fontSize: "10px", padding: "3px 10px", borderRadius: "999px", background: "rgba(167, 139, 250, 0.15)", border: "1px solid rgba(167, 139, 250, 0.25)", color: "#c084fc", fontWeight: 700 }}>Premium</span>
-      </div>
+      {coachHeader}
 
       {loadingStep === 0 && (
         <div style={{ textAlign: "center", padding: "20px 10px" }}>
-          <p style={{ color: "var(--ht-text-secondary)", fontSize: "13px", margin: "0 0 16px", lineHeight: 1.5 }}>
-            Generate a personalized weekly or monthly AI Coaching Review based on your logged habits, completed tasks, and journal entries.
+          <p style={{ color: "var(--ht-text-secondary)", fontSize: "13px", margin: "0 auto 16px", lineHeight: 1.55, maxWidth: "460px" }}>
+            Generate a personalized {rangeDays === 7 ? "weekly" : "monthly"} coaching review from your logged habits, completed tasks, and journal entries.
           </p>
           <button
             onClick={triggerAnalysis}
             style={{
-              padding: "10px 20px",
-              borderRadius: "12px",
-              border: "none",
-              background: "linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)",
+              padding: "9px 18px",
+              borderRadius: "9px",
+              border: "1px solid rgba(59, 130, 246, 0.35)",
+              background: "var(--ht-accent)",
               color: "#fff",
-              fontWeight: 700,
+              fontWeight: 600,
               fontSize: "13px",
+              fontFamily: "inherit",
               cursor: "pointer",
-              boxShadow: "0 4px 20px rgba(124, 58, 237, 0.4)",
-              transition: "all 0.2s"
+              transition: "opacity 0.15s"
             }}
           >
-            Generate AI Performance Review
+            Generate Coaching Review
           </button>
         </div>
       )}
 
       {loadingStep > 0 && loadingStep < 4 && (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "30px 10px", gap: "16px" }}>
-          <div className="ht-ai-pulse" style={{
-            width: "48px",
-            height: "48px",
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "32px 10px", gap: "12px" }}>
+          <div style={{
+            width: "32px",
+            height: "32px",
             borderRadius: "50%",
-            background: "rgba(167, 139, 250, 0.1)",
-            border: "2px dashed #a78bfa",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            animation: "spin 2s linear infinite"
-          }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" /></svg>
-          </div>
-          <span style={{ fontSize: "13px", color: "#c084fc", fontWeight: 600 }}>{stepTexts[loadingStep]}</span>
+            border: "2px solid var(--ht-border-card)",
+            borderTopColor: "var(--ht-accent)",
+            animation: "spin 0.9s linear infinite"
+          }} />
+          <span style={{ fontSize: "12.5px", color: "var(--ht-text-secondary)", fontWeight: 500 }}>{stepTexts[loadingStep]}</span>
         </div>
       )}
 
       {loadingStep === 4 && summary && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px", animation: "fadeUp 0.3s ease-out" }}>
-          <div style={{ fontSize: "13.5px", color: "var(--ht-text-primary)", lineHeight: 1.6 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "14px", animation: "fadeUp 0.25s ease-out" }}>
+          <div style={{ fontSize: "13.5px", color: "var(--ht-text-secondary)", lineHeight: 1.65 }}>
             {renderMarkdown(summary.text)}
           </div>
 
@@ -627,15 +666,15 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
           <div style={{
             background: "var(--ht-bg-card-subtle)",
             border: "1px solid var(--ht-border-card)",
-            borderRadius: "12px",
-            padding: "12px 14px",
-            marginTop: "8px"
+            borderRadius: "10px",
+            padding: "10px 14px",
+            marginTop: "4px"
           }}>
             {!feedbackSubmitted ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: "12px", color: "var(--ht-text-secondary)" }}>Was this coaching summary helpful?</span>
-                  <div style={{ display: "flex", gap: "8px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px" }}>
+                  <span style={{ fontSize: "12px", color: "var(--ht-text-muted)" }}>Was this summary helpful?</span>
+                  <div style={{ display: "flex", gap: "6px" }}>
                     <button
                       onClick={() => {
                         setFeedbackRating("up");
@@ -643,32 +682,34 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
                         saveFeedback("up", "");
                       }}
                       style={{
-                        background: feedbackRating === "up" ? "rgba(34, 197, 94, 0.2)" : "var(--ht-bg-card)",
-                        border: `1px solid ${feedbackRating === "up" ? "#22c55e" : "var(--ht-border-card)"}`,
-                        borderRadius: "8px",
-                        color: feedbackRating === "up" ? "#4ade80" : "var(--ht-text-primary)",
-                        padding: "5px 10px",
+                        background: feedbackRating === "up" ? "rgba(16, 185, 129, 0.12)" : "var(--ht-bg-card)",
+                        border: `1px solid ${feedbackRating === "up" ? "rgba(16, 185, 129, 0.35)" : "var(--ht-border-card)"}`,
+                        borderRadius: "7px",
+                        color: feedbackRating === "up" ? "#34d399" : "var(--ht-text-secondary)",
+                        padding: "4px 10px",
                         fontSize: "12px",
-                        fontWeight: 600,
+                        fontWeight: 500,
+                        fontFamily: "inherit",
                         cursor: "pointer"
                       }}
                     >
-                      👍 Yes
+                      Helpful
                     </button>
                     <button
                       onClick={() => setFeedbackRating("down")}
                       style={{
-                        background: feedbackRating === "down" ? "rgba(239, 68, 68, 0.2)" : "var(--ht-bg-card)",
-                        border: `1px solid ${feedbackRating === "down" ? "#ef4444" : "var(--ht-border-card)"}`,
-                        borderRadius: "8px",
-                        color: feedbackRating === "down" ? "#f87171" : "var(--ht-text-primary)",
-                        padding: "5px 10px",
+                        background: feedbackRating === "down" ? "rgba(239, 68, 68, 0.12)" : "var(--ht-bg-card)",
+                        border: `1px solid ${feedbackRating === "down" ? "rgba(239, 68, 68, 0.35)" : "var(--ht-border-card)"}`,
+                        borderRadius: "7px",
+                        color: feedbackRating === "down" ? "#f87171" : "var(--ht-text-secondary)",
+                        padding: "4px 10px",
                         fontSize: "12px",
-                        fontWeight: 600,
+                        fontWeight: 500,
+                        fontFamily: "inherit",
                         cursor: "pointer"
                       }}
                     >
-                      👎 No
+                      Not helpful
                     </button>
                   </div>
                 </div>
@@ -681,12 +722,13 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
                       onChange={(e) => setFeedbackReason(e.target.value)}
                       style={{
                         width: "100%",
+                        boxSizing: "border-box",
                         minHeight: "60px",
                         background: "var(--ht-bg-input)",
                         border: "1px solid var(--ht-border-card)",
                         borderRadius: "8px",
                         color: "var(--ht-text-primary)",
-                        padding: "8px",
+                        padding: "8px 10px",
                         fontSize: "12px",
                         fontFamily: "inherit",
                         resize: "vertical",
@@ -700,13 +742,14 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
                       }}
                       style={{
                         alignSelf: "flex-end",
-                        background: "rgba(167, 139, 250, 0.15)",
-                        border: "1px solid rgba(167, 139, 250, 0.3)",
-                        borderRadius: "6px",
-                        color: "#a78bfa",
-                        fontSize: "11px",
+                        background: "var(--ht-bg-card)",
+                        border: "1px solid var(--ht-border-hover)",
+                        borderRadius: "7px",
+                        color: "var(--ht-text-primary)",
+                        fontSize: "11.5px",
                         fontWeight: 600,
-                        padding: "4px 12px",
+                        fontFamily: "inherit",
+                        padding: "5px 12px",
                         cursor: "pointer"
                       }}
                     >
@@ -716,33 +759,30 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
                 )}
               </div>
             ) : (
-              <div style={{ fontSize: "12px", color: "#34d399", textAlign: "center", fontWeight: 600 }}>
-                ✓ Thank you for your feedback! This helps train your AI Performance Coach.
+              <div style={{ fontSize: "12px", color: "#34d399", textAlign: "center", fontWeight: 500 }}>
+                Feedback saved — future summaries will adapt to your preferences.
               </div>
             )}
           </div>
 
           {/* Smart Suggestions Cards */}
           {suggestions && Array.isArray(suggestions) && suggestions.length > 0 && (
-            <div style={{ marginTop: "16px", borderTop: "1px solid var(--ht-border-card)", paddingTop: "16px" }}>
-              <h4 style={{ margin: "0 0 12px 0", fontFamily: "'Syne', sans-serif", fontSize: "13px", fontWeight: 800, color: "#a78bfa" }}>Smart Suggestions</h4>
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            <div style={{ marginTop: "8px", borderTop: "1px solid var(--ht-border-card)", paddingTop: "16px" }}>
+              <h4 style={{ margin: "0 0 12px 0", fontFamily: "'DM Sans', sans-serif", fontSize: "12px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--ht-text-muted)" }}>Recommended Actions</h4>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "10px" }}>
                 {suggestions.map((s, idx) => {
-                  let badgeText = "💡 Recommendation";
+                  let badgeText = "Recommendation";
                   let badgeColor = "#60a5fa";
-                  let badgeBg = "rgba(96, 165, 250, 0.15)";
-                  let borderCol = "rgba(96, 165, 250, 0.25)";
+                  let dotColor = "#3b82f6";
 
                   if (s.type === "habit_pairing") {
-                    badgeText = "🔗 Habit Pairing";
-                    badgeColor = "#c084fc";
-                    badgeBg = "rgba(192, 132, 252, 0.15)";
-                    borderCol = "rgba(192, 132, 252, 0.25)";
+                    badgeText = "Habit Pairing";
+                    badgeColor = "#a78bfa";
+                    dotColor = "#8b5cf6";
                   } else if (s.type === "consistency_pattern") {
-                    badgeText = "📈 Consistency Insight";
+                    badgeText = "Consistency";
                     badgeColor = "#34d399";
-                    badgeBg = "rgba(52, 211, 153, 0.15)";
-                    borderCol = "rgba(52, 211, 153, 0.25)";
+                    dotColor = "#10b981";
                   }
 
                   const isHabitCreator = s.type === "habit_recommendation" || s.type === "habit_pairing";
@@ -751,38 +791,39 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
                     <div key={idx} style={{
                       background: "var(--ht-bg-card-subtle)",
                       border: "1px solid var(--ht-border-card)",
-                      borderRadius: "12px",
+                      borderRadius: "10px",
                       padding: "12px 14px",
                       display: "flex",
                       flexDirection: "column",
-                      gap: "8px"
+                      justifyContent: "space-between",
+                      gap: "10px"
                     }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "12.5px", color: "var(--ht-text-primary)" }}>{s.title}</span>
-                        <span style={{ fontSize: "9px", padding: "1px 6px", borderRadius: "999px", background: badgeBg, border: `1px solid ${borderCol}`, color: badgeColor, fontWeight: 700 }}>
-                          {badgeText}
-                        </span>
-                      </div>
-
-                      <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                        <p style={{ margin: 0, fontSize: "11.5px", color: "var(--ht-text-muted)", lineHeight: 1.4 }}>{s.insight}</p>
-                        <p style={{ margin: 0, fontSize: "12px", color: "var(--ht-text-secondary)", fontWeight: 600, lineHeight: 1.4 }}>💡 {s.actionable}</p>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}>
+                          <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 600, fontSize: "13px", color: "var(--ht-text-primary)" }}>{s.title}</span>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "10px", padding: "2px 7px", borderRadius: "6px", background: "var(--ht-bg-card)", border: "1px solid var(--ht-border-card)", color: badgeColor, fontWeight: 600, whiteSpace: "nowrap" }}>
+                            <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: dotColor }} />
+                            {badgeText}
+                          </span>
+                        </div>
+                        <p style={{ margin: 0, fontSize: "12px", color: "var(--ht-text-muted)", lineHeight: 1.45 }}>{s.insight}</p>
+                        <p style={{ margin: 0, fontSize: "12px", color: "var(--ht-text-secondary)", fontWeight: 500, lineHeight: 1.45 }}>{s.actionable}</p>
                       </div>
 
                       {isHabitCreator && onRecommendHabit && (
                         <button
                           onClick={() => onRecommendHabit(s.title)}
                           style={{
-                            alignSelf: "flex-end",
-                            padding: "4px 10px",
-                            borderRadius: "6px",
-                            border: "none",
-                            background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
-                            color: "#fff",
-                            fontWeight: 700,
-                            fontSize: "10px",
+                            alignSelf: "flex-start",
+                            padding: "5px 10px",
+                            borderRadius: "7px",
+                            border: "1px solid var(--ht-border-hover)",
+                            background: "var(--ht-bg-card)",
+                            color: "var(--ht-text-primary)",
+                            fontWeight: 600,
+                            fontSize: "11px",
+                            fontFamily: "inherit",
                             cursor: "pointer",
-                            boxShadow: "0 2px 8px rgba(37, 99, 235, 0.2)",
                             transition: "all 0.15s"
                           }}
                         >
@@ -796,27 +837,28 @@ Keep suggestions relevant to the completion times, stress levels, and journal re
             </div>
           )}
 
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--ht-border-card)", paddingTop: "14px", marginTop: "8px" }}>
-            <span style={{ fontSize: "11px", color: "var(--ht-text-muted)", fontWeight: 600 }}>
-              {hasCooldownActive && !profile?.is_admin ? `Cached (Refreshes in ${getCooldownRemainingStr()})` : "Ready to regenerate"}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--ht-border-card)", paddingTop: "12px", marginTop: "4px" }}>
+            <span style={{ fontSize: "11.5px", color: "var(--ht-text-muted)", fontWeight: 500 }}>
+              {hasCooldownActive && !profile?.is_admin ? `Cached — refreshes in ${getCooldownRemainingStr()}` : "Ready to regenerate"}
             </span>
             {(!hasCooldownActive || profile?.is_admin) && (
               <button
                 onClick={triggerAnalysis}
                 disabled={hasCooldownActive && !profile?.is_admin}
                 style={{
-                  background: (hasCooldownActive && !profile?.is_admin) ? "none" : "rgba(167, 139, 250, 0.08)",
-                  border: (hasCooldownActive && !profile?.is_admin) ? "1px solid var(--ht-border-card)" : "1px solid rgba(167, 139, 250, 0.2)",
-                  borderRadius: "8px",
-                  color: (hasCooldownActive && !profile?.is_admin) ? "var(--ht-text-muted)" : "#a78bfa",
-                  fontSize: "11px",
+                  background: "var(--ht-bg-card-subtle)",
+                  border: "1px solid var(--ht-border-card)",
+                  borderRadius: "7px",
+                  color: "var(--ht-text-secondary)",
+                  fontSize: "11.5px",
                   fontWeight: 600,
-                  padding: "6px 12px",
-                  cursor: (hasCooldownActive && !profile?.is_admin) ? "default" : "pointer",
+                  fontFamily: "inherit",
+                  padding: "5px 11px",
+                  cursor: "pointer",
                   transition: "all 0.15s"
                 }}
               >
-                Regenerate Review
+                Regenerate
               </button>
             )}
           </div>
@@ -896,33 +938,43 @@ export function AnalyticsTab({ habits, todos, goals = [], pausePeriods, isPremiu
       return { label: `${d.getDate()}/${d.getMonth() + 1}`, habits: h, tasks: t };
     }).reverse();
   })() : chartData;
-  const maxVal = Math.max(...finalChartData.flatMap(d => [d.habits, d.tasks]), 1);
+  const maxTotal = Math.max(...finalChartData.map(d => d.habits + d.tasks), 1);
+  const yAxisMid = Math.ceil(maxTotal / 2);
+  const totalChartHabits = finalChartData.reduce((s, d) => s + d.habits, 0);
+  const totalChartTasks = finalChartData.reduce((s, d) => s + d.tasks, 0);
+  const [hoveredBar, setHoveredBar] = useState(null);
   const chartTitle = range === "7days" ? "Daily Activity — Last 7 Days" : range === "30days" ? "Daily Activity — Last 30 Days" : range === "year" ? "Weekly Activity — Last Year" : "Weekly Activity — All Time";
 
   const stats = [
     {
       icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="rgba(249, 115, 22, 0.16)" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
         </svg>
       ),
+      iconBg: "rgba(249, 115, 22, 0.1)",
+      iconBorder: "rgba(249, 115, 22, 0.22)",
       label: "Current Streak",
-      value: `${currentStreak} days`,
+      value: `${currentStreak}`,
+      unit: currentStreak === 1 ? "day" : "days",
       sub: "All scheduled habits done"
     },
     {
       icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="rgba(96, 165, 250, 0.16)" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
         </svg>
       ),
+      iconBg: "rgba(59, 130, 246, 0.1)",
+      iconBorder: "rgba(59, 130, 246, 0.22)",
       label: "Shields",
-      value: `${shields}/${isPremium ? 5 : 3}`,
-      sub: shields >= (isPremium ? 5 : 3) ? "Max shields held!" : "Earned every 5 perfect days"
+      value: `${shields}`,
+      unit: `/ ${isPremium ? 5 : 3}`,
+      sub: shields >= (isPremium ? 5 : 3) ? "Max shields held" : "Earned every 5 perfect days"
     },
     {
       icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="rgba(234, 179, 8, 0.16)" stroke="#eab308" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
           <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
           <path d="M4 22h16" />
@@ -930,103 +982,282 @@ export function AnalyticsTab({ habits, todos, goals = [], pausePeriods, isPremiu
           <path d="M12 2a6 6 0 0 1 6 6c0 3.31-2.69 6-6 6a6 6 0 0 1-6-6 6 6 0 0 1 6-6z" />
         </svg>
       ),
+      iconBg: "rgba(234, 179, 8, 0.1)",
+      iconBorder: "rgba(234, 179, 8, 0.22)",
       label: "Best Streak",
-      value: `${bestStreak} days`,
+      value: `${bestStreak}`,
+      unit: bestStreak === 1 ? "day" : "days",
       sub: "Personal record"
     },
     {
       icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
-          <path d="M22 12A10 10 0 0 0 12 2v10z" />
+        <svg width="20" height="20" viewBox="0 0 24 24" style={{ transform: "rotate(-90deg)" }}>
+          <circle cx="12" cy="12" r="9" fill="none" stroke="rgba(16, 185, 129, 0.2)" strokeWidth="2.5" />
+          <circle
+            cx="12"
+            cy="12"
+            r="9"
+            fill="none"
+            stroke="#10b981"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeDasharray={`${2 * Math.PI * 9}`}
+            strokeDashoffset={`${2 * Math.PI * 9 - ((completionRate ?? 0) / 100) * (2 * Math.PI * 9)}`}
+            style={{ transition: "stroke-dashoffset 0.6s ease" }}
+          />
         </svg>
       ),
+      iconBg: "rgba(16, 185, 129, 0.1)",
+      iconBorder: "rgba(16, 185, 129, 0.22)",
       label: "Completion Rate",
       value: completionRate !== null ? `${completionRate}%` : "—",
+      unit: "",
       sub: `${totalCompletions} completions`
     },
   ];
 
-  return (
-    <div style={{ maxWidth: "1000px", margin: "0 auto", padding: "10px 0" }}>
-      <h1 style={{ fontFamily: "'Syne', sans-serif", textAlign: "center", color: "var(--ht-text-primary)", fontWeight: 800, fontSize: "28px", marginBottom: "24px", letterSpacing: "-0.02em" }}>Your Analytics</h1>
+  const barMaxWidth = finalChartData.length <= 7 ? "28px" : finalChartData.length <= 14 ? "18px" : "10px";
 
-      <div style={{ display: "flex", gap: "8px", justifyContent: "center", marginBottom: "28px" }}>
-        {[["7days", "7 Days"], ["30days", "30 Days"], ["year", "Year"], ["all", "All Time"]].map(([val, label]) => (
-          <button
-            key={val}
-            onClick={() => setRange(val)}
-            style={{
-              padding: "7px 18px",
-              borderRadius: "999px",
-              border: range === val ? "1px solid #2563eb" : "1px solid var(--ht-border-card)",
-              background: range === val ? "rgba(37,99,235,0.15)" : "var(--ht-bg-card-subtle)",
-              color: range === val ? "var(--ht-accent)" : "var(--ht-text-secondary)",
-              cursor: "pointer",
-              fontWeight: 700,
-              fontSize: "12.5px",
-              fontFamily: "inherit",
-              transition: "all 0.2s"
-            }}
-          >
-            {label}
-          </button>
-        ))}
+  return (
+    <div style={{ maxWidth: "1000px", width: "100%", margin: "0 auto", padding: "12px 0 32px", fontFamily: "'DM Sans', sans-serif" }}>
+      {/* Header & Segmented Range Control */}
+      <div className="ht-analytics-header">
+        <div>
+          <h1 style={{ margin: 0, fontFamily: "'Syne', sans-serif", color: "var(--ht-text-primary)", fontWeight: 800, fontSize: "24px", letterSpacing: "-0.02em" }}>Your Analytics</h1>
+          <p style={{ margin: "4px 0 0", fontSize: "13px", color: "var(--ht-text-muted)" }}>Consistency, streaks, and activity overview</p>
+        </div>
+
+        <div style={{
+          display: "inline-flex",
+          alignSelf: "flex-start",
+          background: "var(--ht-bg-stat-card)",
+          border: "1px solid var(--ht-border-stat-card)",
+          borderRadius: "12px",
+          padding: "4px",
+          gap: "2px",
+          boxShadow: "var(--ht-shadow-card)"
+        }}>
+          {[["7days", "7 Days"], ["30days", "30 Days"], ["year", "Year"], ["all", "All Time"]].map(([val, label]) => {
+            const active = range === val;
+            return (
+              <button
+                key={val}
+                onClick={() => setRange(val)}
+                style={{
+                  padding: "6px 13px",
+                  borderRadius: "8px",
+                  border: active ? "1px solid rgba(59, 130, 246, 0.3)" : "1px solid transparent",
+                  background: active ? "rgba(59, 130, 246, 0.15)" : "transparent",
+                  color: active ? "#60a5fa" : "var(--ht-text-secondary)",
+                  cursor: "pointer",
+                  fontWeight: active ? 700 : 500,
+                  fontSize: "12px",
+                  fontFamily: "inherit",
+                  transition: "all 0.15s",
+                  whiteSpace: "nowrap"
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
+      {/* KPI Stat Cards */}
       <div className="ht-analytics-grid">
         {stats.map((stat, i) => (
           <div key={i} style={{
             background: "var(--ht-bg-stat-card)",
             border: "1px solid var(--ht-border-stat-card)",
-            borderRadius: "20px",
-            padding: "20px 18px",
-            boxShadow: "var(--ht-shadow-stat-card)"
+            borderRadius: "18px",
+            padding: "18px 18px",
+            boxShadow: "var(--ht-shadow-stat-card)",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            minWidth: 0
           }}>
-            <div style={{ marginBottom: "10px", display: "flex" }}>{stat.icon}</div>
-            <div style={{ color: "var(--ht-text-muted)", fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px" }}>{stat.label}</div>
-            <div style={{ fontFamily: "'Syne', sans-serif", color: "var(--ht-text-primary)", fontWeight: 800, fontSize: "26px" }}>{stat.value}</div>
-            {stat.sub && <div style={{ color: "var(--ht-text-muted)", fontSize: "10px", marginTop: "6px" }}>{stat.sub}</div>}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px", gap: "8px" }}>
+              <span style={{ color: "var(--ht-text-muted)", fontSize: "10.5px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>{stat.label}</span>
+              <div style={{
+                width: "32px",
+                height: "32px",
+                borderRadius: "10px",
+                background: stat.iconBg,
+                border: `1px solid ${stat.iconBorder}`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0
+              }}>
+                {stat.icon}
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: "5px" }}>
+              <span style={{ fontFamily: "'DM Sans', sans-serif", fontVariantNumeric: "tabular-nums", color: "var(--ht-text-primary)", fontWeight: 800, fontSize: "26px", letterSpacing: "-0.03em", lineHeight: 1.1 }}>{stat.value}</span>
+              {stat.unit && <span style={{ fontSize: "13px", fontWeight: 500, color: "var(--ht-text-muted)" }}>{stat.unit}</span>}
+            </div>
+            {stat.sub && <div style={{ color: "var(--ht-text-muted)", fontSize: "11px", marginTop: "8px" }}>{stat.sub}</div>}
           </div>
         ))}
       </div>
 
+      {/* Activity Chart */}
       <div className="ht-analytics-chart" style={{
         background: "var(--ht-bg-stat-card)",
         border: "1px solid var(--ht-border-stat-card)",
-        borderRadius: "20px",
-        padding: "22px",
+        borderRadius: "18px",
+        padding: "20px 22px",
         boxShadow: "var(--ht-shadow-stat-card)"
       }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-          <h3 style={{ margin: 0, fontFamily: "'Syne', sans-serif", color: "var(--ht-text-primary)", fontWeight: 800, fontSize: "14px", letterSpacing: "-0.01em" }}>{chartTitle}</h3>
-          <div style={{ display: "flex", gap: "16px", fontSize: "11px", color: "var(--ht-text-secondary)" }}>
-            <span><span style={{ display: "inline-block", width: "10px", height: "10px", background: "#3b82f6", borderRadius: "3px", marginRight: "6px" }} />Habits</span>
-            <span><span style={{ display: "inline-block", width: "10px", height: "10px", background: "#22c55e", borderRadius: "3px", marginRight: "6px" }} />Tasks</span>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px", marginBottom: "18px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <h3 style={{ margin: 0, fontFamily: "'Syne', sans-serif", color: "var(--ht-text-primary)", fontWeight: 700, fontSize: "15px", letterSpacing: "-0.01em" }}>{chartTitle}</h3>
+            {hoveredBar !== null && finalChartData[hoveredBar] && (
+              <span style={{ fontSize: "11.5px", color: "var(--ht-text-secondary)", fontVariantNumeric: "tabular-nums", background: "var(--ht-bg-card-subtle)", border: "1px solid var(--ht-border-card)", borderRadius: "8px", padding: "2px 9px" }}>
+                {finalChartData[hoveredBar].label}: {finalChartData[hoveredBar].habits} habits, {finalChartData[hoveredBar].tasks} tasks
+              </span>
+            )}
+          </div>
+          <div style={{ display: "flex", gap: "14px", fontSize: "11.5px", color: "var(--ht-text-secondary)", fontVariantNumeric: "tabular-nums" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+              <span style={{ width: "9px", height: "9px", background: "linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%)", borderRadius: "3px" }} />
+              Habits <span style={{ color: "var(--ht-text-muted)" }}>({totalChartHabits})</span>
+            </span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+              <span style={{ width: "9px", height: "9px", background: "linear-gradient(180deg, #34d399 0%, #10b981 100%)", borderRadius: "3px" }} />
+              Tasks <span style={{ color: "var(--ht-text-muted)" }}>({totalChartTasks})</span>
+            </span>
           </div>
         </div>
-        <div key={range} style={{ display: "flex", alignItems: "flex-end", gap: "4px", height: "120px", overflowX: "auto", paddingBottom: "4px" }}>
-          {finalChartData.map((d, i) => (
-            <div key={i} style={{ minWidth: finalChartData.length > 14 ? "18px" : undefined, display: "flex", flexDirection: "column", alignItems: "center", height: "100%", flex: 1 }}>
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-end", gap: "2px", width: "100%" }}>
-                <div style={{
-                  background: "linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%)",
-                  borderRadius: "3px 3px 0 0",
-                  height: `${(d.habits / maxVal) * 90}%`,
-                  minHeight: d.habits > 0 ? "4px" : "0",
-                  boxShadow: d.habits > 0 ? "0 0 8px rgba(59, 130, 246, 0.4)" : "none"
-                }} />
-                <div style={{
-                  background: "linear-gradient(180deg, #4ade80 0%, #22c55e 100%)",
-                  borderRadius: "3px 3px 0 0",
-                  height: `${(d.tasks / maxVal) * 90}%`,
-                  minHeight: d.tasks > 0 ? "4px" : "0",
-                  boxShadow: d.tasks > 0 ? "0 0 8px rgba(34, 197, 94, 0.4)" : "none"
-                }} />
-              </div>
-              {finalChartData.length <= 30 && <div style={{ color: "var(--ht-text-muted)", fontSize: "9px", marginTop: "6px", whiteSpace: "nowrap" }}>{d.label}</div>}
+
+        <div key={range} style={{ display: "flex", gap: "10px", alignItems: "stretch", height: "160px" }}>
+          {/* Y-Axis Labels */}
+          <div style={{
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            paddingBottom: finalChartData.length <= 30 ? "22px" : "4px",
+            fontSize: "10px",
+            color: "var(--ht-text-muted)",
+            fontVariantNumeric: "tabular-nums",
+            textAlign: "right",
+            minWidth: "20px",
+            userSelect: "none"
+          }}>
+            <span>{maxTotal}</span>
+            <span>{yAxisMid}</span>
+            <span>0</span>
+          </div>
+
+          {/* Plot Area with Gridlines */}
+          <div style={{ position: "relative", flex: 1, display: "flex", alignItems: "flex-end", gap: "4px", overflowX: "auto", paddingBottom: "2px" }}>
+            {/* Horizontal Gridlines */}
+            <div style={{
+              position: "absolute",
+              inset: 0,
+              bottom: finalChartData.length <= 30 ? "22px" : "4px",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+              pointerEvents: "none"
+            }}>
+              <div style={{ borderTop: "1px dashed var(--ht-border-subtle)", width: "100%" }} />
+              <div style={{ borderTop: "1px dashed var(--ht-border-subtle)", width: "100%" }} />
+              <div style={{ borderTop: "1px solid var(--ht-border-card)", width: "100%" }} />
             </div>
-          ))}
+
+            {finalChartData.map((d, i) => {
+              const total = d.habits + d.tasks;
+              const habitsPct = (d.habits / maxTotal) * 100;
+              const tasksPct = (d.tasks / maxTotal) * 100;
+              const isHovered = hoveredBar === i;
+
+              return (
+                <div
+                  key={i}
+                  onMouseEnter={() => setHoveredBar(i)}
+                  onMouseLeave={() => setHoveredBar(null)}
+                  title={`${d.label}: ${d.habits} habits, ${d.tasks} tasks`}
+                  style={{
+                    minWidth: finalChartData.length > 14 ? "14px" : undefined,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    height: "100%",
+                    flex: 1,
+                    position: "relative",
+                    zIndex: 1,
+                    cursor: "default"
+                  }}
+                >
+                  <div style={{
+                    flex: 1,
+                    width: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "flex-end",
+                    alignItems: "center",
+                    gap: "2px",
+                    paddingTop: "4px"
+                  }}>
+                    <div style={{
+                      width: "100%",
+                      maxWidth: barMaxWidth,
+                      height: "100%",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "flex-end",
+                      gap: "2px",
+                      opacity: hoveredBar !== null && !isHovered ? 0.45 : 1,
+                      transition: "opacity 0.15s ease"
+                    }}>
+                      {d.habits > 0 && (
+                        <div style={{
+                          background: "linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%)",
+                          borderRadius: d.tasks > 0 ? "5px 5px 2px 2px" : "5px 5px 0 0",
+                          height: `${habitsPct}%`,
+                          minHeight: "4px",
+                          transition: "height 0.25s ease"
+                        }} />
+                      )}
+                      {d.tasks > 0 && (
+                        <div style={{
+                          background: "linear-gradient(180deg, #34d399 0%, #10b981 100%)",
+                          borderRadius: d.habits > 0 ? "2px 2px 0 0" : "5px 5px 0 0",
+                          height: `${tasksPct}%`,
+                          minHeight: "4px",
+                          transition: "height 0.25s ease"
+                        }} />
+                      )}
+                      {total === 0 && (
+                        <div style={{
+                          background: "var(--ht-border-card)",
+                          height: "2px",
+                          width: "100%",
+                          borderRadius: "1px",
+                          opacity: 0.6
+                        }} />
+                      )}
+                    </div>
+                  </div>
+                  {finalChartData.length <= 30 && (
+                    <div style={{
+                      color: isHovered ? "var(--ht-text-primary)" : "var(--ht-text-muted)",
+                      fontSize: "10px",
+                      fontWeight: isHovered ? 600 : 500,
+                      marginTop: "6px",
+                      whiteSpace: "nowrap",
+                      transition: "color 0.15s"
+                    }}>
+                      {d.label}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -1046,15 +1277,16 @@ export function AnalyticsTab({ habits, todos, goals = [], pausePeriods, isPremiu
         />
       ) : (
         <div style={{
-          background: "var(--ht-bg-card-subtle)",
-          border: "1px solid var(--ht-border-card)",
-          borderRadius: "20px",
-          padding: "20px 24px",
-          marginTop: "20px",
+          background: "var(--ht-bg-stat-card)",
+          border: "1px solid var(--ht-border-stat-card)",
+          borderRadius: "18px",
+          padding: "18px 22px",
+          marginTop: "16px",
+          boxShadow: "var(--ht-shadow-stat-card)",
           textAlign: "center"
         }}>
           <p style={{ color: "var(--ht-text-muted)", fontSize: "13px", margin: 0 }}>
-            AI Coaching Summaries are optimized for **7 Days** and **30 Days** viewframes. Select one of those ranges to check your report.
+            AI Coaching Summaries are optimized for <strong style={{ color: "var(--ht-text-secondary)" }}>7 Days</strong> and <strong style={{ color: "var(--ht-text-secondary)" }}>30 Days</strong> timeframes. Select one of those ranges to view your report.
           </p>
         </div>
       )}

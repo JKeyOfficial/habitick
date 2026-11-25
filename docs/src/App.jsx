@@ -21,10 +21,101 @@ import './index.css';
 
 function formatInlineStyles(str) {
   return str
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/\*([^*]+)\*/g, '<em>$1</em>')
     .replace(/==([^=]+)==/g, '<mark style="background-color: #fef08a; color: #1e293b;">$1</mark>')
     .replace(/`([^`]+)`/g, '<code>$1</code>');
+}
+
+function isSafeLinkHref(href) {
+  if (!href || typeof href !== 'string') return false;
+  try {
+    const url = new URL(href, window.location.origin);
+    return ['http:', 'https:', 'mailto:', 'tel:'].includes(url.protocol);
+  } catch {
+    return false;
+  }
+}
+
+function escapeHtmlAttr(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+/**
+ * Derive a concise, human-readable title from any URL when pasting.
+ * e.g. https://www.amazon.co.uk/Lepro-Lighting-Assistant/dp/B0D8NKPRKS?...
+ *   -> "Lepro Lighting Assistant (amazon.co.uk)"
+ */
+function formatUrlDisplayTitle(rawUrl) {
+  try {
+    const url = new URL(rawUrl);
+    const host = url.hostname.replace(/^www\./i, '');
+    const rawSegments = url.pathname
+      .split('/')
+      .map(s => {
+        try { return decodeURIComponent(s).trim(); } catch { return s.trim(); }
+      })
+      .filter(Boolean);
+
+    // Filter out boilerplate/ID/tracking path segments
+    const ignoreExact = new Set(['dp', 'gp', 'product', 'p', 's', 'wiki', 'watch', 'article', 'articles', 'news', 'blog', 'post', 'posts', 'en', 'en-us', 'en-gb', 'index.html', 'index.php']);
+    const candidates = rawSegments.filter(seg => {
+      const lower = seg.toLowerCase();
+      if (ignoreExact.has(lower)) return false;
+      if (/^ref=/i.test(seg)) return false;
+      if (/^\d{1,4}$/.test(seg)) return false; // years, months, days, short numeric IDs
+      if (/^[A-Z0-9]{8,12}$/.test(seg)) return false; // Amazon ASINs like B0D8NKPRKS
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(seg)) return false; // UUIDs
+      if (/^[a-z0-9_-]{24,}$/i.test(seg) && !seg.includes('-')) return false; // opaque tokens
+      return /[a-zA-Z]{2,}/.test(seg);
+    });
+
+    // Pick the most descriptive slug (preferring hyphenated/underscored slugs)
+    let bestSlug = '';
+    if (candidates.length > 0) {
+      bestSlug = candidates.reduce((best, cur) => {
+        const curScore = (cur.includes('-') || cur.includes('_') ? 20 : 0) + cur.length;
+        const bestScore = (best.includes('-') || best.includes('_') ? 20 : 0) + best.length;
+        return curScore > bestScore ? cur : best;
+      }, '');
+    }
+
+    if (bestSlug) {
+      let clean = bestSlug
+        .replace(/\.[a-z0-9]{2,4}$/i, '') // strip .html/.php etc.
+        .replace(/[-_+]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      // Capitalize words if the slug is all lowercase
+      if (clean && clean === clean.toLowerCase()) {
+        clean = clean.replace(/\b[a-z]/g, c => c.toUpperCase());
+      }
+
+      if (clean.length > 56) {
+        clean = `${clean.slice(0, 55).trim()}…`;
+      }
+
+      if (clean.length >= 3) {
+        return `${clean} (${host})`;
+      }
+    }
+
+    // Fallback: host + short path if non-trivial
+    if (url.pathname && url.pathname !== '/') {
+      const compact = `${host}${url.pathname}`;
+      return compact.length > 48 ? `${compact.slice(0, 47)}…` : compact;
+    }
+
+    return host;
+  } catch {
+    return rawUrl.length > 48 ? `${rawUrl.slice(0, 47)}…` : rawUrl;
+  }
 }
 
 function sanitizeHtml(html) {
@@ -33,9 +124,10 @@ function sanitizeHtml(html) {
     ALLOWED_TAGS: [
       'p', 'br', 'h1', 'h2', 'h3', 'ul', 'ol', 'li',
       'strong', 'b', 'em', 'i', 'u', 's', 'del',
-      'blockquote', 'hr', 'span', 'code', 'mark', 'div',
+      'blockquote', 'hr', 'span', 'code', 'mark', 'div', 'a',
     ],
-    ALLOWED_ATTR: ['style', 'class'],
+    ALLOWED_ATTR: ['style', 'class', 'href', 'target', 'rel', 'title'],
+    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
     ALLOW_DATA_ATTR: false,
     FORCE_BODY: true,
   });
@@ -43,7 +135,7 @@ function sanitizeHtml(html) {
 
 function parseMarkdownToHtml(text) {
   if (!text) return '<p><br></p>';
-  if (/<(p|div|span|h[1-6]|ul|ol|li|br|strong|b|em|i|mark|u|blockquote|hr)\b[^>]*>/i.test(text)) {
+  if (/<(p|div|span|a|h[1-6]|ul|ol|li|br|strong|b|em|i|mark|u|blockquote|hr)\b[^>]*>/i.test(text)) {
     return sanitizeHtml(text);
   }
 
@@ -596,6 +688,77 @@ export default function App() {
     // Focus Mode: auto-collapse sidebar when user begins typing
     if (focusMode && sidebarOpen && window.innerWidth >= 768) {
       setSidebarOpen(false);
+    }
+  };
+
+  const handleEditorPaste = (e) => {
+    const clipboardData = e.clipboardData || window.clipboardData;
+    if (!clipboardData) return;
+
+    const htmlData = clipboardData.getData('text/html');
+    const plainText = clipboardData.getData('text/plain');
+
+    // 1. Pasting rich HTML containing links (e.g. Chrome/Edge address bar copy -> <a href="...">Title</a>)
+    if (htmlData && /<a\b[^>]*href=/i.test(htmlData)) {
+      e.preventDefault();
+      const sanitized = DOMPurify.sanitize(htmlData, {
+        ALLOWED_TAGS: ['a', 'strong', 'b', 'em', 'i', 'u', 's', 'code', 'br', 'p', 'ul', 'ol', 'li'],
+        ALLOWED_ATTR: ['href', 'target', 'rel'],
+        ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
+        ALLOW_DATA_ATTR: false,
+      });
+
+      // Normalize all pasted anchors to open safely in a new tab and shorten raw URL labels
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = sanitized;
+      tempDiv.querySelectorAll('a').forEach((a) => {
+        const href = a.getAttribute('href');
+        if (!isSafeLinkHref(href)) {
+          a.replaceWith(document.createTextNode(a.textContent || ''));
+        } else {
+          a.setAttribute('target', '_blank');
+          a.setAttribute('rel', 'noopener noreferrer');
+          a.setAttribute('title', href);
+          const currentLabel = (a.textContent || '').trim();
+          if (!currentLabel || /^https?:\/\//i.test(currentLabel)) {
+            a.textContent = formatUrlDisplayTitle(href);
+          }
+        }
+      });
+
+      document.execCommand('insertHTML', false, `${tempDiv.innerHTML}&nbsp;`);
+      handleEditorInput();
+      return;
+    }
+
+    // 2. Pasting a standalone plain-text URL -> auto-shorten into a clickable titled link
+    if (plainText && /^https?:\/\/[^\s<>"']+$/i.test(plainText.trim())) {
+      const cleanUrl = plainText.trim();
+      if (isSafeLinkHref(cleanUrl)) {
+        e.preventDefault();
+        const safeUrl = escapeHtmlAttr(cleanUrl);
+        const displayTitle = escapeHtmlAttr(formatUrlDisplayTitle(cleanUrl));
+        document.execCommand(
+          'insertHTML',
+          false,
+          `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="${safeUrl}">${displayTitle}</a>&nbsp;`
+        );
+        handleEditorInput();
+      }
+    }
+  };
+
+  const handleEditorClick = (e) => {
+    const anchor = e.target?.closest?.('a');
+    if (!anchor) return;
+    // Do not hijack drag-selections across link text
+    const sel = window.getSelection?.();
+    if (sel && sel.toString().length > 0) return;
+
+    const href = anchor.getAttribute('href');
+    if (isSafeLinkHref(href)) {
+      e.preventDefault();
+      window.open(anchor.href, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -2126,6 +2289,8 @@ export default function App() {
               contentEditable
               suppressContentEditableWarning
               onInput={handleEditorInput}
+              onPaste={handleEditorPaste}
+              onClick={handleEditorClick}
               data-placeholder="Start typing your notes, ideas, or study summary..."
               className={`note-editor ${fontClass}`}
               style={{
